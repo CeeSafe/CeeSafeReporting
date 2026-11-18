@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: MIT
+// The XML reader: what .NET's XmlReader gives CosmoReport, case by case, and the invoices' reports whole.
+
+
+const DOC1: StringView = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<r a=\"x &amp; y &lt;z&gt; &quot;q&quot; &apos;\" " +
+        "b=\"line&#13;&#10;two\" c=\"tab\there\nand\r\nbreak\" d=\"\" fr:e=\"&#x41;&#66;\" f='single'/>";
+
+const DOC2: StringView = "\u{FEFF}<!-- a --><!DOCTYPE r [<!ENTITY x \"y\">]>\n<r>\n  <a>one &amp; two</a>\n  <!-- skipped -->\n" +
+        "  <b><![CDATA[<raw> & \r\n kept]]></b>\n  <c>\n   \n  </c><?pi data?><d x=\"1\"></d>\n</r>";
+
+/// A file's bytes, for the fixtures.
+fn fileBytes(path: StringView) -> Vector<u8> {
+    var bytes = Vector<u8>.create();
+    var file = match (File.open(path)) {
+        Ok(f) => f,
+        Err(_) => { return bytes; }
+    };
+    var buffer = [0u8; 65536];
+    loop {
+        let n = match (file.read(mut buffer[..])) {
+            Ok(n) => n,
+            Err(_) => { break; }
+        };
+        if (n == 0) {
+            break;
+        }
+        for (i in 0..n) {
+            let _ = bytes.push(buffer[i]);
+        }
+    }
+    return bytes;
+}
+
+fn parse(text: StringView) -> Result<XmlNode, TestFailure> => match (parseXml(text.bytes())) {
+    Ok(node) => Ok(node),
+    Err(e) => {
+        Console.write("  parse failed at ");
+        Console.write(e.offset);
+        Console.write(": ");
+        Console.writeLine(e.message.view());
+        Err(TestFailure.create("the document did not parse"))
+    }
+};
+
+/// How many elements named `name` the tree holds, itself included.
+fn count(node: borrow XmlNode, name: StringView) -> u64 {
+    var n: u64 = if (node.name.view() == name) 1 else 0;
+    for (c in node.children.view()) {
+        n += count(c, name);
+    }
+    return n;
+}
+
+@test
+fn attributesAreDecodedAndNormalized() -> Result<void, TestFailure> {
+    let doc = parse(DOC1)?;
+    Check.isTrue(doc.name.view() == "r", "the root's name")?;
+    Check.isTrue(doc.attr("a") == "x & y <z> \"q\" '", "entities")?;
+    Check.isTrue(doc.attr("b") == "line\r\ntwo", "character references keep a line break")?;
+    Check.isTrue(doc.attr("c") == "tab here and break", "literal breaks and tabs are spaces, CRLF one")?;
+    Check.isTrue(!doc.has("d"), "an empty value is left out")?;
+    Check.isTrue(doc.attr("e") == "AB", "a prefix is dropped; hex and decimal references")?;
+    Check.isTrue(doc.attr("f") == "single", "single quotes")?;
+    return Ok();
+}
+
+@test
+fn textChildrenCommentsAndCdata() -> Result<void, TestFailure> {
+    let doc = parse(DOC2)?;
+    Check.equalU64(4, doc.children.length as u64)?;
+    Check.isTrue(doc.text.view() == "", "white space between elements is no text")?;
+    Check.isTrue(doc.children[0].text.view() == "one & two", "text")?;
+    Check.isTrue(doc.children[1].text.view() == "<raw> & \n kept", "CDATA, its line end made \\n")?;
+    Check.isTrue(doc.children[2].text.view() == "", "white space alone is skipped")?;
+    Check.isTrue(doc.children[3].attr("x") == "1", "an element with an end tag")?;
+    Check.isTrue(doc.child("b") != null && doc.child("z") == null, "child by name")?;
+    return Ok();
+}
+
+@test
+fn badDocumentsAreRefused() -> Result<void, TestFailure> {
+    let bad: [StringView; 8] = [
+        "", "just text", "<a>", "<a></b>", "<a b=c/>", "<a b=\"&nope;\"/>", "<a b=\"&#0;\"/>", "<a><b></a>",
+    ];
+    for (k in 0..8usize) {
+        let refused = match (parseXml(bad[k].bytes())) {
+            Ok(_) => false,
+            Err(_) => true,
+        };
+        Check.isTrue(refused, bad[k])?;
+    }
+    return Ok();
+}
+
+/// The invoices' reports: every element read, as many of each kind as are in the file.
+@test
+fn theInvoiceReportsRead() -> Result<void, TestFailure> {
+    let pos = fileBytes("tests/fixtures/PosInvoice.frx");
+    Check.isTrue(pos.length > 0, "PosInvoice.frx is there")?;
+    let posDoc = match (parseXml(pos.view())) {
+        Ok(d) => d,
+        Err(_) => { return Err(TestFailure.create("PosInvoice.frx did not parse")); }
+    };
+    Check.isTrue(posDoc.name.view() == "Report", "its root is Report")?;
+    Check.equalU64(40, count(posDoc, "TextObject"))?;
+    Check.equalU64(67, count(posDoc, "Column"))?;
+    Check.equalU64(18, count(posDoc, "TableCell"))?;
+    Check.equalU64(2, count(posDoc, "BarcodeObject"))?;
+    match (posDoc.child("ScriptText")) {
+        Some(s) => { Check.isTrue(s.text.view().length > 0, "the script is the element's text")?; }
+        null => { return Err(TestFailure.create("no ScriptText")); }
+    }
+    let my = fileBytes("tests/fixtures/MyInvoice.server.frx");
+    let myDoc = match (parseXml(my.view())) {
+        Ok(d) => d,
+        Err(_) => { return Err(TestFailure.create("MyInvoice.server.frx did not parse")); }
+    };
+    Check.equalU64(84, count(myDoc, "TextObject"))?;
+    Check.equalU64(129, count(myDoc, "Column"))?;
+    Check.equalU64(60, count(myDoc, "TableCell"))?;
+    Check.equalU64(2, count(myDoc, "ReportPage"))?;
+    Check.isTrue(myDoc.attr("DoublePass") == "true", "DoublePass")?;
+    return Ok();
+}

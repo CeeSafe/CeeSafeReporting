@@ -1,0 +1,404 @@
+// SPDX-License-Identifier: MIT
+// An XML reader for report files (.frx), giving the tree CosmoReport's XmlItem gives: each element's name, attributes,
+// text and child elements. It reads as .NET's XmlReader reads with CosmoReport's settings (IgnoreWhitespace,
+// IgnoreComments): a name's prefix is dropped (its local name), an attribute's value has its entities and character
+// references decoded and its literal line breaks and tabs made spaces (XML's attribute-value normalization; "&#13;&#10;"
+// stays a line break), an attribute with an empty value is left out (XmlItem.SetProp), text of only white space is
+// skipped, and of an element's texts and CDATA sections the last is its text. Comments, processing instructions, the
+// XML declaration and a DOCTYPE are skipped; a byte order mark is too.
+
+/// An element: its local name, its attributes in document order, its text, and its child elements.
+public struct XmlNode {
+    public name: String;
+    public attrs: Vector<XmlAttr>;
+    public text: String;
+    public children: Vector<XmlNode>;
+
+    /// Attribute `name`'s value, or empty when it has none (XmlItem.GetProp).
+    public fn attr(borrow this, name: StringView) -> StringView {
+        for (a in this.attrs.view()) {
+            if (a.name.view() == name) {
+                return a.value.view();
+            }
+        }
+        return "";
+    }
+
+    /// Whether it has attribute `name` (XmlItem.HasProp).
+    public fn has(borrow this, name: StringView) -> bool {
+        for (a in this.attrs.view()) {
+            if (a.name.view() == name) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// The first child element named `name`, if any.
+    public fn child(borrow this, name: StringView) -> borrow(this) XmlNode? {
+        for (c in this.children.view()) {
+            if (c.name.view() == name) {
+                return c;
+            }
+        }
+        return null;
+    }
+}
+
+public struct XmlAttr {
+    public name: String;
+    public value: String;
+}
+
+/// Why a document could not be read, and where (a byte offset).
+public struct XmlError {
+    public offset: usize;
+    public message: String;
+}
+
+/// Reads the document `bytes` (UTF-8): its root element.
+public fn parseXml(bytes: Slice<u8>) -> Result<XmlNode, XmlError> {
+    var r = XmlReader { b: bytes, at: 0 };
+    if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        r.at = 3;
+    }
+    r.skipMisc()?;
+    if (r.at >= bytes.length || bytes[r.at] != '<') {
+        return Err(r.error("No XML element found."));
+    }
+    return r.element(0);
+}
+
+const MAX_DEPTH: u32 = 256;
+
+struct XmlReader<region r> {
+    b: Slice<r, u8>;
+    at: usize;
+}
+
+fn isSpace(c: u8) -> bool => c == ' ' || c == '\t' || c == '\n' || c == '\r';
+
+fn isNameByte(c: u8) -> bool =>
+    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' ||
+        c == ':' || c >= 0x80;
+
+/// `s` from its last ':' on: the local name.
+fn localName(s: Slice<u8>) -> Slice<u8> {
+    var k = s.length;
+    while (k > 0) {
+        k -= 1;
+        if (s[k] == ':') {
+            return s[k + 1..];
+        }
+    }
+    return s;
+}
+
+fn stringOf(s: Slice<u8>) -> String {
+    var out = String.create();
+    let _ = out.append(StringView.fromUtf8(s) ?? "");
+    return out;
+}
+
+impl<region r> XmlReader<r> {
+    fn error(borrow this, message: StringView) -> XmlError => XmlError { offset: this.at, message: copyOf(message) };
+
+    fn startsWith(borrow this, s: StringView) -> bool {
+        let w = s.bytes();
+        if (this.at + w.length > this.b.length) {
+            return false;
+        }
+        for (k in 0..w.length) {
+            if (this.b[this.at + k] != w[k]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// Past `end`, or an error that it never comes.
+    fn skipPast(borrow mut this, end: StringView) -> Result<void, XmlError> {
+        while (this.at < this.b.length) {
+            if (this.startsWith(end)) {
+                this.at += end.bytes().length;
+                return Ok();
+            }
+            this.at += 1;
+        }
+        return Err(this.error("Unexpected end of the document."));
+    }
+
+    fn skipSpace(borrow mut this) {
+        while (this.at < this.b.length && isSpace(this.b[this.at])) {
+            this.at += 1;
+        }
+    }
+
+    /// White space, comments, processing instructions (the declaration among them) and a DOCTYPE.
+    fn skipMisc(borrow mut this) -> Result<void, XmlError> {
+        loop {
+            this.skipSpace();
+            if (this.startsWith("<!--")) {
+                this.skipPast("-->")?;
+            } else if (this.startsWith("<?")) {
+                this.skipPast("?>")?;
+            } else if (this.startsWith("<!DOCTYPE")) {
+                // An internal subset in brackets may hold '>' itself.
+                var depth: u32 = 0;
+                while (this.at < this.b.length) {
+                    let c = this.b[this.at];
+                    this.at += 1;
+                    if (c == '[') {
+                        depth += 1;
+                    } else if (c == ']' && depth > 0) {
+                        depth -= 1;
+                    } else if (c == '>' && depth == 0) {
+                        break;
+                    }
+                }
+            } else {
+                return Ok();
+            }
+        }
+    }
+
+    fn name(borrow mut this) -> Result<Slice<r, u8>, XmlError> {
+        let start = this.at;
+        while (this.at < this.b.length && isNameByte(this.b[this.at])) {
+            this.at += 1;
+        }
+        if (this.at == start) {
+            return Err(this.error("A name was expected."));
+        }
+        return Ok(this.b[start..this.at]);
+    }
+
+    /// The character `&...;` at the reader stands for, appended to `out`; the reader is left past the ';'.
+    fn reference(borrow mut this, out: borrow mut Vector<u8>) -> Result<void, XmlError> {
+        let start = this.at;
+        this.at += 1; // '&'
+        while (this.at < this.b.length && this.b[this.at] != ';') {
+            if (this.at - start > 12) {
+                return Err(this.error("An entity reference is not closed."));
+            }
+            this.at += 1;
+        }
+        if (this.at >= this.b.length) {
+            return Err(this.error("An entity reference is not closed."));
+        }
+        let body = this.b[start + 1..this.at];
+        this.at += 1; // ';'
+        var code: u32 = 0;
+        if (body.length >= 2 && body[0] == '#') {
+            let hex = body[1] == 'x';
+            let digits = if (hex) body[2..] else body[1..];
+            if (digits.length == 0) {
+                return Err(this.error("A character reference has no digits."));
+            }
+            for (c in digits) {
+                let d: u32 = if (c >= '0' && c <= '9') (c - '0') as u32
+                    else if (hex && c >= 'a' && c <= 'f') (c - 'a') as u32 + 10
+                    else if (hex && c >= 'A' && c <= 'F') (c - 'A') as u32 + 10
+                    else { return Err(this.error("A character reference has a digit it cannot have.")); };
+                code = code * (if (hex) 16 else 10) + d;
+                if (code > 0x10FFFF) {
+                    return Err(this.error("A character reference is past Unicode."));
+                }
+            }
+        } else {
+            let named = StringView.fromUtf8(body) ?? "";
+            code = if (named == "lt") 0x3C else if (named == "gt") 0x3E else if (named == "amp") 0x26
+                else if (named == "quot") 0x22 else if (named == "apos") 0x27
+                else { return Err(this.error("An entity is not one XML defines.")); };
+        }
+        if (code == 0 || (code >= 0xD800 && code <= 0xDFFF)) {
+            return Err(this.error("A character reference is not a character XML allows."));
+        }
+        pushUtf8(mut out, code);
+        return Ok();
+    }
+
+    /// An attribute's value, its quotes at the reader: decoded and normalized.
+    fn attrValue(borrow mut this) -> Result<String, XmlError> {
+        if (this.at >= this.b.length || (this.b[this.at] != '"' && this.b[this.at] != 0x27)) {
+            return Err(this.error("An attribute's value must be quoted."));
+        }
+        let quote = this.b[this.at];
+        this.at += 1;
+        var out = Vector<u8>.create();
+        while (this.at < this.b.length && this.b[this.at] != quote) {
+            let c = this.b[this.at];
+            if (c == '&') {
+                this.reference(mut out)?;
+            } else if (c == '<') {
+                return Err(this.error("'<' cannot be in an attribute's value."));
+            } else {
+                // A literal line break or tab is a space; "\r\n" is one.
+                if (c == '\r' && this.at + 1 < this.b.length && this.b[this.at + 1] == '\n') {
+                    this.at += 1;
+                }
+                let _ = out.push(if (c == '\n' || c == '\r' || c == '\t') ' ' else c);
+                this.at += 1;
+            }
+        }
+        if (this.at >= this.b.length) {
+            return Err(this.error("An attribute's value is not closed."));
+        }
+        this.at += 1;
+        return Ok(stringOf(out.view()));
+    }
+
+    /// An element, its '<' at the reader.
+    fn element(borrow mut this, depth: u32) -> Result<XmlNode, XmlError> {
+        if (depth > MAX_DEPTH) {
+            return Err(this.error("Elements are nested too deep."));
+        }
+        this.at += 1; // '<'
+        let qname = this.name()?;
+        var node = XmlNode {
+            name: stringOf(localName(qname)),
+            attrs: Vector<XmlAttr>.create(),
+            text: String.create(),
+            children: Vector<XmlNode>.create(),
+        };
+        loop {
+            this.skipSpace();
+            if (this.at >= this.b.length) {
+                return Err(this.error("An element's start tag is not closed."));
+            }
+            let c = this.b[this.at];
+            if (c == '/') {
+                if (!this.startsWith("/>")) {
+                    return Err(this.error("'/' must end a tag."));
+                }
+                this.at += 2;
+                return Ok(node);
+            }
+            if (c == '>') {
+                this.at += 1;
+                break;
+            }
+            let attrName = this.name()?;
+            this.skipSpace();
+            if (this.at >= this.b.length || this.b[this.at] != '=') {
+                return Err(this.error("An attribute needs '=' and a value."));
+            }
+            this.at += 1;
+            this.skipSpace();
+            let value = this.attrValue()?;
+            if (value.view().length > 0) { // XmlItem.SetProp leaves an empty value out
+                let local = stringOf(localName(attrName));
+                var replaced = false;
+                for (k in 0..node.attrs.length) {
+                    if (node.attrs[k].name.view() == local.view()) {
+                        node.attrs[k].value = copyOf(value.view());
+                        replaced = true;
+                    }
+                }
+                if (!replaced) {
+                    let _ = node.attrs.push(XmlAttr { name: local, value: value });
+                }
+            }
+        }
+        // The content: elements, text, CDATA, comments and processing instructions, up to the end tag.
+        loop {
+            if (this.at >= this.b.length) {
+                return Err(this.error("An element is not closed."));
+            }
+            if (this.startsWith("</")) {
+                this.at += 2;
+                let endName = this.name()?;
+                if (endName != qname) {
+                    return Err(this.error("An end tag does not match its start tag."));
+                }
+                this.skipSpace();
+                if (this.at >= this.b.length || this.b[this.at] != '>') {
+                    return Err(this.error("An end tag is not closed."));
+                }
+                this.at += 1;
+                return Ok(node);
+            }
+            if (this.startsWith("<!--")) {
+                this.skipPast("-->")?;
+            } else if (this.startsWith("<![CDATA[")) {
+                this.at += 9;
+                let start = this.at;
+                this.skipPast("]]>")?;
+                node.text = normalizedText(this.b[start..this.at - 3]);
+            } else if (this.startsWith("<?")) {
+                this.skipPast("?>")?;
+            } else if (this.b[this.at] == '<') {
+                let _ = node.children.push(this.element(depth + 1)?);
+            } else {
+                // Text, to the next markup; white space alone is skipped.
+                var out = Vector<u8>.create();
+                var blank = true;
+                while (this.at < this.b.length && this.b[this.at] != '<') {
+                    let c = this.b[this.at];
+                    if (c == '&') {
+                        this.reference(mut out)?;
+                        blank = false;
+                    } else {
+                        if (c == '\r') {
+                            // Line ends are "\n" in XML: "\r\n" and a lone '\r' alike.
+                            if (this.at + 1 < this.b.length && this.b[this.at + 1] == '\n') {
+                                this.at += 1;
+                            }
+                            let _ = out.push('\n');
+                        } else {
+                            let _ = out.push(c);
+                            blank = blank && isSpace(c);
+                        }
+                        this.at += 1;
+                    }
+                }
+                if (!blank) {
+                    node.text = stringOf(out.view());
+                }
+            }
+        }
+    }
+}
+
+/// CDATA's content with its line ends made "\n".
+fn normalizedText(s: Slice<u8>) -> String {
+    var out = Vector<u8>.create();
+    var k: usize = 0;
+    while (k < s.length) {
+        if (s[k] == '\r') {
+            if (k + 1 < s.length && s[k + 1] == '\n') {
+                k += 1;
+            }
+            let _ = out.push('\n');
+        } else {
+            let _ = out.push(s[k]);
+        }
+        k += 1;
+    }
+    return stringOf(out.view());
+}
+
+fn copyOf(s: StringView) -> String {
+    var out = String.create();
+    let _ = out.append(s);
+    return out;
+}
+
+/// Code point `code` as UTF-8, appended to `out`.
+fn pushUtf8(out: borrow mut Vector<u8>, code: u32) {
+    if (code < 0x80) {
+        let _ = out.push(truncate<u8>(code));
+    } else if (code < 0x800) {
+        let _ = out.push(truncate<u8>(0xC0 | (code >> 6)));
+        let _ = out.push(truncate<u8>(0x80 | (code & 0x3F)));
+    } else if (code < 0x10000) {
+        let _ = out.push(truncate<u8>(0xE0 | (code >> 12)));
+        let _ = out.push(truncate<u8>(0x80 | ((code >> 6) & 0x3F)));
+        let _ = out.push(truncate<u8>(0x80 | (code & 0x3F)));
+    } else {
+        let _ = out.push(truncate<u8>(0xF0 | (code >> 18)));
+        let _ = out.push(truncate<u8>(0x80 | ((code >> 12) & 0x3F)));
+        let _ = out.push(truncate<u8>(0x80 | ((code >> 6) & 0x3F)));
+        let _ = out.push(truncate<u8>(0x80 | (code & 0x3F)));
+    }
+}

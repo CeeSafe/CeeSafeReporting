@@ -1,0 +1,398 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" DoublePass="true" ReportInfo.Created="07/22/2024 10:47:50" ReportInfo.Modified="09/15/2024 14:21:32" ReportInfo.CreatorVersion="2024.1.2.0">
+  <ScriptText>using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Windows.Forms;
+using System.Drawing;
+using System.Data;
+using FastReport;
+using FastReport.Data;
+using FastReport.Dialog;
+using FastReport.Barcode;
+using FastReport.Table;
+using FastReport.Utils;
+
+namespace FastReport
+{
+  public class ReportScript
+  {
+
+    private void Data1_BeforePrint(object sender, EventArgs e)
+    {
+      if (((Int32)Report.GetVariableValue(&quot;Row#&quot;)) % 2 != 0)
+        Data1.FillColor = Color.FromArgb(223,225,228);
+    }
+
+  }
+}
+</ScriptText>
+  <Dictionary>
+    <BusinessObjectDataSource Name="Invoice" ReferenceName="Invoice" DataType="System.Int32" Enabled="true">
+      <Column Name="TransactionID" DataType="System.String"/>
+      <Column Name="TransactionDate" DataType="System.DateTime"/>
+      <Column Name="TransactionDate2" DataType="System.String"/>
+      <Column Name="TransactionTime" DataType="System.DateTime"/>
+      <Column Name="PaymentDueDate" DataType="System.DateTime"/>
+      <Column Name="DocumentNo" DataType="System.String"/>
+      <Column Name="BranchID" DataType="System.Int32"/>
+      <Column Name="BranchName" DataType="System.String"/>
+      <Column Name="VoucherTypeID" DataType="System.Int32"/>
+      <Column Name="VoucherTypeName" DataType="System.String"/>
+      <Column Name="CustomerID" DataType="System.String"/>
+      <Column Name="CustomerName" DataType="System.String"/>
+      <Column Name="UserName" DataType="System.String"/>
+      <Column Name="TotalAmount" DataType="System.Decimal"/>
+      <Column Name="LineItemDiscount" DataType="System.Decimal"/>
+      <Column Name="Discount" DataType="System.Decimal"/>
+      <Column Name="NetAmount" DataType="System.Decimal"/>
+      <Column Name="CashAmount" DataType="System.Decimal"/>
+      <Column Name="CashAmount2" DataType="System.Decimal"/>
+      <Column Name="CreditAmount" DataType="System.Decimal"/>
+      <Column Name="PaymentMethod" DataType="System.String"/>
+      <Column Name="CustomerBalance" DataType="System.Decimal"/>
+      <Column Name="PrintedBy" DataType="System.String"/>
+      <Column Name="Notes" DataType="System.String"/>
+      <Column Name="NumberToWord" DataType="System.String"/>
+      <Column Name="TaxPercent" DataType="System.Decimal"/>
+      <Column Name="TaxAmount" DataType="System.Decimal"/>
+      <Column Name="TotalAfterDiscount" DataType="System.Decimal"/>
+      <Column Name="SpanType" DataType="System.String"/>
+      <Column Name="CompanyInfo" DataType="System.Int32">
+        <Column Name="ACompanyName" DataType="System.String"/>
+        <Column Name="ALine1" DataType="System.String"/>
+        <Column Name="ALine2" DataType="System.String"/>
+        <Column Name="ALine3" DataType="System.String"/>
+        <Column Name="Aline4" DataType="System.String"/>
+        <Column Name="ECompanyName" DataType="System.String"/>
+        <Column Name="ELine1" DataType="System.String"/>
+        <Column Name="ELine2" DataType="System.String"/>
+        <Column Name="ELine3" DataType="System.String"/>
+        <Column Name="Eline4" DataType="System.String"/>
+      </Column>
+      <Column Name="PaymentInfo" DataType="System.Int32">
+        <Column Name="CashAccount" DataType="System.String"/>
+        <Column Name="BankAccount" DataType="System.String"/>
+      </Column>
+      <Column Name="Customer" DataType="System.Int32">
+        <Column Name="AccountNo" DataType="System.String"/>
+        <Column Name="AccountName" DataType="System.String"/>
+        <Column Name="IDNo" DataType="System.String"/>
+        <Column Name="Address" DataType="System.String"/>
+        <Column Name="FullAddress" DataType="System.String"/>
+        <Column Name="TelNo" DataType="System.String"/>
+        <Column Name="MobileNo" DataType="System.String"/>
+        <Column Name="CreditLimit" DataType="System.Decimal"/>
+        <Column Name="CreditPeriod" DataType="System.Int32"/>
+        <Column Name="ContactPerson" DataType="System.String"/>
+        <Column Name="PostalAddress" DataType="System.Int32">
+          <Column Name="id" DataType="System.Int32"/>
+          <Column Name="BuildingNumber" DataType="System.String"/>
+          <Column Name="PlotIdentification" DataType="System.String"/>
+          <Column Name="StreetName" DataType="System.String"/>
+          <Column Name="AdditionalStreetName" DataType="System.String"/>
+          <Column Name="PostalZone" DataType="System.String"/>
+          <Column Name="CityName" DataType="System.String"/>
+          <Column Name="CountrySubentity" DataType="System.String"/>
+          <Column Name="CitySubdivisionName" DataType="System.String"/>
+          <Column Name="Country" DataType="System.String"/>
+          <Column Name="ShortAddress" DataType="System.String"/>
+          <Column Name="FullAddress" DataType="System.String"/>
+        </Column>
+      </Column>
+      <BusinessObjectDataSource Name="LineItems" DataType="System.Int32" Enabled="true">
+        <Column Name="TransactionDetailID" DataType="System.Int32"/>
+        <Column Name="ItemID" DataType="System.String"/>
+        <Column Name="ItemName" DataType="System.String"/>
+        <Column Name="Barcode" DataType="System.String"/>
+        <Column Name="Quantity" DataType="System.Decimal"/>
+        <Column Name="NumOfPieces" DataType="System.Decimal"/>
+        <Column Name="UnitName" DataType="System.String"/>
+        <Column Name="CostPrice" DataType="System.Decimal"/>
+        <Column Name="CostPriceTotal" DataType="System.Decimal"/>
+        <Column Name="SalesPrice" DataType="System.Decimal"/>
+        <Column Name="SalesPriceTotal" DataType="System.Decimal"/>
+        <Column Name="Discount" DataType="System.Decimal"/>
+        <Column Name="DiscountPercent" DataType="System.Decimal"/>
+        <Column Name="NetCostPrice" DataType="System.Decimal"/>
+        <Column Name="NetSalesPrice" DataType="System.Decimal"/>
+        <Column Name="Bonus" DataType="System.Decimal"/>
+        <Column Name="ContractID" DataType="System.String"/>
+        <Column Name="Description" DataType="System.String"/>
+        <Column Name="ItemDescription" DataType="System.String"/>
+        <Column Name="ExpiryDate" DataType="System.DateTime"/>
+        <Column Name="Length" DataType="System.Decimal"/>
+        <Column Name="Height" DataType="System.Decimal"/>
+        <Column Name="PiecesCount" DataType="System.Decimal"/>
+        <Column Name="RackID" DataType="System.String"/>
+        <Column Name="TaxPercent" DataType="System.Decimal"/>
+        <Column Name="TaxAmount" DataType="System.Decimal"/>
+        <Column Name="AmountWithTax" DataType="System.Decimal"/>
+        <BusinessObjectDataSource Name="ItemDetails" DataType="System.Int32" Enabled="true">
+          <Column Name="ItemID" DataType="System.String"/>
+          <Column Name="Description" DataType="System.String"/>
+          <Column Name="Length" DataType="System.Decimal"/>
+          <Column Name="Width" DataType="System.Decimal"/>
+          <Column Name="Height" DataType="System.Decimal"/>
+          <Column Name="TotalSize" DataType="System.Decimal"/>
+          <Column Name="Quantity" DataType="System.Decimal"/>
+        </BusinessObjectDataSource>
+        <Column Name="ItemDetailsCount" DataType="System.Int32"/>
+      </BusinessObjectDataSource>
+      <BusinessObjectDataSource Name="Installments" DataType="System.Int32" Enabled="true">
+        <Column Name="TransactionID" DataType="System.String"/>
+        <Column Name="TransactionDate" DataType="System.DateTime"/>
+        <Column Name="SalesPriceTotal" DataType="System.Decimal"/>
+        <Column Name="TaxAmount" DataType="System.Decimal"/>
+        <Column Name="Amount" DataType="System.Decimal"/>
+      </BusinessObjectDataSource>
+      <Column Name="AccumulatedInvoice" DataType="System.Int32">
+        <Column Name="TransactionID" DataType="System.String"/>
+        <Column Name="TransactionDate" DataType="System.DateTime"/>
+        <Column Name="SalesPriceTotal" DataType="System.Decimal"/>
+        <Column Name="TaxAmount" DataType="System.Decimal"/>
+        <Column Name="Amount" DataType="System.Decimal"/>
+      </Column>
+      <Column Name="CostPriceTotal" DataType="System.Decimal"/>
+      <Column Name="SalesPriceTotal" DataType="System.Decimal"/>
+      <Column Name="QuantityTotal" DataType="System.Decimal"/>
+      <Column Name="DiscountTotal" DataType="System.Decimal"/>
+      <Column Name="InstallmentsAmount" DataType="System.Decimal"/>
+      <Column Name="InstallmentsSalesPriceTotal" DataType="System.Decimal"/>
+      <Column Name="InstallmentsTaxAmount" DataType="System.Decimal"/>
+      <Column Name="AccumAmount" DataType="System.Decimal"/>
+      <Column Name="AccumSalesPrice" DataType="System.Decimal"/>
+      <Column Name="AccumTaxAmount" DataType="System.Decimal"/>
+      <Column Name="AccumNetAmount" DataType="System.Decimal"/>
+      <Column Name="AccumCashAmount" DataType="System.Decimal"/>
+      <Column Name="AccumCashAmount2" DataType="System.Decimal"/>
+      <Column Name="AccumCreditAmount" DataType="System.Decimal"/>
+      <Column Name="CustomerVat" DataType="System.String"/>
+      <Column Name="ItemsCount" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Total Name="Total" Expression="[Invoice.LineItems.AmountWithTax]" Evaluator="Data1" PrintOn="PageFooter1" ResetOnReprint="true" IncludeInvisibleRows="true"/>
+    <Total Name="SalesPriceTotal" Expression="[Invoice.LineItems.SalesPriceTotal]" Evaluator="Data1" PrintOn="DataFooter1" ResetOnReprint="true" IncludeInvisibleRows="true"/>
+    <Total Name="DiscountTotal" Expression="[Invoice.LineItems.Discount]" Evaluator="Data1" PrintOn="DataFooter1" ResetOnReprint="true" IncludeInvisibleRows="true"/>
+    <Total Name="NetSalesPrice" Expression="[Invoice.LineItems.NetSalesPrice]" Evaluator="Data1" PrintOn="DataFooter1" ResetOnReprint="true" IncludeInvisibleRows="true"/>
+    <Total Name="TaxTotal" Expression="[Invoice.LineItems.TaxAmount]" Evaluator="Data1" PrintOn="DataFooter1" ResetOnReprint="true" IncludeInvisibleRows="true"/>
+    <Total Name="GrandTotal" Expression="[Invoice.LineItems.AmountWithTax]" Evaluator="Data1" PrintOn="DataFooter1" ResetOnReprint="true" IncludeInvisibleRows="true"/>
+    <Total Name="Quantity" Expression="[Invoice.LineItems.Quantity]" Evaluator="Data1" PrintOn="DataFooter1" ResetOnReprint="true" IncludeInvisibleRows="true"/>
+  </Dictionary>
+  <ReportPage Name="Page1" RawPaperSize="9" TopMargin="11" RightMargin="9" BottomMargin="14" Border.Lines="All" Border.Color="231, 194, 98" Border.Width="2" Watermark.Enabled="true" Watermark.Image="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QIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgECBAgQIAAAQXQDhAgQIAAAQIEwgQUwLCBi0uAAAECBAgQUADtAAECBAgQIEAgTEABDBu4uAQIECBAgAABBdAOECBAgAABAgTCBBTAsIGLS4AAAQIECBBQAO0AAQIECBAgQCBMQAEMG7i4BAgQIECAAAEF0A4QIECAAAECBMIEFMCwgYtLgAABAgQIEFAA7QABAgQIECBAIExAAQwbuLgE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" Watermark.ImageSize="Stretch" Watermark.Font="Arial, 60pt" LastPageSource="15" FirstPageSource="15">
+    <PageHeaderBand Name="PageHeader1" Width="721.98" Height="145.53">
+      <TextObject Name="Text10" Left="472.5" Width="236.25" Height="37.8" Text="[Invoice.CompanyInfo.ACompanyName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="Text12" Left="472.5" Top="37.8" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.ALine1]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 10pt"/>
+      <TextObject Name="Text14" Left="472.5" Top="56.7" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.ALine2]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 10pt"/>
+      <TextObject Name="Text16" Left="472.5" Top="75.6" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.ALine3]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 10pt"/>
+      <TextObject Name="Text18" Left="472.5" Top="94.5" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.Aline4]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 10pt"/>
+      <TextObject Name="Text20" Left="245.7" Top="122.85" Width="226.8" Height="22.68" Text="[Invoice.VoucherTypeName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="Text35" Left="472.5" Top="113.4" Width="236.25" Height="28.35" Text="[Invoice.BranchName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text30" Left="9.45" Width="236.25" Height="37.8" Text="[Invoice.CompanyInfo.ECompanyName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="Text31" Left="9.45" Top="37.8" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.ELine1]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text32" Left="9.45" Top="56.7" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.ELine2]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text33" Left="9.45" Top="75.6" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.ELine3]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text34" Left="9.45" Top="94.5" Width="236.25" Height="18.9" Text="[Invoice.CompanyInfo.Eline4]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <PictureObject Name="Picture1" Left="245.7" Top="3.78" Width="226.8" Height="113.4"/>
+      <TextObject Name="Text41" Left="18.9" Top="122.85" Width="189" Height="18.9" Text=" صفحة Page [Page] / [TotalPages#]" HorzAlign="Center" Font="Arial, 10pt">
+        <Formats>
+          <GeneralFormat/>
+          <GeneralFormat/>
+        </Formats>
+      </TextObject>
+    </PageHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" Top="149.53" Width="721.98" Height="182.5" RepeatOnEveryPage="true" Condition="[Invoice.TransactionID]">
+      <TextObject Name="Text66" Left="3" Top="146.59" Width="28.35" Height="35.91" Fill.Color="231, 194, 98" Text="#" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TableObject Name="Table5" Left="3.78" Top="4" Width="715.39" Height="52.92">
+        <TableColumn Name="Column19" Width="124.99"/>
+        <TableColumn Name="Column24" Width="95.26"/>
+        <TableColumn Name="Column20" Width="77.71"/>
+        <TableColumn Name="Column21" Width="101.41"/>
+        <TableColumn Name="Column22" Width="134.42"/>
+        <TableColumn Name="Column23" Restrictions="HideAllProperties" Width="181.6"/>
+        <TableRow Name="Row11" Height="26.46">
+          <TableCell Name="Cell59" Fill.Color="231, 194, 98" Text="رقم مستند Doc No" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell76" Fill.Color="231, 194, 98" Text="تاريخ التوريد  Delivery" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell60" Fill.Color="231, 194, 98" Text="الوقت Time" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell61" Fill.Color="231, 194, 98" Text="الموافق Hijri" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell62" Fill.Color="231, 194, 98" Text="التاريخ Date" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell63" Fill.Color="231, 194, 98" Text="رقم الفاتورة # Invoice" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 11pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row12" Height="26.46">
+          <TableCell Name="Cell65" Fill.Color="WhiteSmoke" Text="[Invoice.DocumentNo]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt"/>
+          <TableCell Name="Cell77" Fill.Color="WhiteSmoke" Text="[Invoice.PaymentDueDate]" Format="Custom" Format.Format="yyyy/MM/dd" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+          <TableCell Name="Cell66" Fill.Color="WhiteSmoke" Text="[Invoice.TransactionTime]" Format="Time" Format.Format="HH:mm" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt"/>
+          <TableCell Name="Cell67" Fill.Color="WhiteSmoke" Text="[Invoice.TransactionDate2]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt"/>
+          <TableCell Name="Cell68" Fill.Color="WhiteSmoke" Text="[Invoice.TransactionDate]" Format="Custom" Format.Format="yyyy/MM/dd" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt"/>
+          <TableCell Name="Cell69" Fill.Color="WhiteSmoke" Text="[Invoice.TransactionID]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+        </TableRow>
+      </TableObject>
+      <TextObject Name="Text73" Left="31.35" Top="163.1" Width="85.05" Height="18.9" Fill.Color="231, 194, 98" Text="Item Description" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="Text74" Left="273.05" Top="163.1" Width="47.25" Height="18.9" Fill.Color="231, 194, 98" Text="Quantity" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text75" Left="206.9" Top="163.1" Width="66.15" Height="18.9" Fill.Color="231, 194, 98" Text="Price" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text76" Left="636.15" Top="163.1" Width="83.16" Height="18.9" Fill.Color="231, 194, 98" Text="Total w/VAT" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text78" Left="541.65" Top="163.1" Width="37.8" Height="18.9" Fill.Color="231, 194, 98" Text="%" Format="Percent" Format.UseLocale="false" Format.DecimalDigits="0" Format.DecimalSeparator="." Format.GroupSeparator="," Format.PercentSymbol="%" Format.PositivePattern="1" Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text79" Left="579.45" Top="163.1" Width="56.7" Height="18.9" Fill.Color="231, 194, 98" Text="SAR" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text80" Left="319.75" Top="163.1" Width="86.56" Height="18.9" Fill.Color="231, 194, 98" Text="Total" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text62" Left="31.35" Top="147.04" Width="85.05" Height="18.9" Fill.Color="231, 194, 98" Text="وصف الصنف" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="Text63" Left="273.05" Top="147.04" Width="47.25" Height="18.9" Fill.Color="231, 194, 98" Text="الكمية" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text64" Left="206.9" Top="147.04" Width="66.15" Height="18.9" Fill.Color="231, 194, 98" Text="السعر" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text69" Left="541.65" Top="147.04" Width="94.5" Height="18.9" Fill.Color="231, 194, 98" Text="Tax   الضريبة" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text70" Left="319.75" Top="147.04" Width="86.56" Height="18.9" Fill.Color="231, 194, 98" Text="المجموع" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text65" Left="636.15" Top="147.04" Width="83.16" Height="18.9" Fill.Color="231, 194, 98" Text="الإجمالي" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text87" Left="3.02" Top="87.5" Width="104.71" Height="26.46" Fill.Color="WhiteSmoke" Text="[Invoice.Customer.MobileNo]" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text88" Left="107.35" Top="87.5" Width="103.95" Height="26.46" Fill.Color="WhiteSmoke" Text="[Invoice.Customer.AccountNo]" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text89" Left="211.3" Top="87.5" Width="132.3" Height="26.46" Fill.Color="WhiteSmoke" Text=" [Invoice.CustomerVat]" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text90" Left="343.6" Top="87.5" Width="375.73" Height="26.46" Fill.Color="WhiteSmoke" Text="[Invoice.CustomerName]" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text91" Left="3.02" Top="114.72" Width="56.7" Height="31.37" Fill.Color="White" Text="Address:" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text92" Left="678.4" Top="114.72" Width="37.8" Height="31.37" Fill.Color="White" Text="العنوان:" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text93" Left="54.7" Top="114.72" Width="625.59" Height="31.37" Fill.Color="White" Text="[Invoice.Customer.FullAddress]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text82" Left="3.02" Top="57.15" Width="104.71" Height="30.24" Fill.Color="231, 194, 98" Text="رقم الهاتف Telephone" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text83" Left="107.4" Top="57.15" Width="103.95" Height="30.24" Fill.Color="231, 194, 98" Text="رقم الحساب Customer ID" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text84" Left="211.35" Top="57.15" Width="132.3" Height="30.24" Fill.Color="231, 194, 98" Text="الرقم الضريبي للعميل Customer VAT" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text85" Left="343.6" Top="57.15" Width="375.73" Height="30.24" Fill.Color="231, 194, 98" Text="Customer Name اسم العميل " HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text98" Left="113.85" Top="162.92" Width="94.5" Height="18.9" Fill.Color="231, 194, 98" Text="Unit" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="Text99" Left="113.85" Top="147.04" Width="94.5" Height="18.9" Fill.Color="231, 194, 98" Text="الوحدة" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="Text100" Left="406.35" Top="162.92" Width="56.7" Height="18.9" Fill.Color="231, 194, 98" Text="Discount" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text101" Left="406.35" Top="147.04" Width="56.7" Height="18.9" Fill.Color="231, 194, 98" Text="خصم" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text104" Left="463.05" Top="162.92" Width="79.38" Height="18.9" Fill.Color="231, 194, 98" Text="Net Amount" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text105" Left="463.05" Top="147.04" Width="79.38" Height="18.9" Fill.Color="231, 194, 98" Text="الصافي" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <DataBand Name="Data1" Top="336.03" Width="721.98" Height="30.24" BeforePrintEvent="Data1_BeforePrint" DataSource="LineItems">
+        <TextObject Name="Text9" Left="3" Width="28.35" Height="30.24" Text="[Row#]" AutoShrink="FontWidth" HorzAlign="Center" Font="Arial, 11pt"/>
+        <TextObject Name="Text1" Left="31.35" Top="12.9" Width="687.96" Height="17.01" Text="[Invoice.LineItems.ItemName]" AutoShrink="FontWidth" VertAlign="Center" Font="Arial, 11pt"/>
+        <TextObject Name="Text61" Left="273.05" Width="47.25" Height="13.23" Text="[Invoice.LineItems.Quantity]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text5" Left="206.77" Width="66.15" Height="13.23" Text="[Invoice.LineItems.SalesPrice]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text7" Left="636.15" Width="83.16" Height="13.23" Text="[Invoice.LineItems.AmountWithTax]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text39" Left="31.35" Width="85.05" Height="13.23" Text="[Invoice.LineItems.ItemID]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+        <TextObject Name="Text46" Left="541.65" Width="37.8" Height="13.23" Text="[Invoice.LineItems.TaxPercent]" Format="Percent" Format.UseLocale="false" Format.DecimalDigits="0" Format.DecimalSeparator="." Format.GroupSeparator="," Format.PercentSymbol="%" Format.PositivePattern="1" Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text47" Left="579.45" Width="56.7" Height="13.23" Text="[Invoice.LineItems.TaxAmount]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text60" Left="319.75" Width="86.56" Height="13.23" Text="[Invoice.LineItems.SalesPriceTotal]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text102" Left="406.35" Width="56.7" Height="13.23" Text="[Invoice.LineItems.Discount]" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text103" Left="113.78" Width="94.5" Height="13.23" Text="[Invoice.LineItems.UnitName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt"/>
+        <TextObject Name="Text106" Left="463.05" Width="79.38" Height="13.23" Text="[Invoice.LineItems.NetSalesPrice]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt" Trimming="EllipsisCharacter"/>
+        <ChildBand Name="Child1" Top="370.27" Width="721.98" Height="18.9">
+          <SubreportObject Name="Subreport1" Width="368.55" Height="18.9" ReportPage="Page2"/>
+        </ChildBand>
+        <DataFooterBand Name="DataFooter1" Top="393.17" Width="721.98" Height="20.79">
+          <TextObject Name="Text107" Left="274.05" Width="47.25" Height="20.79" Fill.Color="LemonChiffon" Text="[Quantity]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text108" Left="637.15" Width="83.16" Height="20.79" Fill.Color="LemonChiffon" Text="[GrandTotal]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text110" Left="542.65" Width="94.5" Height="20.79" Fill.Color="LemonChiffon" Text="[TaxTotal]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text111" Left="320.75" Width="86.56" Height="20.79" Fill.Color="LemonChiffon" Text="[SalesPriceTotal]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text112" Left="407.35" Width="56.7" Height="20.79" Fill.Color="LemonChiffon" Text="[DiscountTotal]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text113" Left="464.05" Width="79.38" Height="20.79" Fill.Color="LemonChiffon" Text="[NetSalesPrice]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 11pt, style=Bold" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text114" Width="274.05" Height="20.79" Fill.Color="LemonChiffon" Text="Total الإجمالي" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+        </DataFooterBand>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="417.96" Width="721.98" Height="280.3" PrintOnBottom="true" KeepWithData="true">
+        <TableObject Name="Table2" Left="3.78" Width="714.37" Height="102.05" Border.Lines="All" Border.Color="231, 194, 98">
+          <TableColumn Name="Column26" Width="80.37"/>
+          <TableColumn Name="Column8" Width="140.75"/>
+          <TableColumn Name="Column29" Width="94.5"/>
+          <TableColumn Name="Column9" Width="46.32"/>
+          <TableColumn Name="Column31" Width="15.12"/>
+          <TableColumn Name="Column30" Width="15.12"/>
+          <TableColumn Name="Column25" Width="83.16"/>
+          <TableColumn Name="Column10" Width="140.75"/>
+          <TableColumn Name="Column11" Width="98.28"/>
+          <TableRow Name="Row4" Height="20.41">
+            <TableCell Name="Cell83" Fill.Color="Black" Text="Net Amount (SAR [FormatNumber([Invoice.NetAmount],2)]) الصافي " HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold" TextFill.Color="LemonChiffon" ColSpan="4" RowSpan="2"/>
+            <TableCell Name="Cell30" Border.Lines="All" Fill.Color="LemonChiffon" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 14pt, style=Bold"/>
+            <TableCell Name="Cell129" Fill.Color="LemonChiffon" Font="Arial, 10pt"/>
+            <TableCell Name="Cell31" Border.Lines="All" Border.LeftLine.Style="Double" Border.RightLine.Style="Double" Border.BottomLine.Style="Double" Fill.Color="LemonChiffon" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 14pt, style=Bold"/>
+            <TableCell Name="Cell139" Fill.Color="Black" Text="Payment Terms" HorzAlign="Center" VertAlign="Center" Angle="90" Font="Arial, 9pt" TextFill.Color="LemonChiffon" RowSpan="5"/>
+            <TableCell Name="Cell134" Fill.Color="Black" Text="شروط الدفع" HorzAlign="Center" Angle="90" Font="Arial, 10pt, style=Bold" TextFill.Color="LemonChiffon" RowSpan="5"/>
+            <TableCell Name="Cell78" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="Sub Total:" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell32" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.TotalAmount]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell33" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="المجموع الفرعي:" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" RightToLeft="true" Font="Arial, 13pt, style=Bold"/>
+          </TableRow>
+          <TableRow Name="Row5" Height="20.41">
+            <TableCell Name="Cell84" Fill.Color="LemonChiffon" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
+            <TableCell Name="Cell35" Border.Lines="All" Border.LeftLine.Style="Double" Border.RightLine.Style="Double" Border.BottomLine.Style="Double" Fill.Color="LemonChiffon" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 14pt, style=Bold"/>
+            <TableCell Name="Cell130" Fill.Color="LemonChiffon" Font="Arial, 10pt"/>
+            <TableCell Name="Cell36" Border.Lines="All" Border.LeftLine.Style="Double" Border.RightLine.Style="Double" Border.BottomLine.Style="Double" Fill.Color="LemonChiffon" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 14pt, style=Bold"/>
+            <TableCell Name="Cell140" Fill.Color="112, 183, 179" Font="Arial, 10pt"/>
+            <TableCell Name="Cell135" Border.Lines="Right" Fill.Color="112, 183, 179" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+            <TableCell Name="Cell79" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="Discount:" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell37" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.Discount]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell38" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="الخصم:" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" RightToLeft="true" Font="Arial, 13pt, style=Bold"/>
+          </TableRow>
+          <TableRow Name="Row6" Height="20.41">
+            <TableCell Name="Cell85" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="Cash:" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell40" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.CashAmount]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell131" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.PaymentInfo.CashAccount]" AutoShrink="FontWidth" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell41" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="نقداً:" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell141" Fill.Color="112, 183, 179" Font="Arial, 10pt"/>
+            <TableCell Name="Cell136" Border.Lines="Right" Fill.Color="112, 183, 179" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+            <TableCell Name="Cell80" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="Net Amount:" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell42" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.TotalAfterDiscount]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell43" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="صافي المبلغ:" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" RightToLeft="true" Font="Arial, 13pt, style=Bold"/>
+          </TableRow>
+          <TableRow Name="Row9" Height="20.41">
+            <TableCell Name="Cell86" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.SpanType]" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell51" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.CashAmount2]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell132" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.PaymentInfo.BankAccount]" AutoShrink="FontWidth" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell52" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="شبكة:" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell142" Fill.Color="112, 183, 179" Font="Arial, 10pt"/>
+            <TableCell Name="Cell137" Border.Lines="Right" Fill.Color="112, 183, 179" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+            <TableCell Name="Cell81" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="VAT [FormatPercent([Invoice.TaxPercent],0)]:" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell53" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.TaxAmount]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell54" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="الضريبة  [FormatPercent([Invoice.TaxPercent],0)]:" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" RightToLeft="true" Font="Arial, 13pt, style=Bold"/>
+          </TableRow>
+          <TableRow Name="Row10" Height="20.41">
+            <TableCell Name="Cell87" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="Customer Due:" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell55" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.CreditAmount]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell133" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="على العميل" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell56" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="آجل:" AutoShrink="FontWidth" HorzAlign="Right" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell143" Fill.Color="112, 183, 179" Font="Arial, 10pt"/>
+            <TableCell Name="Cell138" Border.Lines="Right" Fill.Color="112, 183, 179" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+            <TableCell Name="Cell82" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="Net Payable:" AutoShrink="FontWidth" HorzAlign="Right" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell57" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="[Invoice.NetAmount]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+            <TableCell Name="Cell58" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="LemonChiffon" Text="الإجمالي:" AutoShrink="FontWidth" HorzAlign="Right" RightToLeft="true" Font="Arial, 13pt, style=Bold"/>
+          </TableRow>
+        </TableObject>
+        <TextObject Name="Text37" Left="244.03" Top="103.95" Width="468.34" Height="22.68" Text="[Invoice.NumberToWord]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Bottom" RightToLeft="true" Font="Arial, 12pt"/>
+        <TableObject Name="Table3" Left="255.15" Top="141.75" Width="453.6" Height="28.35" PrintOnParent="true">
+          <TableColumn Name="Column12" Width="50.4"/>
+          <TableColumn Name="Column13" Width="88.2"/>
+          <TableColumn Name="Column14" Width="315"/>
+          <TableRow Name="Row7" Height="28.35">
+            <TableCell Name="Cell44" Text="[IIf([Invoice.CustomerBalance]&lt;0,&quot;Credit دائن&quot;,&quot;مدين Debit&quot;)]" AutoShrink="FontWidth" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt"/>
+            <TableCell Name="Cell45" Text="[Invoice.CustomerBalance]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="0" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt"/>
+            <TableCell Name="Cell46" Text="رصيد حساب العميل Account Balance" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+          </TableRow>
+        </TableObject>
+        <TextObject Name="Text23" Left="387.45" Top="179.55" Width="302.4" Height="18.9" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="اسم الموظف: [Invoice.UserName]" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt"/>
+        <TextObject Name="Text71" Left="387.45" Top="217.35" Width="302.4" Height="18.9" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="المستلم: Received By" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt"/>
+        <BarcodeObject Name="Barcode1" Top="103.95" Width="223.6" Height="176.35" AutoSize="false" Text="[Invoice.PaymentMethod]" ShowText="false" AllowExpressions="true" Barcode="QR Code" Barcode.ErrorCorrection="L" Barcode.Encoding="UTF8" Barcode.QuietZone="true" Barcode.ShowMarker="true"/>
+        <LineObject Name="Line1" Left="224.8" Top="103.95" Height="175.77"/>
+        <TextObject Name="Text120" Left="236.25" Top="245.7" Width="463.05" Height="28.35" Text="[Invoice.Notes]" HorzAlign="Center" Font="Arial, 12pt"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <PageFooterBand Name="PageFooter1" Top="702.26" Width="721.98" Height="32.13" Border.Lines="Top" Border.TopLine.Style="Dash" PrintOn="FirstPage, OddPages, EvenPages, RepeatedBand">
+      <TextObject Name="Text117" Left="75.6" Top="3.78" Width="189" Height="26.46" Text="To be continued on the next page... " AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text116" Left="415.8" Top="3.78" Width="160.65" Height="26.46" Text="Page Total إجمالي الصفحة :" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+      <PictureObject Name="Picture2" Left="255.15" Top="3.78" Width="66.15" Height="26.46" ImageFormat="Png" Image="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"/>
+      <TextObject Name="Text118" Left="311.85" Top="3.78" Width="103.95" Height="26.46" Text="يتبع في الصفحة التالية..." AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text119" Left="576.45" Top="3.78" Width="132.3" Height="26.46" Text="[Total]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+    </PageFooterBand>
+  </ReportPage>
+  <ReportPage Name="Page2" Watermark.Font="Arial, 60pt">
+    <DataBand Name="Data2" Top="22.9" Width="718.2" Height="18.9" DataSource="ItemDetails">
+      <TextObject Name="Text24" Left="144.75" Width="56.7" Height="18.9" Border.Lines="All" Text="[Invoice.LineItems.ItemDetails.Length]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text25" Left="201.45" Width="56.7" Height="18.9" Border.Lines="All" Text="[Invoice.LineItems.ItemDetails.Width]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text26" Left="258.15" Width="56.7" Height="18.9" Border.Lines="All" Text="[Invoice.LineItems.ItemDetails.Height]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text27" Left="314.85" Width="56.7" Height="18.9" Border.Lines="All" Text="[Invoice.LineItems.ItemDetails.Quantity]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text28" Left="371.55" Width="56.7" Height="18.9" Border.Lines="All" Text="[Invoice.LineItems.ItemDetails.TotalSize]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text29" Left="31.35" Width="113.4" Height="18.9" Border.Lines="All" Text="[Invoice.LineItems.ItemDetails.Description]" AutoShrink="FontWidth" Font="Arial, 10pt"/>
+      <DataHeaderBand Name="DataHeader1" Width="718.2" Height="18.9">
+        <TextObject Name="Text11" Left="144.75" Width="56.7" Height="18.9" Border.Lines="All" Text="طول" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+        <TextObject Name="Text13" Left="201.45" Width="56.7" Height="18.9" Border.Lines="All" Text="عرض" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+        <TextObject Name="Text15" Left="258.15" Width="56.7" Height="18.9" Border.Lines="All" Text="ارتفاع" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+        <TextObject Name="Text17" Left="314.85" Width="56.7" Height="18.9" Border.Lines="All" Text="العدد" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+        <TextObject Name="Text19" Left="371.55" Width="56.7" Height="18.9" Border.Lines="All" Text="الإجمالي" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+        <TextObject Name="Text21" Left="31.35" Width="113.4" Height="18.9" Border.Lines="All" Text="بيان" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+        <TextObject Name="Text36" Left="3" Width="28.35" Height="18.9" Border.Lines="All" Text="[Invoice.LineItems.ItemDetailsCount]" AutoShrink="FontWidth" HorzAlign="Right" VertAlign="Center" Font="Arial, 10pt"/>
+      </DataHeaderBand>
+    </DataBand>
+  </ReportPage>
+</Report>

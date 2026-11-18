@@ -1,0 +1,8 @@
+[package]
+name = "ceesafe_reporting"
+version = "0.1.0"
+kind = "library"
+ceesafec = ">=0.72.0"
+tests = ["tests"]
+
+[dependencies]
