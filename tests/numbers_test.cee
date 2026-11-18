@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: MIT
+// Numbers and dates against .NET's own results (tests/expected/values.txt, from `RefDump values`): every double's
+// ToString(), N0, N2, N4, C2 and (decimal) conversion; decimals read from text, written and made doubles; totals'
+// sums; dates in each format.
+
+fn fileText(path: StringView) -> Vector<u8> {
+    var bytes = Vector<u8>.create();
+    var file = match (File.open(path)) {
+        Ok(f) => f,
+        Err(_) => { return bytes; }
+    };
+    var buffer = [0u8; 65536];
+    loop {
+        let n = match (file.read(mut buffer[..])) {
+            Ok(n) => n,
+            Err(_) => { break; }
+        };
+        if (n == 0) {
+            break;
+        }
+        for (i in 0..n) {
+            let _ = bytes.push(buffer[i]);
+        }
+    }
+    return bytes;
+}
+
+/// "0x4029000000000000" as the double with those bits.
+fn doubleOfBits(text: StringView) -> f64 {
+    var bits: u64 = 0;
+    let b = text.bytes();
+    for (k in 2..b.length) {
+        let c = b[k];
+        let v: u64 = if (c >= '0' && c <= '9') (c - '0') as u64 else (c - 'A') as u64 + 10;
+        bits = (bits << 4) | v;
+    }
+    return f64.fromBits(bits);
+}
+
+fn bitsText(v: f64) -> String {
+    var s = String.create();
+    let _ = s.append("0x");
+    let digits = "0123456789ABCDEF".bytes();
+    var k: u32 = 16;
+    while (k > 0) {
+        k -= 1;
+        let one = [digits[((v.bits() >> (k * 4)) & 15) as usize]];
+        let _ = s.append(StringView.fromUtf8(one[..]) ?? "");
+    }
+    return s;
+}
+
+fn same(got: StringView, want: StringView, line: StringView, what: StringView, bad: borrow mut u32) {
+    if (got != want) {
+        if (bad < 12) {
+            Console.write("  ");
+            Console.write(what);
+            Console.write(" of [");
+            Console.write(line);
+            Console.write("]: want ");
+            Console.write(want);
+            Console.write(", got ");
+            Console.writeLine(got);
+        }
+        bad += 1;
+    }
+}
+
+@test
+fn numbersAndDatesAreWrittenAsDotNetWritesThem() -> Result<void, TestFailure> {
+    let bytes = fileText("tests/expected/values.txt");
+    let text = StringView.fromUtf8(bytes.view()) ?? "";
+    Check.isTrue(text.length > 0, "the table is there")?;
+    var bad: u32 = 0;
+    var lines: u32 = 0;
+    for (line in splitOn(text, '\n').view()) {
+        if (line.length == 0) {
+            continue;
+        }
+        lines += 1;
+        let parts = splitOn(line, '|');
+        var f = Vector<StringView>.create();
+        for (p in parts.view()) {
+            let _ = f.push(trimmed(p));
+        }
+        let head = f[0].bytes();
+        let input = StringView.fromUtf8(head[2..]) ?? "";
+        if (head[0] == 'D') {
+            let v = doubleOfBits(input);
+            same(formatDouble(v).view(), f[1], input, "ToString", mut bad);
+            let inv = NumberStyle.invariant();
+            same(formatN(v, 0, inv).view(), f[2], input, "N0", mut bad);
+            same(formatN(v, 2, inv).view(), f[3], input, "N2", mut bad);
+            same(formatN(v, 4, inv).view(), f[4], input, "N4", mut bad);
+            same(formatC(v, 2, CurrencyStyle.invariant()).view(), f[5], input, "C2", mut bad);
+            let dec = match (decimalFromDouble(v)) {
+                Some(d) => formatDecimal(d),
+                null => copyOf("overflow"),
+            };
+            same(dec.view(), f[6], input, "(decimal)", mut bad);
+        } else if (head[0] == 'M') {
+            match (parseDecimal(input)) {
+                Some(d) => {
+                    same(formatDecimal(d).view(), f[1], input, "decimal ToString", mut bad);
+                    same(bitsText(decimalToDouble(d)).view(), f[2], input, "(double)decimal", mut bad);
+                }
+                null => { same("unparsed", f[1], input, "decimal.Parse", mut bad); }
+            }
+        } else if (head[0] == 'S') {
+            var total = Decimal.zero();
+            for (v in splitOn(input, ' ').view()) {
+                total = addDecimal(total, decimalFromDouble(doubleOfBits(v)) ?? Decimal.zero()) ?? total;
+            }
+            same(formatDecimal(total).view(), f[1], input, "sum", mut bad);
+            same(bitsText(decimalToDouble(total)).view(), f[2], input, "(double)sum", mut bad);
+        } else if (head[0] == 'T') {
+            match (parseDateTime(input)) {
+                Some(dt) => {
+                    let formats: [StringView; 8] = ["", "yyyy/MM/dd", "dd/MM/yyyy", "HH:mm", "T", "d", "g", "t"];
+                    for (k in 0..8usize) {
+                        same(formatDateTime(dt, formats[k]).view(), f[k + 1], input, formats[k], mut bad);
+                    }
+                }
+                null => { same("unparsed", f[1], input, "DateTime.Parse", mut bad); }
+            }
+        }
+    }
+    Check.equalU64(94, lines as u64)?;
+    return Check.isTrue(bad == 0, "every value is written as .NET writes it");
+}

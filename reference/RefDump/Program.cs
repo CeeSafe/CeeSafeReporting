@@ -13,9 +13,14 @@ using FastReport.Format;
 using FastReport.Model;
 using FastReport.Objects;
 
+if (args.Length == 1 && args[0] == "values")
+{
+    Console.Out.Write(Values.Table());
+    return 0;
+}
 if (args.Length != 2 || args[0] != "model")
 {
-    Console.Error.WriteLine("usage: RefDump model <file.frx>");
+    Console.Error.WriteLine("usage: RefDump model <file.frx> | values");
     return 2;
 }
 var report = new Report();

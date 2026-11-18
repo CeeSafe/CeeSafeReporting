@@ -1,0 +1,952 @@
+// SPDX-License-Identifier: MIT
+// Numbers and dates as .NET writes them in the invariant culture, which is what a report shows: a double's
+// ToString() (the shortest digits that read back to it, in E notation from an exponent of 17 or below -4: .NET's "G"
+// rule with a precision of 17) and its "N"
+// and "C" formats (rounded half to even on its exact value, a negative's sign kept when it rounds to zero); decimal,
+// the type a report's totals sum in (System.Decimal: a 96-bit integer and a scale, with .NET's conversions to and
+// from double); and DateTime with the standard and custom formats reports use. tests/expected/values.txt holds .NET's
+// own results, which tests/numbers_test.cee compares.
+
+// ---- a double's exact digits ----------------------------------------------------------------------------------------
+
+/// A double's exact value in decimal: `digits` (most significant first, no leading zeros) times 10^(point - length),
+/// so the point is after `point` digits; zero has no digits.
+struct ExactDigits {
+    negative: bool;
+    digits: Vector<u8>;
+    point: i64;
+}
+
+/// Multiplies the little-endian decimal digits `d` (`length` of them) by `factor` (below 2^32): the new length.
+fn multiplyDigits(d: borrow mut Vector<u8>, length: usize, factor: u64) -> usize {
+    var carry: u64 = 0;
+    var n = length;
+    for (k in 0..length) {
+        let v = (d[k] as u64) * factor + carry;
+        d[k] = truncate<u8>(v % 10);
+        carry = v / 10;
+    }
+    while (carry > 0) {
+        if (n < d.length) {
+            d[n] = truncate<u8>(carry % 10);
+        } else {
+            let _ = d.push(truncate<u8>(carry % 10));
+        }
+        n += 1;
+        carry = carry / 10;
+    }
+    return n;
+}
+
+/// `value`'s exact decimal digits (a finite double).
+fn exactDigits(value: f64) -> ExactDigits {
+    let bits = value.bits();
+    let negative = (bits >> 63) != 0;
+    let exponent = truncate<u32>((bits >> 52) & 0x7FF);
+    let fraction = bits & 0xFFFFFFFFFFFFF;
+    var m = fraction;
+    var e: i64 = -1074;
+    if (exponent != 0) {
+        m = fraction | 0x10000000000000;
+        e = (exponent as i64) - 1075;
+    }
+    var out = ExactDigits { negative: negative, digits: Vector<u8>.create(), point: 0 };
+    if (m == 0) {
+        return out;
+    }
+    // Little endian while multiplying: m · 2^e is m · 2^e (e ≥ 0), or m · 5^-e with -e digits after the point.
+    var d = Vector<u8>.create();
+    var rest = m;
+    while (rest > 0) {
+        let _ = d.push(truncate<u8>(rest % 10));
+        rest = rest / 10;
+    }
+    var length = d.length;
+    var after: i64 = 0;
+    if (e > 0) {
+        var left = e;
+        while (left > 0) {
+            let step: i64 = if (left > 30) 30 else left;
+            length = multiplyDigits(mut d, length, 1u64 << truncate<u64>(step));
+            left -= step;
+        }
+    } else if (e < 0) {
+        var left = -e;
+        after = -e;
+        while (left > 0) {
+            let step: i64 = if (left > 13) 13 else left;
+            var factor: u64 = 1;
+            for (j in 0..step) {
+                factor *= 5;
+            }
+            length = multiplyDigits(mut d, length, factor);
+            left -= step;
+        }
+    }
+    // Most significant first, without leading zeros; trailing zeros dropped (they say nothing of the value).
+    var top = length;
+    while (top > 0 && d[top - 1] == 0) {
+        top -= 1;
+    }
+    var low: usize = 0;
+    while (low < top && d[low] == 0) {
+        low += 1;
+    }
+    var k = top;
+    while (k > low) {
+        k -= 1;
+        let _ = out.digits.push(d[k]);
+    }
+    // value = digits · 10^(low - after): the point is after (top - after) digits.
+    out.point = truncate<i64>(top) - after;
+    return out;
+}
+
+/// The digits rounded half to even (on the exact value) to end `keep` digits after the start, `keep` ≥ 0; a carry past
+/// the first digit adds one before it (the point moves). `negative` stays.
+fn roundAt(x: borrow mut ExactDigits, keep: i64) {
+    if (keep < 0) {
+        // Every digit is below the cutoff: the value is less than one unit there.
+        // Half or more only when keep == -1 and the first digit is ≥ 5; ties to even round to 0.
+        x.digits.clear();
+        return;
+    }
+    let n = truncate<i64>(x.digits.length);
+    if (keep >= n) {
+        return;
+    }
+    let k = truncate<usize>(keep);
+    let first = x.digits[k];
+    var below = false;
+    for (j in k + 1..x.digits.length) {
+        if (x.digits[j] != 0) {
+            below = true;
+        }
+    }
+    let previousOdd = if (k == 0) false else x.digits[k - 1] % 2 == 1;
+    let up = first > 5 || (first == 5 && (below || previousOdd));
+    while (x.digits.length > k) {
+        let _ = x.digits.pop();
+    }
+    if (up) {
+        var j = k;
+        var carried = true;
+        while (j > 0 && carried) {
+            j -= 1;
+            if (x.digits[j] == 9) {
+                x.digits[j] = 0;
+            } else {
+                x.digits[j] += 1;
+                carried = false;
+            }
+        }
+        if (carried) {
+            let _ = x.digits.insert(0, 1);
+            x.point += 1;
+        }
+    }
+    while (x.digits.length > 0 && x.digits[x.digits.length - 1] == 0) {
+        let _ = x.digits.pop();
+    }
+    if (x.digits.length == 0) {
+        x.point = 0;
+    }
+}
+
+/// The digit at place `p` (0 the first before the point, -1 the first after), 0 where there is none.
+fn digitAt(x: borrow ExactDigits, p: i64) -> u8 {
+    let index = x.point - 1 - p;
+    if (index < 0 || index >= truncate<i64>(x.digits.length)) {
+        return 0;
+    }
+    return x.digits[truncate<usize>(index)];
+}
+
+// ---- double: ToString() and "N", "C" ---------------------------------------------------------------------------------
+
+/// How "N" writes a number: the invariant culture's, or a NumberFormat's own (NumberFormatInfo).
+public struct NumberStyle {
+    public decimalSeparator: String;
+    public groupSeparator: String;
+    /// NumberNegativePattern: 0 "(n)", 1 "-n", 2 "- n", 3 "n-", 4 "n -".
+    public negativePattern: i64;
+
+    public fn invariant() -> NumberStyle => NumberStyle {
+        decimalSeparator: stringOf(".".bytes()),
+        groupSeparator: stringOf(",".bytes()),
+        negativePattern: 1,
+    };
+}
+
+/// Appends `x`'s integer part with groups of three and `decimals` digits after the point.
+fn appendFixed(out: borrow mut String, x: borrow ExactDigits, decimals: i64, style: borrow NumberStyle) {
+    let intDigits = if (x.point > 0) x.point else 1;
+    var p = intDigits - 1;
+    while (p >= 0) {
+        let one = ['0' + digitAt(x, p)];
+        let _ = out.append(StringView.fromUtf8(one[..]) ?? "");
+        if (p > 0 && p % 3 == 0) {
+            let _ = out.append(style.groupSeparator.view());
+        }
+        p -= 1;
+    }
+    if (decimals > 0) {
+        let _ = out.append(style.decimalSeparator.view());
+        for (k in 1..decimals + 1) {
+            let one = ['0' + digitAt(x, -k)];
+            let _ = out.append(StringView.fromUtf8(one[..]) ?? "");
+        }
+    }
+}
+
+fn special(out: borrow mut String, value: f64) -> bool {
+    if (value != value) {
+        let _ = out.append("NaN");
+        return true;
+    }
+    if (value == 1.0 / 0.0) {
+        let _ = out.append("Infinity");
+        return true;
+    }
+    if (value == -1.0 / 0.0) {
+        let _ = out.append("-Infinity");
+        return true;
+    }
+    return false;
+}
+
+/// double.ToString("N{decimals}") with `style`.
+public fn formatN(value: f64, decimals: i64, style: borrow NumberStyle) -> String {
+    var out = String.create();
+    if (special(mut out, value)) {
+        return out;
+    }
+    var x = exactDigits(value);
+    roundAt(mut x, x.point + decimals);
+    var body = String.create();
+    appendFixed(mut body, x, decimals, style);
+    if (!x.negative) {
+        return body;
+    }
+    let pattern = style.negativePattern;
+    let _ = out.append(if (pattern == 0) "(" else if (pattern == 1) "-" else if (pattern == 2) "- " else "");
+    let _ = out.append(body.view());
+    let _ = out.append(if (pattern == 0) ")" else if (pattern == 3) "-" else if (pattern == 4) " -" else "");
+    return out;
+}
+
+/// How "C" writes money: a currency's symbol and patterns (NumberFormatInfo's Currency*).
+public struct CurrencyStyle {
+    public symbol: String;
+    public decimalSeparator: String;
+    public groupSeparator: String;
+    /// CurrencyPositivePattern 0 to 3: "$n", "n$", "$ n", "n $".
+    public positivePattern: i64;
+    /// CurrencyNegativePattern 0 to 16.
+    public negativePattern: i64;
+
+    /// The invariant culture's: "¤", "¤n" and "(¤n)".
+    public fn invariant() -> CurrencyStyle => CurrencyStyle {
+        symbol: stringOf("\u{00A4}".bytes()),
+        decimalSeparator: stringOf(".".bytes()),
+        groupSeparator: stringOf(",".bytes()),
+        positivePattern: 0,
+        negativePattern: 0,
+    };
+}
+
+/// The negative currency patterns, "$" the symbol and "n" the number.
+const CURRENCY_NEGATIVE: [StringView; 17] = [
+    "($n)", "-$n", "$-n", "$n-", "(n$)", "-n$", "n-$", "n$-", "-n $", "-$ n", "n $-", "$ n-", "$ -n", "n- $", "($ n)",
+    "(n $)", "$- n",
+];
+const CURRENCY_POSITIVE: [StringView; 4] = ["$n", "n$", "$ n", "n $"];
+
+/// double.ToString("C{decimals}") with `style`.
+public fn formatC(value: f64, decimals: i64, style: borrow CurrencyStyle) -> String {
+    var out = String.create();
+    if (special(mut out, value)) {
+        return out;
+    }
+    var x = exactDigits(value);
+    roundAt(mut x, x.point + decimals);
+    var body = String.create();
+    appendFixed(mut body, x, decimals, NumberStyle {
+        decimalSeparator: copyOf(style.decimalSeparator.view()),
+        groupSeparator: copyOf(style.groupSeparator.view()),
+        negativePattern: 1,
+    });
+    let pattern = if (x.negative) CURRENCY_NEGATIVE[truncate<usize>(style.negativePattern.max(0).min(16))]
+        else CURRENCY_POSITIVE[truncate<usize>(style.positivePattern.max(0).min(3))];
+    for (c in pattern.bytes()) {
+        if (c == '$') {
+            let _ = out.append(style.symbol.view());
+        } else if (c == 'n') {
+            let _ = out.append(body.view());
+        } else {
+            let one = [c];
+            let _ = out.append(StringView.fromUtf8(one[..]) ?? "");
+        }
+    }
+    return out;
+}
+
+/// double.ToString(): the fewest digits that read back as `value`, as .NET writes them (E notation when the exponent is
+/// 17 or more, or below -4, as "G" with a precision of 17: "1E+17", "1E-05").
+public fn formatDouble(value: f64) -> String {
+    var out = String.create();
+    if (special(mut out, value)) {
+        return out;
+    }
+    let exact = exactDigits(value);
+    if (exact.digits.length == 0) {
+        let _ = out.append(if (exact.negative) "-0" else "0");
+        return out;
+    }
+    // The shortest precision that reads back: the digits rounded half to even to p significant ones.
+    var x = exactDigits(value);
+    for (p in 1..18i64) {
+        var trial = exactDigits(value);
+        roundAt(mut trial, p);
+        var text = Vector<u8>.create();
+        if (trial.negative) {
+            let _ = text.push('-');
+        }
+        let _ = text.push('0');
+        let _ = text.push('.');
+        for (d in trial.digits.view()) {
+            let _ = text.push('0' + d);
+        }
+        let _ = text.push('e');
+        var expText = String.create();
+        appendInt(mut expText, trial.point);
+        for (c in expText.bytes()) {
+            let _ = text.push(c);
+        }
+        match (NumberParsing.parseF64(text.view())) {
+            Some(back) => {
+                if (back.bits() == value.bits()) {
+                    x = trial;
+                    break;
+                }
+            }
+            null => {}
+        }
+    }
+    if (x.negative) {
+        let _ = out.append("-");
+    }
+    let exponent = x.point - 1;
+    if (exponent >= 17 || exponent < -4) {
+        appendDigit(mut out, x.digits[0]);
+        if (x.digits.length > 1) {
+            let _ = out.append(".");
+            for (k in 1..x.digits.length) {
+                appendDigit(mut out, x.digits[k]);
+            }
+        }
+        let _ = out.append(if (exponent < 0) "E-" else "E+");
+        let magnitude = if (exponent < 0) -exponent else exponent;
+        if (magnitude < 10) {
+            let _ = out.append("0");
+        }
+        appendInt(mut out, magnitude);
+        return out;
+    }
+    if (x.point <= 0) {
+        let _ = out.append("0.");
+        for (k in 0..-x.point) {
+            let _ = out.append("0");
+        }
+        for (d in x.digits.view()) {
+            appendDigit(mut out, d);
+        }
+        return out;
+    }
+    for (k in 0..truncate<usize>(x.point).max(x.digits.length)) {
+        if (k == truncate<usize>(x.point)) {
+            let _ = out.append(".");
+        }
+        appendDigit(mut out, if (k < x.digits.length) x.digits[k] else 0);
+    }
+    return out;
+}
+
+fn appendDigit(out: borrow mut String, d: u8) {
+    let one = ['0' + d];
+    let _ = out.append(StringView.fromUtf8(one[..]) ?? "");
+}
+
+/// long.ToString().
+public fn appendInt(out: borrow mut String, v: i64) {
+    if (v < 0) {
+        let _ = out.append("-");
+        let _ = out.appendNumber(0u64.wrappingSub(truncate<u64>(v)));
+    } else {
+        let _ = out.appendNumber(truncate<u64>(v));
+    }
+}
+
+// ---- decimal ----------------------------------------------------------------------------------------------------------
+
+/// A System.Decimal: ±(hi · 2^64 + lo) / 10^scale, hi below 2^32, scale 0 to 28.
+public struct Decimal {
+    public lo: u64;
+    public hi: u32;
+    public scale: u32;
+    public negative: bool;
+
+    public fn zero() -> Decimal => Decimal { lo: 0, hi: 0, scale: 0, negative: false };
+
+    public fn isZero(borrow this) -> bool => this.lo == 0 && this.hi == 0;
+}
+
+/// The mantissa's 96 bits as three 32-bit limbs, least significant first.
+fn limbsOf(d: Decimal) -> [u64; 3] => [d.lo & 0xFFFFFFFF, d.lo >> 32, d.hi as u64];
+
+fn fromLimbs(l: [u64; 3], scale: u32, negative: bool) -> Decimal => Decimal {
+    lo: l[0] | (l[1] << 32),
+    hi: truncate<u32>(l[2]),
+    scale: scale,
+    negative: negative,
+};
+
+/// Multiplies the limbs by `f` (below 2^32): false when it overflows 96 bits.
+fn mulLimbs(l: borrow mut [u64; 3], f: u64) -> bool {
+    var carry: u64 = 0;
+    for (k in 0..3usize) {
+        let v = l[k] * f + carry;
+        l[k] = v & 0xFFFFFFFF;
+        carry = v >> 32;
+    }
+    return carry == 0;
+}
+
+/// Divides the limbs by `f` (below 2^32): the remainder.
+fn divLimbs(l: borrow mut [u64; 3], f: u64) -> u64 {
+    var rest: u64 = 0;
+    var k: usize = 3;
+    while (k > 0) {
+        k -= 1;
+        let v = (rest << 32) | l[k];
+        l[k] = v / f;
+        rest = v % f;
+    }
+    return rest;
+}
+
+fn addLimbs(a: [u64; 3], b: [u64; 3]) -> [u64; 3]? {
+    var out = [0u64; 3];
+    var carry: u64 = 0;
+    for (k in 0..3usize) {
+        let v = a[k] + b[k] + carry;
+        out[k] = v & 0xFFFFFFFF;
+        carry = v >> 32;
+    }
+    return if (carry == 0) out else null;
+}
+
+/// a - b, a ≥ b.
+fn subLimbs(a: [u64; 3], b: [u64; 3]) -> [u64; 3] {
+    var out = [0u64; 3];
+    var borrowed: u64 = 0;
+    for (k in 0..3usize) {
+        let need = b[k] + borrowed;
+        if (a[k] >= need) {
+            out[k] = a[k] - need;
+            borrowed = 0;
+        } else {
+            out[k] = a[k] + 0x100000000 - need;
+            borrowed = 1;
+        }
+    }
+    return out;
+}
+
+fn compareLimbs(a: [u64; 3], b: [u64; 3]) -> i32 {
+    var k: usize = 3;
+    while (k > 0) {
+        k -= 1;
+        if (a[k] != b[k]) {
+            return if (a[k] < b[k]) -1 else 1;
+        }
+    }
+    return 0;
+}
+
+/// A decimal written "-123.4500" (decimal.Parse with the invariant culture: the scale is the digits after the point; an
+/// exponent "1.5E3" is applied); null when it is not one or does not fit.
+public fn parseDecimal(text: StringView) -> Decimal? {
+    let b = trimmed(text).bytes();
+    var k: usize = 0;
+    var negative = false;
+    if (k < b.length && (b[k] == '-' || b[k] == '+')) {
+        negative = b[k] == '-';
+        k += 1;
+    }
+    var limbs = [0u64; 3];
+    var scale: i64 = 0;
+    var digits = 0;
+    var point = false;
+    while (k < b.length && ((b[k] >= '0' && b[k] <= '9') || (b[k] == '.' && !point))) {
+        if (b[k] == '.') {
+            point = true;
+        } else {
+            if (!mulLimbs(mut limbs, 10)) {
+                return null;
+            }
+            limbs = addLimbs(limbs, [(b[k] - '0') as u64, 0, 0])?;
+            digits += 1;
+            if (point) {
+                scale += 1;
+            }
+        }
+        k += 1;
+    }
+    if (digits == 0) {
+        return null;
+    }
+    if (k < b.length && (b[k] == 'e' || b[k] == 'E')) {
+        let e = parseInt(StringView.fromUtf8(b[k + 1..]) ?? "")?;
+        scale -= e;
+        k = b.length;
+    }
+    if (k != b.length) {
+        return null;
+    }
+    while (scale < 0) {
+        if (!mulLimbs(mut limbs, 10)) {
+            return null;
+        }
+        scale += 1;
+    }
+    while (scale > 28) {
+        let _ = divLimbs(mut limbs, 10);
+        scale -= 1;
+    }
+    return fromLimbs(limbs, truncate<u32>(scale), negative);
+}
+
+/// decimal.ToString(): its digits with `scale` of them after the point.
+public fn formatDecimal(d: Decimal) -> String {
+    var l = limbsOf(d);
+    var reversed = Vector<u8>.create();
+    loop {
+        let _ = reversed.push(truncate<u8>(divLimbs(mut l, 10)));
+        if (l[0] == 0 && l[1] == 0 && l[2] == 0) {
+            break;
+        }
+    }
+    while (reversed.length <= d.scale as usize) {
+        let _ = reversed.push(0);
+    }
+    var out = String.create();
+    if (d.negative) {
+        let _ = out.append("-");
+    }
+    var k = reversed.length;
+    while (k > 0) {
+        k -= 1;
+        if (k + 1 == d.scale as usize) {
+            let _ = out.append(".");
+        }
+        appendDigit(mut out, reversed[k]);
+    }
+    return out;
+}
+
+/// (double)decimal, as .NET's VarR8FromDec: (lo + hi · 2^64) / 10^scale in double arithmetic.
+public fn decimalToDouble(d: Decimal) -> f64 {
+    let v = (round<f64>(d.lo) + round<f64>(d.hi) * 18446744073709551616.0) / pow10(d.scale);
+    return if (d.negative) -v else v;
+}
+
+/// (decimal)double, as .NET's VarDecFromR8: the double rounded to 15 significant digits (half to even in double
+/// arithmetic), and the zeros at its end dropped from the scale; null when it overflows a decimal.
+public fn decimalFromDouble(input: f64) -> Decimal? {
+    let bits = input.bits();
+    let exp = truncate<i64>((bits >> 52) & 0x7FF) - 1022;
+    if (exp < -94) {
+        return Decimal.zero();
+    }
+    if (exp > 96) {
+        return null;
+    }
+    let negative = input < 0.0;
+    var dbl = if (negative) -input else input;
+    // C#'s (exp * 19728) >> 16: an arithmetic shift, so the floor of the quotient.
+    let scaled = exp * 19728;
+    var power: i64 = 14 - (if (scaled >= 0) scaled / 65536 else -((-scaled + 65535) / 65536));
+    if (power >= 0) {
+        if (power > 28) {
+            power = 28;
+        }
+        dbl = dbl * pow10(truncate<u32>(power));
+    } else {
+        if (power != -1 || dbl >= 1e15) {
+            dbl = dbl / pow10(truncate<u32>(-power));
+        } else {
+            power = 0;
+        }
+    }
+    if (dbl < 1e14 && power < 28) {
+        dbl = dbl * 10.0;
+        power += 1;
+    }
+    // Round to an integer, half to even.
+    var mant = truncate<u64>(truncate<i64>(dbl));
+    let fraction = dbl - round<f64>(mant);
+    if (fraction > 0.5 || (fraction == 0.5 && (mant & 1) != 0)) {
+        mant += 1;
+    }
+    if (mant == 0) {
+        return Decimal.zero();
+    }
+    var limbs = [mant & 0xFFFFFFFF, mant >> 32, 0u64];
+    if (power < 0) {
+        // Up to 14 tens to put back.
+        for (k in 0..-power) {
+            if (!mulLimbs(mut limbs, 10)) {
+                return null;
+            }
+        }
+        return fromLimbs(limbs, 0, negative);
+    }
+    // Tens off the end, while they divide and the scale allows (at most 14).
+    var scale = power;
+    var most = power.min(14);
+    while (most > 0 && limbs[0] % 10 == 0 && limbs[1] == 0 && limbs[2] == 0) {
+        limbs[0] = limbs[0] / 10;
+        scale -= 1;
+        most -= 1;
+    }
+    while (most > 0) {
+        var trial = limbs;
+        if (divLimbs(mut trial, 10) != 0) {
+            break;
+        }
+        limbs = trial;
+        scale -= 1;
+        most -= 1;
+    }
+    return fromLimbs(limbs, truncate<u32>(scale), negative);
+}
+
+/// The limbs scaled up by 10^n, or null when they overflow.
+fn scaledUp(l: [u64; 3], n: u32) -> [u64; 3]? {
+    var out = l;
+    for (k in 0..n) {
+        if (!mulLimbs(mut out, 10)) {
+            return null;
+        }
+    }
+    return out;
+}
+
+/// a + b (decimal's +): the larger scale; when that overflows, the scale is lowered as .NET does (not needed by the
+/// totals reports keep, which stay far below 2^96).
+public fn addDecimal(a: Decimal, b: Decimal) -> Decimal? {
+    let scale = a.scale.max(b.scale);
+    let x = scaledUp(limbsOf(a), scale - a.scale)?;
+    let y = scaledUp(limbsOf(b), scale - b.scale)?;
+    if (a.negative == b.negative) {
+        return fromLimbs(addLimbs(x, y)?, scale, a.negative);
+    }
+    let c = compareLimbs(x, y);
+    if (c == 0) {
+        return fromLimbs([0, 0, 0], scale, false);
+    }
+    return if (c > 0) fromLimbs(subLimbs(x, y), scale, a.negative) else fromLimbs(subLimbs(y, x), scale, b.negative);
+}
+
+/// -1, 0 or 1 as a < b, a == b, a > b.
+public fn compareDecimal(a: Decimal, b: Decimal) -> i32 {
+    if (a.isZero() && b.isZero()) {
+        return 0;
+    }
+    if (a.negative != b.negative) {
+        return if (a.negative) -1 else 1;
+    }
+    let scale = a.scale.max(b.scale);
+    let x = scaledUp(limbsOf(a), scale - a.scale) ?? [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF];
+    let y = scaledUp(limbsOf(b), scale - b.scale) ?? [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF];
+    let c = compareLimbs(x, y);
+    return if (a.negative) -c else c;
+}
+
+/// a / n for a count n > 0 (decimal / int, as an Avg total divides): 28 digits after the point at most, rounded half
+/// to even, then the zeros at the end dropped.
+public fn divideDecimal(a: Decimal, n: u64) -> Decimal {
+    var l = limbsOf(a);
+    var scale = a.scale;
+    var rest = divLimbs(mut l, n);
+    // More digits while there is a remainder, the scale allows and the mantissa has room.
+    while (rest != 0 && scale < 28) {
+        var trial = l;
+        if (!mulLimbs(mut trial, 10)) {
+            break;
+        }
+        let digit = (rest * 10) / n;
+        rest = (rest * 10) % n;
+        match (addLimbs(trial, [digit, 0, 0])) {
+            Some(t) => {
+                l = t;
+                scale += 1;
+            }
+            null => { break; }
+        }
+    }
+    if (rest * 2 > n || (rest * 2 == n && (l[0] & 1) == 1)) {
+        l = addLimbs(l, [1, 0, 0]) ?? l;
+    }
+    while (scale > 0) {
+        var trial = l;
+        if (divLimbs(mut trial, 10) != 0) {
+            break;
+        }
+        l = trial;
+        scale -= 1;
+    }
+    return fromLimbs(l, scale, a.negative);
+}
+
+// ---- DateTime ---------------------------------------------------------------------------------------------------------
+
+/// A date and time without a zone (DateTime of kind Unspecified, as System.Text.Json reads "2026-11-18T14:15:00").
+public struct DateTime {
+    public year: i64;
+    public month: i64;
+    public day: i64;
+    public hour: i64;
+    public minute: i64;
+    public second: i64;
+    /// Ten-millionths of a second.
+    public ticks: i64;
+}
+
+fn digitsValue(b: Slice<u8>) -> i64? {
+    if (b.length == 0) {
+        return null;
+    }
+    var v: i64 = 0;
+    for (c in b) {
+        if (c < '0' || c > '9') {
+            return null;
+        }
+        v = v * 10 + (c - '0') as i64;
+    }
+    return v;
+}
+
+fn daysInMonth(year: i64, month: i64) -> i64 {
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let days: [i64; 12] = [31, if (leap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return days[truncate<usize>(month - 1)];
+}
+
+/// "2026-11-18", "2026-11-18T14:15", "2026-11-18T14:15:00" or "2026-11-18T14:15:00.1234567" (ISO 8601 as JSON carries a
+/// date; a zone at its end is not read); null otherwise.
+public fn parseDateTime(text: StringView) -> DateTime? {
+    let b = trimmed(text).bytes();
+    if (b.length < 10 || b[4] != '-' || b[7] != '-') {
+        return null;
+    }
+    var dt = DateTime {
+        year: digitsValue(b[0..4])?,
+        month: digitsValue(b[5..7])?,
+        day: digitsValue(b[8..10])?,
+        hour: 0,
+        minute: 0,
+        second: 0,
+        ticks: 0,
+    };
+    if (dt.month < 1 || dt.month > 12 || dt.day < 1 || dt.day > daysInMonth(dt.year, dt.month)) {
+        return null;
+    }
+    if (b.length > 10) {
+        if ((b[10] != 'T' && b[10] != ' ') || b.length < 16 || b[13] != ':') {
+            return null;
+        }
+        dt.hour = digitsValue(b[11..13])?;
+        dt.minute = digitsValue(b[14..16])?;
+        var k: usize = 16;
+        if (k < b.length && b[k] == ':') {
+            if (k + 3 > b.length) {
+                return null;
+            }
+            dt.second = digitsValue(b[k + 1..k + 3])?;
+            k += 3;
+            if (k < b.length && b[k] == '.') {
+                k += 1;
+                var places = 0;
+                while (k < b.length && b[k] >= '0' && b[k] <= '9') {
+                    if (places < 7) {
+                        dt.ticks = dt.ticks * 10 + (b[k] - '0') as i64;
+                        places += 1;
+                    }
+                    k += 1;
+                }
+                while (places < 7) {
+                    dt.ticks *= 10;
+                    places += 1;
+                }
+            }
+        }
+        if (dt.hour > 23 || dt.minute > 59 || dt.second > 59) {
+            return null;
+        }
+    }
+    return dt;
+}
+
+/// 1 Monday to 7 Sunday is not .NET's; this is DayOfWeek: 0 Sunday to 6 Saturday.
+fn dayOfWeek(dt: borrow DateTime) -> i64 {
+    // Days since 0001-01-01 (a Monday), by the proleptic Gregorian calendar.
+    let y = dt.year - 1;
+    var days = y * 365 + y / 4 - y / 100 + y / 400;
+    for (m in 1..dt.month) {
+        days += daysInMonth(dt.year, m);
+    }
+    days += dt.day - 1;
+    return (days + 1) % 7;
+}
+
+const MONTH_NAMES: [StringView; 12] = [
+    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
+];
+const DAY_NAMES: [StringView; 7] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+fn padded(out: borrow mut String, v: i64, width: usize) {
+    var s = String.create();
+    appendInt(mut s, v);
+    var n = s.view().length;
+    while (n < width) {
+        let _ = out.append("0");
+        n += 1;
+    }
+    let _ = out.append(s.view());
+}
+
+/// DateTime.ToString(format) in the invariant culture: a standard format ("d", "D", "t", "T", "g", "G", "f", "F", "s",
+/// "M", "Y"; "" is "G") or a custom one (d dd ddd dddd, M MM MMM MMMM, y yy yyy yyyy, h hh H HH, m mm, s ss, f to fffffff,
+/// F to FFFFFFF, t tt, '...' and "..." literally, \x, and / and : as themselves).
+public fn formatDateTime(dt: borrow DateTime, format: StringView) -> String {
+    let f = if (format.length == 0) "G" else format;
+    if (f.length == 1) {
+        let standard = if (f == "d") "MM/dd/yyyy" else if (f == "D") "dddd, dd MMMM yyyy" else if (f == "t") "HH:mm"
+            else if (f == "T") "HH:mm:ss" else if (f == "g") "MM/dd/yyyy HH:mm" else if (f == "G") "MM/dd/yyyy HH:mm:ss"
+            else if (f == "f") "dddd, dd MMMM yyyy HH:mm" else if (f == "F") "dddd, dd MMMM yyyy HH:mm:ss"
+            else if (f == "s") "yyyy'-'MM'-'dd'T'HH':'mm':'ss" else if (f == "M" || f == "m") "MMMM dd"
+            else if (f == "Y" || f == "y") "yyyy MMMM" else "";
+        if (standard.length > 0) {
+            return customDateTime(dt, standard);
+        }
+    }
+    return customDateTime(dt, f);
+}
+
+fn customDateTime(dt: borrow DateTime, f: StringView) -> String {
+    var out = String.create();
+    let b = f.bytes();
+    var k: usize = 0;
+    while (k < b.length) {
+        let c = b[k];
+        var run: usize = 1;
+        while (k + run < b.length && b[k + run] == c) {
+            run += 1;
+        }
+        if (c == 'd') {
+            if (run == 1) {
+                appendInt(mut out, dt.day);
+            } else if (run == 2) {
+                padded(mut out, dt.day, 2);
+            } else if (run == 3) {
+                let name = DAY_NAMES[truncate<usize>(dayOfWeek(dt))].bytes();
+                let _ = out.append(StringView.fromUtf8(name[0..3]) ?? "");
+            } else {
+                let _ = out.append(DAY_NAMES[truncate<usize>(dayOfWeek(dt))]);
+            }
+        } else if (c == 'M') {
+            if (run == 1) {
+                appendInt(mut out, dt.month);
+            } else if (run == 2) {
+                padded(mut out, dt.month, 2);
+            } else if (run == 3) {
+                let name = MONTH_NAMES[truncate<usize>(dt.month - 1)].bytes();
+                let _ = out.append(StringView.fromUtf8(name[0..3]) ?? "");
+            } else {
+                let _ = out.append(MONTH_NAMES[truncate<usize>(dt.month - 1)]);
+            }
+        } else if (c == 'y') {
+            if (run <= 2) {
+                padded(mut out, dt.year % 100, run);
+            } else {
+                padded(mut out, dt.year, run);
+            }
+        } else if (c == 'h') {
+            let h12 = if (dt.hour % 12 == 0) 12 else dt.hour % 12;
+            padded(mut out, h12, run.min(2));
+        } else if (c == 'H') {
+            padded(mut out, dt.hour, run.min(2));
+        } else if (c == 'm') {
+            padded(mut out, dt.minute, run.min(2));
+        } else if (c == 's') {
+            padded(mut out, dt.second, run.min(2));
+        } else if (c == 'f' || c == 'F') {
+            let places = run.min(7);
+            var v = dt.ticks;
+            for (j in 0..(7 - places)) {
+                v = v / 10;
+            }
+            var s = String.create();
+            padded(mut s, v, places);
+            if (c == 'F') {
+                // Trailing zeros dropped, and nothing for none.
+                let digits = s.bytes();
+                var end = digits.length;
+                while (end > 0 && digits[end - 1] == '0') {
+                    end -= 1;
+                }
+                let _ = out.append(StringView.fromUtf8(digits[0..end]) ?? "");
+            } else {
+                let _ = out.append(s.view());
+            }
+        } else if (c == 't') {
+            let marker = if (dt.hour < 12) "AM" else "PM";
+            let _ = out.append(if (run == 1) StringView.fromUtf8(marker.bytes()[0..1]) ?? "" else marker);
+        } else if (c == 0x27 || c == '"') {
+            // A quoted literal, to the matching quote.
+            var j = k + 1;
+            while (j < b.length && b[j] != c) {
+                j += 1;
+            }
+            let _ = out.append(StringView.fromUtf8(b[k + 1..j.min(b.length)]) ?? "");
+            k = j + 1;
+            continue;
+        } else if (c == '\\' && k + 1 < b.length) {
+            let one = [b[k + 1]];
+            let _ = out.append(StringView.fromUtf8(one[..]) ?? "");
+            k += 2;
+            continue;
+        } else {
+            // Any other character, one at a time (a UTF-8 sequence whole).
+            var end = k + 1;
+            while (end < b.length && (b[end] & 0xC0) == 0x80) {
+                end += 1;
+            }
+            let _ = out.append(StringView.fromUtf8(b[k..end]) ?? "");
+            k = end;
+            continue;
+        }
+        k += run;
+    }
+    return out;
+}
+
+/// 10^k as the double nearest it (what the literal 1e{k} is), k 0 to 80: .NET's s_doublePowers10.
+fn pow10(k: u32) -> f64 {
+    var text = String.create();
+    let _ = text.append("1e");
+    let _ = text.appendNumber(k as u64);
+    return NumberParsing.parseF64(text.bytes()) ?? 1.0;
+}
