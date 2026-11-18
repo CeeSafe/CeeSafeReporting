@@ -91,6 +91,11 @@ dumps (bands, positions, texts) and as pixels.
    too). addSystemFamily finds a report's fonts on the system. Sending to a printer waits for ClayWind.
 7. **MyInvoice.frx and VoucherView.frx.** A4: what they add over the receipt (watermark, PrintOnBottom, the subreport's
    page, more formats, Arabic company lines).
+   *Done.* VoucherView's pages, on one page and over two (its header repeated, PrintOn="RepeatedBand", the lines a
+   band nested in the voucher's), are CosmoReport's, prepared and in pixels; MyInvoice's were already. preparePages
+   takes the time [Date] prints (CosmoReport's Report.Now). A bold or italic face's missing characters come from a
+   regular face (CosmoReport's ImageExport too). The pen moves as CosmoFonts' (letters to the next letter, marks off
+   it: ClayWind's ShapedGlyph.advance). IPos prints vouchers.
 8. **PDF.** A PDF writer (pages, text with embedded font subsets, images, vector lines), enough for the invoices; the PDF/A-3
    parts ZATCA needs after that.
 9. **The rest of FastReport.Core,** by what reports in use need: other objects, styles, aggregates, relations, columns,
