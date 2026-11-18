@@ -11,9 +11,16 @@ public struct RenderOptions {
     /// Black and white by luminance (ThresholdToRgb), as a thermal printer prints.
     public monochrome: bool;
     public threshold: u8;
+    /// The bands packed one under another, the page as long as they are (ImageExport's, for a receipt: its paper is
+    /// as long as what it prints); otherwise each band where the engine put it, on the whole paper (a page: its
+    /// footer and the bands printed at its bottom stay at its foot).
+    public packed: bool;
 
-    /// ImageExport's: 203 dpi, monochrome at 180.
-    public fn receipt() -> RenderOptions => RenderOptions { dpi: 203, monochrome: true, threshold: 180 };
+    /// ImageExport's: 203 dpi, monochrome at 180, packed.
+    public fn receipt() -> RenderOptions => RenderOptions { dpi: 203, monochrome: true, threshold: 180, packed: true };
+
+    /// A page as it is on its paper, in colour, at `dpi`.
+    public fn paper(dpi: i64) -> RenderOptions => RenderOptions { dpi: dpi, monochrome: false, threshold: 180, packed: false };
 }
 
 /// Each prepared page of `report` drawn.
@@ -56,10 +63,10 @@ public fn renderPage(report: borrow Report, prepared: borrow PreparedPage, fonts
     }
     var cursor: f32 = 0.0;
     for (j in order.view()) {
-        tops[j] = cursor;
+        tops[j] = if (options.packed) cursor else prepared.bands[j].band.top;
         cursor += prepared.bands[j].band.height;
     }
-    var contentMm: f32 = page.topMargin + cursor / MM + page.bottomMargin;
+    var contentMm: f32 = if (options.packed) page.topMargin + cursor / MM + page.bottomMargin else page.paperHeight;
     if (contentMm < 1.0) {
         contentMm = page.topMargin + page.bottomMargin + 1.0;
     }

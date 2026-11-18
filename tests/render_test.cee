@@ -286,3 +286,53 @@ fn aLongMyInvoiceIsCosmoReportsPixelsOnEveryPage() -> Result<void, TestFailure> 
 @test
 fn aLongServersMyInvoiceIsCosmoReportsPixelsOnEveryPage() -> Result<void, TestFailure> =>
     samePagePixels("MyInvoice.server", "Invoice", "tests/data/invoice45.json", "MyInvoice.server.45");
+
+/// On paper, a band is where the engine put it: the server's MyInvoice's group footer (printed at the bottom) and
+/// its QR code at the page's foot, not after the lines as ImageExport packs them; the page as tall as A4.
+@test
+fn onPaperTheFooterStaysAtThePagesFoot() -> Result<void, TestFailure> {
+    let report = match (loadReport(readFile("tests/fixtures/MyInvoice.server.frx").view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    let pages = preparedOf("MyInvoice.server", "Invoice", "tests/data/invoice.json", report)?;
+    var storage = heapBytes(16777216);
+    let memory = FixedBufferAllocator.over(mut storage.viewMut());
+    let raster = Raster.create(memory, RasterCapacity.of(1, 1))!;
+    let fonts = Fonts.over(raster);
+    let dpi: i64 = 96;
+    let canvases = renderPages(report, pages, fonts, RenderOptions.paper(dpi));
+    let c = borrow canvases[0];
+    Check.equalU64(truncate<u64>(roundEven(297.0 * 96.0 / 25.4)), truncate<u64>(c.height))?;
+    // The group footer's barcode: its box on the page, from the engine's place for the footer.
+    var found = false;
+    for (b in pages[0].bands.view()) {
+        if (b.band.kind != Kind.GroupFooterBand) {
+            continue;
+        }
+        for (o in b.band.children.view()) {
+            if (o.kind != Kind.BarcodeObject) {
+                continue;
+            }
+            found = true;
+            let page = borrow report.pages[0];
+            let x = roundEven((page.leftMargin as f64) * 96.0 / 25.4 + ((b.band.left + o.left) as f64));
+            let y = roundEven((page.topMargin as f64) * 96.0 / 25.4 + ((b.band.top + o.top) as f64));
+            Check.isTrue(y > c.height / 2, "the footer is in the page's lower half")?;
+            var dark: i64 = 0;
+            var light: i64 = 0;
+            for (yy in y..y + truncate<i64>(o.height)) {
+                for (xx in x..x + truncate<i64>(o.width)) {
+                    let v = c.rgb[truncate<usize>((yy * c.width + xx) * 3)];
+                    if (v < 128) {
+                        dark += 1;
+                    } else {
+                        light += 1;
+                    }
+                }
+            }
+            Check.isTrue(dark > 1000 && light > 1000, "the QR code is drawn at the footer's place")?;
+        }
+    }
+    return Check.isTrue(found, "the group footer has its barcode");
+}
