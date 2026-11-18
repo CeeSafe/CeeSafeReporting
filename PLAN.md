@@ -85,6 +85,10 @@ dumps (bands, positions, texts) and as pixels.
    The receipt, the 45-item receipt and three A4 pages are CosmoReport's bytes, every one.
 6. **Preview and print in IPos.** A ClayWind view of the pages; the receipt's ESC/POS for the printer once there is a way
    to send it.
+   *Done.* IPos (iMurshisoft) shows a saved invoice's Receipt and A4 pages, saves them as PNG and the receipt as
+   ESC/POS. RenderOptions.paper draws each band where the engine put it on the whole paper (a page's footer at its
+   foot), receipt() packs them as ImageExport does. Text at 90° and 270° is drawn turned (CosmoPdf's ImageExport
+   too). addSystemFamily finds a report's fonts on the system. Sending to a printer waits for ClayWind.
 7. **MyInvoice.frx and VoucherView.frx.** A4: what they add over the receipt (watermark, PrintOnBottom, the subreport's
    page, more formats, Arabic company lines).
 8. **PDF.** A PDF writer (pages, text with embedded font subsets, images, vector lines), enough for the invoices; the PDF/A-3
