@@ -1,0 +1,471 @@
+// SPDX-License-Identifier: MIT
+// A report's data: JSON documents registered under names, as CosmoReport's RegisterData registers the server's typed
+// objects. A value is typed by the report's Dictionary (each Column's DataType: System.Decimal, System.DateTime...),
+// so the JSON of an invoice prints as its C# object does: a decimal keeps "12.50", a date is a DateTime for a date
+// format. A path resolves as BusinessObjectDataSource.ResolvePropertyPath does: member by member, the case of a
+// member's name not minded. A collection (LineItems) becomes a data source of its own over its parent's current row,
+// registered under its name, as the engine's ResolveChildCollection does.
+
+/// The kinds of value a report meets, as the .NET types a business object holds.
+public enum ValueKind {
+    Null,
+    Bool,
+    /// Int16, Int32, Int64 and the like.
+    Int,
+    Double,
+    Decimal,
+    Str,
+    Date,
+    /// byte[] (a picture).
+    Bytes,
+    /// A list (an array of the JSON): a child data source's rows.
+    Collection,
+    /// A nested object.
+    Object,
+}
+
+/// A value: its kind and the field of that kind. A Collection or Object refers to a node of a registered document.
+public struct Value {
+    public kind: ValueKind;
+    public b: bool;
+    public i: i64;
+    public d: f64;
+    public dec: Decimal;
+    public s: String;
+    public date: DateTime;
+    public bytes: Vector<u8>;
+    public doc: usize;
+    public node: usize;
+
+    public fn none() -> Value => Value.of(ValueKind.Null);
+
+    fn of(kind: ValueKind) -> Value => Value {
+        kind: kind,
+        b: false,
+        i: 0,
+        d: 0.0,
+        dec: Decimal.zero(),
+        s: String.create(),
+        date: DateTime { year: 1, month: 1, day: 1, hour: 0, minute: 0, second: 0, ticks: 0 },
+        bytes: Vector<u8>.create(),
+        doc: 0,
+        node: 0,
+    };
+
+    public fn ofBool(v: bool) -> Value {
+        var x = Value.of(ValueKind.Bool);
+        x.b = v;
+        return x;
+    }
+
+    public fn ofInt(v: i64) -> Value {
+        var x = Value.of(ValueKind.Int);
+        x.i = v;
+        return x;
+    }
+
+    public fn ofDouble(v: f64) -> Value {
+        var x = Value.of(ValueKind.Double);
+        x.d = v;
+        return x;
+    }
+
+    public fn ofDecimal(v: Decimal) -> Value {
+        var x = Value.of(ValueKind.Decimal);
+        x.dec = v;
+        return x;
+    }
+
+    public fn ofStr(v: StringView) -> Value {
+        var x = Value.of(ValueKind.Str);
+        x.s = copyOf(v);
+        return x;
+    }
+
+    public fn ofDate(v: DateTime) -> Value {
+        var x = Value.of(ValueKind.Date);
+        x.date = v;
+        return x;
+    }
+
+    public fn isNull(borrow this) -> bool => this.kind == ValueKind.Null;
+
+    /// object.ToString() of the .NET value, in the invariant culture ("" for null).
+    public fn text(borrow this) -> String => match (this.kind) {
+        ValueKind.Null => String.create(),
+        ValueKind.Bool => copyOf(if (this.b) "True" else "False"),
+        ValueKind.Int => {
+            var s = String.create();
+            appendInt(mut s, this.i);
+            s
+        },
+        ValueKind.Double => formatDouble(this.d),
+        ValueKind.Decimal => formatDecimal(this.dec),
+        ValueKind.Str => copyOf(this.s.view()),
+        ValueKind.Date => formatDateTime(this.date, ""),
+        ValueKind.Bytes => copyOf("System.Byte[]"),
+        ValueKind.Collection => copyOf("System.Collections.Generic.List`1"),
+        ValueKind.Object => String.create(),
+    };
+
+    public fn clone(borrow this) -> Value {
+        var x = Value.of(this.kind);
+        x.b = this.b;
+        x.i = this.i;
+        x.d = this.d;
+        x.dec = this.dec;
+        x.s = copyOf(this.s.view());
+        x.date = this.date;
+        for (v in this.bytes.view()) {
+            let _ = x.bytes.push(v);
+        }
+        x.doc = this.doc;
+        x.node = this.node;
+        return x;
+    }
+
+    /// Whether IConvertible.ToDouble takes it (a string only when it parses).
+    public fn toDouble(borrow this) -> f64? => match (this.kind) {
+        ValueKind.Bool => if (this.b) 1.0 else 0.0,
+        ValueKind.Int => round<f64>(this.i),
+        ValueKind.Double => this.d,
+        ValueKind.Decimal => decimalToDouble(this.dec),
+        ValueKind.Str => parseNumberAny(this.s.view()),
+        _ => null,
+    };
+}
+
+/// A number as double.TryParse with NumberStyles.Any and the invariant culture reads it: white space at the ends, a sign
+/// before or after, parentheses for a negative, groups of digits with ',', a point, an exponent, a currency sign "¤".
+public fn parseNumberAny(text: StringView) -> f64? {
+    let t = trimmed(text).bytes();
+    var digits = Vector<u8>.create();
+    var negative = false;
+    var k: usize = 0;
+    var end = t.length;
+    if (end >= 2 && t[0] == '(' && t[end - 1] == ')') {
+        negative = true;
+        k = 1;
+        end -= 1;
+    }
+    // "¤" is C2 A4 in UTF-8.
+    if (k + 1 < end && t[k] == 0xC2 && t[k + 1] == 0xA4) {
+        k += 2;
+    }
+    if (k < end && (t[k] == '-' || t[k] == '+')) {
+        negative = negative || t[k] == '-';
+        k += 1;
+    } else if (end > k && (t[end - 1] == '-' || t[end - 1] == '+')) {
+        negative = negative || t[end - 1] == '-';
+        end -= 1;
+    }
+    if (k + 1 < end && t[k] == 0xC2 && t[k + 1] == 0xA4) {
+        k += 2;
+    }
+    var seenDigit = false;
+    var seenPoint = false;
+    while (k < end) {
+        let c = t[k];
+        if (c >= '0' && c <= '9') {
+            let _ = digits.push(c);
+            seenDigit = true;
+        } else if (c == ',' && !seenPoint && seenDigit) {
+            // a group separator
+        } else if (c == '.' && !seenPoint) {
+            let _ = digits.push(c);
+            seenPoint = true;
+        } else if ((c == 'e' || c == 'E') && seenDigit) {
+            for (j in k..end) {
+                let _ = digits.push(t[j]);
+            }
+            k = end;
+            break;
+        } else {
+            return null;
+        }
+        k += 1;
+    }
+    if (!seenDigit) {
+        return null;
+    }
+    let v = NumberParsing.parseF64(digits.view())?;
+    return if (negative) -v else v;
+}
+
+// ---- the Dictionary's schema ----------------------------------------------------------------------------------------
+
+/// A column or a nested data source of the Dictionary: its name, its DataType ("System.Decimal"; empty for a nested
+/// one) and what is in it. The nodes are in Schema's arena.
+public struct SchemaNode {
+    public name: String;
+    public dataType: String;
+    public children: Vector<usize>;
+}
+
+/// The Dictionary's data sources (BusinessObjectDataSource, TableDataSource) as trees, their roots by name.
+public struct Schema {
+    public nodes: Vector<SchemaNode>;
+    public roots: Vector<usize>;
+
+    public fn create() -> Schema => Schema { nodes: Vector<SchemaNode>.create(), roots: Vector<usize>.create() };
+
+    /// The root named `name`, exactly.
+    public fn root(borrow this, name: StringView) -> usize? {
+        for (r in this.roots.view()) {
+            if (this.nodes[r].name.view() == name) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    /// Child `name` of node `at`, its case not minded.
+    public fn child(borrow this, at: usize, name: StringView) -> usize? {
+        for (c in this.nodes[at].children.view()) {
+            if (sameIgnoringCase(this.nodes[c].name.view(), name)) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    fn add(borrow mut this, node: borrow XmlNode) -> usize {
+        let _ = this.nodes.push(SchemaNode {
+            name: copyOf(node.attr("Name")),
+            dataType: copyOf(node.attr("DataType")),
+            children: Vector<usize>.create(),
+        });
+        let at = this.nodes.length - 1;
+        for (c in node.children.view()) {
+            let n = c.name.view();
+            if (n == "Column" || n == "BusinessObjectDataSource" || n == "TableDataSource") {
+                let child = this.add(c);
+                let _ = this.nodes[at].children.push(child);
+            }
+        }
+        return at;
+    }
+
+    /// The Dictionary's data sources of report file root `root`.
+    public fn read(root: borrow XmlNode) -> Schema {
+        var schema = Schema.create();
+        for (child in root.children.view()) {
+            if (child.name.view() == "Dictionary") {
+                for (d in child.children.view()) {
+                    if (d.name.view() == "BusinessObjectDataSource" || d.name.view() == "TableDataSource") {
+                        let r = schema.add(d);
+                        let _ = schema.roots.push(r);
+                    }
+                }
+            }
+        }
+        return schema;
+    }
+}
+
+// ---- data sources ----------------------------------------------------------------------------------------------------
+
+/// A data source: rows (object nodes of a document), the current one (-1 before the first), and the schema node its
+/// columns are typed by, if the Dictionary has one.
+public struct DataSource {
+    public name: String;
+    public doc: usize;
+    public rows: Vector<usize>;
+    public current: i64;
+    public schema: usize?;
+
+    public fn rowCount(borrow this) -> i64 => truncate<i64>(this.rows.length);
+    public fn first(borrow mut this) {
+        this.current = 0;
+    }
+    public fn next(borrow mut this) {
+        this.current += 1;
+    }
+}
+
+/// The data a report is given: the documents, and the data sources over them in the order they were registered
+/// (Report.DataSources, which the evaluator searches in that order).
+public struct DataSet {
+    public docs: Vector<JsonDoc>;
+    public sources: Vector<DataSource>;
+    public schema: Schema;
+
+    public fn create(schema: Schema) -> DataSet => DataSet {
+        docs: Vector<JsonDoc>.create(),
+        sources: Vector<DataSource>.create(),
+        schema: schema,
+    };
+
+    /// Registers `json` under `name` (RegisterData): an array's objects are its rows, an object is one row. Replaces a
+    /// source of that name, in its place.
+    public fn register(borrow mut this, name: StringView, json: Slice<u8>) -> Result<void, JsonDocError> {
+        let doc = parseJsonDoc(json)?;
+        let _ = this.docs.push(doc);
+        let index = this.docs.length - 1;
+        var rows = Vector<usize>.create();
+        let root = borrow this.docs[index].nodes[0];
+        if (root.kind == JsonKind.Array) {
+            for (c in root.children.view()) {
+                let _ = rows.push(c);
+            }
+        } else if (root.kind == JsonKind.Object) {
+            let _ = rows.push(0);
+        }
+        let schemaRoot = this.schema.root(name);
+        this.put(DataSource { name: copyOf(name), doc: index, rows: rows, current: -1, schema: schemaRoot });
+        return Ok();
+    }
+
+    fn put(borrow mut this, source: DataSource) {
+        for (k in 0..this.sources.length) {
+            if (this.sources[k].name.view() == source.name.view()) {
+                this.sources[k] = source;
+                return;
+            }
+        }
+        let _ = this.sources.push(source);
+    }
+
+    /// The source named `name` exactly (GetDataSource).
+    public fn find(borrow this, name: StringView) -> usize? {
+        for (k in 0..this.sources.length) {
+            if (this.sources[k].name.view() == name) {
+                return k;
+            }
+        }
+        return null;
+    }
+
+    /// Column `path` of source `at`'s current row (GetValue): null before the first row or after the last.
+    public fn value(borrow this, at: usize, path: StringView) -> Value {
+        let source = borrow this.sources[at];
+        if (source.current < 0 || source.current >= source.rowCount() || path.length == 0) {
+            return Value.none();
+        }
+        let doc = borrow this.docs[source.doc];
+        var node = source.rows[truncate<usize>(source.current)];
+        var schemaAt = source.schema;
+        for (segment in splitOn(path, '.').view()) {
+            if (doc.nodes[node].kind != JsonKind.Object) {
+                return Value.none(); // a property of a list or of a value: none here
+            }
+            node = match (doc.member(node, segment)) {
+                Some(n) => n,
+                null => { return Value.none(); }
+            };
+            schemaAt = match (schemaAt) {
+                Some(s) => this.schema.child(s, segment),
+                null => null,
+            };
+        }
+        let dataType = match (schemaAt) {
+            Some(s) => this.schema.nodes[s].dataType.view(),
+            null => "",
+        };
+        return typed(doc, source.doc, node, dataType);
+    }
+
+    /// Makes `childPath` of source `parent`'s current row a source of its own under `registerName`
+    /// (ResolveChildCollection): its first row current. Null when the parent has no row or the path is no list.
+    public fn childSource(borrow mut this, parent: usize, childPath: StringView, registerName: StringView) -> usize? {
+        let count = this.sources[parent].rowCount();
+        if (this.sources[parent].current < 0 && count > 0) {
+            this.sources[parent].current = 0;
+        }
+        if (this.sources[parent].current >= count && count > 0) {
+            this.sources[parent].current = count - 1;
+        }
+        if (this.sources[parent].current < 0) {
+            return null;
+        }
+        let list = this.value(parent, childPath);
+        if (list.kind != ValueKind.Collection) {
+            return null;
+        }
+        var rows = Vector<usize>.create();
+        for (c in this.docs[list.doc].nodes[list.node].children.view()) {
+            let _ = rows.push(c);
+        }
+        if (rows.length == 0) {
+            return null;
+        }
+        // The list's columns are typed by its node in the parent's schema.
+        var schemaAt = this.sources[parent].schema;
+        for (segment in splitOn(childPath, '.').view()) {
+            schemaAt = match (schemaAt) {
+                Some(s) => this.schema.child(s, segment),
+                null => null,
+            };
+        }
+        this.put(DataSource { name: copyOf(registerName), doc: list.doc, rows: rows, current: 0, schema: schemaAt });
+        return this.find(registerName);
+    }
+}
+
+/// Node `node` of document `doc` as the .NET value of type `dataType` ("System.Decimal"), or by its JSON kind when the
+/// Dictionary gives none (as JsonDataSource: a whole number a long, another a double).
+fn typed(doc: borrow JsonDoc, docIndex: usize, node: usize, dataType: StringView) -> Value {
+    let n = borrow doc.nodes[node];
+    match (n.kind) {
+        JsonKind.Null => { return Value.none(); }
+        JsonKind.True => { return Value.ofBool(true); }
+        JsonKind.False => { return Value.ofBool(false); }
+        JsonKind.Array => {
+            var v = Value.of(ValueKind.Collection);
+            v.doc = docIndex;
+            v.node = node;
+            return v;
+        }
+        JsonKind.Object => {
+            var v = Value.of(ValueKind.Object);
+            v.doc = docIndex;
+            v.node = node;
+            return v;
+        }
+        _ => {}
+    }
+    let t = n.text.view();
+    let kind = if (dataType.startsWith("System.")) StringView.fromUtf8(dataType.bytes()[7..]) ?? "" else dataType;
+    if (kind == "Decimal") {
+        match (parseDecimal(t)) {
+            Some(d) => { return Value.ofDecimal(d); }
+            null => {}
+        }
+    } else if (kind == "Int32" || kind == "Int64" || kind == "Int16" || kind == "Byte" || kind == "SByte" ||
+        kind == "UInt16" || kind == "UInt32" || kind == "UInt64") {
+        match (parseInt(t)) {
+            Some(i) => { return Value.ofInt(i); }
+            null => {}
+        }
+    } else if (kind == "Double" || kind == "Single") {
+        match (NumberParsing.parseF64(t.bytes())) {
+            Some(d) => { return Value.ofDouble(d); }
+            null => {}
+        }
+    } else if (kind == "DateTime") {
+        match (parseDateTime(t)) {
+            Some(dt) => { return Value.ofDate(dt); }
+            null => {}
+        }
+    } else if (kind == "Byte[]") {
+        match (base64(t)) {
+            Some(bytes) => {
+                var v = Value.of(ValueKind.Bytes);
+                v.bytes = bytes;
+                return v;
+            }
+            null => {}
+        }
+    } else if (kind == "String" || kind.length > 0) {
+        return Value.ofStr(t);
+    }
+    // No type: as JsonDataSource reads it.
+    if (n.kind == JsonKind.Number) {
+        match (parseInt(t)) {
+            Some(i) => { return Value.ofInt(i); }
+            null => {}
+        }
+        return Value.ofDouble(NumberParsing.parseF64(t.bytes()) ?? 0.0);
+    }
+    return Value.ofStr(t);
+}

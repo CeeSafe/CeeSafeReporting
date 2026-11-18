@@ -359,6 +359,11 @@ public struct ReportPage {
 public struct Report {
     public doublePass: bool;
     public totals: Vector<Total>;
+    /// The Dictionary's data sources, which type the data's values.
+    public schema: Schema;
+    /// The Dictionary's parameters with their values (Parameter.GetRuntimeValue); one without a value is none.
+    public parameterNames: Vector<String>;
+    public parameterValues: Vector<Value>;
     public scriptText: String;
     public pages: Vector<ReportPage>;
 }
@@ -381,6 +386,9 @@ public fn loadReport(bytes: Slice<u8>) -> Result<Report, LoadError> {
     var report = Report {
         doublePass: a.bool("DoublePass", false),
         totals: Vector<Total>.create(),
+        schema: Schema.read(root),
+        parameterNames: Vector<String>.create(),
+        parameterValues: Vector<Value>.create(),
         scriptText: String.create(),
         pages: Vector<ReportPage>.create(),
     };
@@ -388,6 +396,9 @@ public fn loadReport(bytes: Slice<u8>) -> Result<Report, LoadError> {
     for (child in root.children.view()) {
         if (child.name.view() == "Dictionary") {
             for (d in child.children.view()) {
+                if (d.name.view() == "Parameter") {
+                    readParameter(mut report, d);
+                }
                 if (d.name.view() == "Total") {
                     let t = readTotal(d);
                     if (t.name.view().length > 0) {
@@ -418,6 +429,61 @@ public fn loadReport(bytes: Slice<u8>) -> Result<Report, LoadError> {
         }
     }
     return Ok(report);
+}
+
+/// A parameter (ParseParameter): its value from "Value" or "AsString" by its DataType; one with a value, or the first
+/// of its name, is kept.
+fn readParameter(report: borrow mut Report, p: borrow XmlNode) {
+    let name = p.attr("Name");
+    if (name.length == 0) {
+        return;
+    }
+    var text = p.attr("Value");
+    if (text.length == 0) {
+        text = p.attr("AsString");
+    }
+    let dataType = if (p.attr("DataType").length == 0) "System.String" else p.attr("DataType");
+    var value = Value.none();
+    if (text.length > 0) {
+        value = Value.ofStr(text);
+        if (dataType == "System.Int16" || dataType == "System.Int32" || dataType == "System.Int64") {
+            match (parseInt(text)) {
+                Some(i) => { value = Value.ofInt(i); }
+                null => {}
+            }
+        } else if (dataType == "System.Decimal") {
+            match (parseDecimal(text)) {
+                Some(d) => { value = Value.ofDecimal(d); }
+                null => {}
+            }
+        } else if (dataType == "System.Double" || dataType == "System.Single") {
+            match (NumberParsing.parseF64(trimmed(text).bytes())) {
+                Some(d) => { value = Value.ofDouble(d); }
+                null => {}
+            }
+        } else if (dataType == "System.Boolean") {
+            if (sameIgnoringCase(trimmed(text), "true")) {
+                value = Value.ofBool(true);
+            } else if (sameIgnoringCase(trimmed(text), "false")) {
+                value = Value.ofBool(false);
+            }
+        } else if (dataType == "System.DateTime") {
+            match (parseDateTime(text)) {
+                Some(dt) => { value = Value.ofDate(dt); }
+                null => {}
+            }
+        }
+    }
+    for (k in 0..report.parameterNames.length) {
+        if (report.parameterNames[k].view() == name) {
+            if (!value.isNull()) {
+                report.parameterValues[k] = value;
+            }
+            return;
+        }
+    }
+    let _ = report.parameterNames.push(copyOf(name));
+    let _ = report.parameterValues.push(value);
 }
 
 fn readTotal(t: borrow XmlNode) -> Total {

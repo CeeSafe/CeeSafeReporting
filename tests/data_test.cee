@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MIT
+// The data layer: the sample invoice's JSON registered as the server registers its object, each value typed by the
+// report's Dictionary, and its lists made data sources of their own as the engine makes them.
+
+fn bytesOf(path: StringView) -> Vector<u8> {
+    var bytes = Vector<u8>.create();
+    var file = match (File.open(path)) {
+        Ok(f) => f,
+        Err(_) => { return bytes; }
+    };
+    var buffer = [0u8; 65536];
+    loop {
+        let n = match (file.read(mut buffer[..])) {
+            Ok(n) => n,
+            Err(_) => { break; }
+        };
+        if (n == 0) {
+            break;
+        }
+        for (i in 0..n) {
+            let _ = bytes.push(buffer[i]);
+        }
+    }
+    return bytes;
+}
+
+fn shows(v: Value, want: StringView, kind: ValueKind) -> Result<void, TestFailure> {
+    let got = v.text();
+    if (got.view() != want || v.kind != kind) {
+        Console.write("  want ");
+        Console.write(want);
+        Console.write(", got ");
+        Console.writeLine(got.view());
+        return Err(TestFailure.create("a value is not what the server's object holds"));
+    }
+    return Ok();
+}
+
+@test
+fn theInvoicesValuesAreTypedByTheDictionary() -> Result<void, TestFailure> {
+    let report = match (loadReport(bytesOf("tests/fixtures/MyInvoice.server.frx").view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    var data = DataSet.create(report.schema);
+    match (data.register("Invoice", bytesOf("tests/data/invoice.json").view())) {
+        Ok() => {}
+        Err(e) => {
+            Console.writeLine(e.message.view());
+            return Err(TestFailure.create("the data did not read"));
+        }
+    }
+    let invoice = data.find("Invoice") ?? 99;
+    Check.isTrue(invoice == 0, "the source is registered")?;
+    shows(data.value(invoice, "NetAmount"), "", ValueKind.Null)?; // before the first row
+    data.sources[invoice].first();
+    shows(data.value(invoice, "NetAmount"), "10559.47", ValueKind.Decimal)?;
+    shows(data.value(invoice, "CashAmount"), "10000.00", ValueKind.Decimal)?;
+    shows(data.value(invoice, "Discount"), "0", ValueKind.Decimal)?;
+    shows(data.value(invoice, "TransactionDate"), "11/18/2026 14:15:00", ValueKind.Date)?;
+    shows(data.value(invoice, "BranchID"), "1", ValueKind.Int)?;
+    shows(data.value(invoice, "customer.accountno"), "CUST-001", ValueKind.Str)?; // case not minded
+    shows(data.value(invoice, "Customer.CreditLimit"), "5000", ValueKind.Decimal)?;
+    shows(data.value(invoice, "CompanyInfo.ELine4"), "VAT: 300753467100003", ValueKind.Str)?;
+    shows(data.value(invoice, "Nope"), "", ValueKind.Null)?;
+    shows(data.value(invoice, "LineItems.Quantity"), "", ValueKind.Null)?; // a property of a list: none
+    Check.isTrue(data.value(invoice, "LineItems").kind == ValueKind.Collection, "a list")?;
+    let items = match (data.childSource(invoice, "LineItems", "LineItems")) {
+        Some(k) => k,
+        null => { return Err(TestFailure.create("no LineItems source")); }
+    };
+    Check.equalU64(7, truncate<u64>(data.sources[items].rowCount()))?;
+    shows(data.value(items, "ItemName"), "غسالة سامسونج 8 كيلو", ValueKind.Str)?;
+    shows(data.value(items, "Quantity"), "2", ValueKind.Decimal)?;
+    shows(data.value(items, "AmountWithTax"), "3450.00", ValueKind.Decimal)?;
+    shows(data.value(items, "ItemDetailsCount"), "0", ValueKind.Int)?;
+    data.sources[items].current = 6;
+    shows(data.value(items, "SalesPrice"), "120.50", ValueKind.Decimal)?;
+    let details = match (data.childSource(items, "ItemDetails", "ItemDetails")) {
+        Some(k) => k,
+        null => { return Err(TestFailure.create("no ItemDetails source")); }
+    };
+    Check.equalU64(2, truncate<u64>(data.sources[details].rowCount()))?;
+    shows(data.value(details, "Height"), "0.006", ValueKind.Decimal)?;
+    data.sources[items].next();
+    shows(data.value(items, "ItemName"), "", ValueKind.Null)?; // after the last row
+    return Ok();
+}

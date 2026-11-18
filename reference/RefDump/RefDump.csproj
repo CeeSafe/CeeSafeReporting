@@ -9,6 +9,10 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
+    <!-- The sample invoice's classes, as the server's (FastReport.ZatcaTest). -->
+    <Compile Include="../../../../CosmoDesign/CosmoPdf/FastReport/samples/FastReport.ZatcaTest/Models.cs" Link="Models.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../../../CosmoDesign/CosmoPdf/FastReport/src/FastReport.Core/FastReport.Core.csproj" />
   </ItemGroup>
 </Project>

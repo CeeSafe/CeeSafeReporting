@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: MIT
+// A JSON document as a report's data reads it: a tree of nodes in one arena, each number kept as the text it was
+// written in, so a decimal keeps its scale ("12.50" is 12.50, as System.Text.Json reads a decimal), and a string
+// with its escapes decoded. (The json package keeps a number as an integer or a double, which loses "12.50"'s zero.)
+
+public enum JsonKind {
+    Null,
+    True,
+    False,
+    Number,
+    String,
+    Array,
+    Object,
+}
+
+/// A node: its kind, its text (a number's digits, a string's characters), and for an array or object its children
+/// (indexes into the document) with an object's keys beside them.
+public struct JsonNode {
+    public kind: JsonKind;
+    public text: String;
+    public children: Vector<usize>;
+    public keys: Vector<String>;
+}
+
+/// A whole document: its nodes, the root first.
+public struct JsonDoc {
+    public nodes: Vector<JsonNode>;
+
+    public fn root(borrow this) -> usize => 0;
+
+    /// Member `name` of object node `at`: the first whose key is `name` exactly, else the first that is the same but for
+    /// ASCII case (as .NET finds a property with IgnoreCase).
+    public fn member(borrow this, at: usize, name: StringView) -> usize? {
+        let n = borrow this.nodes[at];
+        if (n.kind != JsonKind.Object) {
+            return null;
+        }
+        for (k in 0..n.keys.length) {
+            if (n.keys[k].view() == name) {
+                return n.children[k];
+            }
+        }
+        for (k in 0..n.keys.length) {
+            if (sameIgnoringCase(n.keys[k].view(), name)) {
+                return n.children[k];
+            }
+        }
+        return null;
+    }
+}
+
+/// Why a document could not be read, and where.
+public struct JsonDocError {
+    public offset: usize;
+    public message: String;
+}
+
+/// Reads `bytes` (UTF-8 JSON) into a document.
+public fn parseJsonDoc(bytes: Slice<u8>) -> Result<JsonDoc, JsonDocError> {
+    var r = JsonReader { b: bytes, at: 0, doc: JsonDoc { nodes: Vector<JsonNode>.create() } };
+    if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        r.at = 3;
+    }
+    r.space();
+    let _ = r.value(0)?;
+    r.space();
+    if (r.at != bytes.length) {
+        return Err(JsonDocError { offset: r.at, message: copyOf("Text after the document.") });
+    }
+    return Ok(r.doc);
+}
+
+struct JsonReader<region r> {
+    b: Slice<r, u8>;
+    at: usize;
+    doc: JsonDoc;
+}
+
+impl<region r> JsonReader<r> {
+    fn fail(borrow this, message: StringView) -> JsonDocError => JsonDocError { offset: this.at, message: copyOf(message) };
+
+    fn space(borrow mut this) {
+        while (this.at < this.b.length &&
+            (this.b[this.at] == ' ' || this.b[this.at] == '\t' || this.b[this.at] == '\n' || this.b[this.at] == '\r')) {
+            this.at += 1;
+        }
+    }
+
+    fn add(borrow mut this, kind: JsonKind, text: String) -> usize {
+        let _ = this.doc.nodes.push(JsonNode {
+            kind: kind,
+            text: text,
+            children: Vector<usize>.create(),
+            keys: Vector<String>.create(),
+        });
+        return this.doc.nodes.length - 1;
+    }
+
+    fn word(borrow mut this, w: StringView) -> bool {
+        let x = w.bytes();
+        if (this.at + x.length > this.b.length) {
+            return false;
+        }
+        for (k in 0..x.length) {
+            if (this.b[this.at + k] != x[k]) {
+                return false;
+            }
+        }
+        this.at += x.length;
+        return true;
+    }
+
+    /// A value at the reader: its node's index.
+    fn value(borrow mut this, depth: u32) -> Result<usize, JsonDocError> {
+        if (depth > 256) {
+            return Err(this.fail("Nested too deep."));
+        }
+        if (this.at >= this.b.length) {
+            return Err(this.fail("A value was expected."));
+        }
+        let c = this.b[this.at];
+        if (c == '{') {
+            this.at += 1;
+            let node = this.add(JsonKind.Object, String.create());
+            this.space();
+            if (this.at < this.b.length && this.b[this.at] == '}') {
+                this.at += 1;
+                return Ok(node);
+            }
+            loop {
+                this.space();
+                if (this.at >= this.b.length || this.b[this.at] != '"') {
+                    return Err(this.fail("A key was expected."));
+                }
+                let key = this.string()?;
+                this.space();
+                if (this.at >= this.b.length || this.b[this.at] != ':') {
+                    return Err(this.fail("':' was expected."));
+                }
+                this.at += 1;
+                this.space();
+                let child = this.value(depth + 1)?;
+                let _ = this.doc.nodes[node].keys.push(key);
+                let _ = this.doc.nodes[node].children.push(child);
+                this.space();
+                if (this.at < this.b.length && this.b[this.at] == ',') {
+                    this.at += 1;
+                } else if (this.at < this.b.length && this.b[this.at] == '}') {
+                    this.at += 1;
+                    return Ok(node);
+                } else {
+                    return Err(this.fail("',' or '}' was expected."));
+                }
+            }
+        }
+        if (c == '[') {
+            this.at += 1;
+            let node = this.add(JsonKind.Array, String.create());
+            this.space();
+            if (this.at < this.b.length && this.b[this.at] == ']') {
+                this.at += 1;
+                return Ok(node);
+            }
+            loop {
+                this.space();
+                let child = this.value(depth + 1)?;
+                let _ = this.doc.nodes[node].children.push(child);
+                this.space();
+                if (this.at < this.b.length && this.b[this.at] == ',') {
+                    this.at += 1;
+                } else if (this.at < this.b.length && this.b[this.at] == ']') {
+                    this.at += 1;
+                    return Ok(node);
+                } else {
+                    return Err(this.fail("',' or ']' was expected."));
+                }
+            }
+        }
+        if (c == '"') {
+            let s = this.string()?;
+            return Ok(this.add(JsonKind.String, s));
+        }
+        if (this.word("true")) {
+            return Ok(this.add(JsonKind.True, String.create()));
+        }
+        if (this.word("false")) {
+            return Ok(this.add(JsonKind.False, String.create()));
+        }
+        if (this.word("null")) {
+            return Ok(this.add(JsonKind.Null, String.create()));
+        }
+        if (c == '-' || (c >= '0' && c <= '9')) {
+            let start = this.at;
+            if (this.b[this.at] == '-') {
+                this.at += 1;
+            }
+            var digits = 0;
+            while (this.at < this.b.length) {
+                let d = this.b[this.at];
+                if ((d >= '0' && d <= '9') || d == '.' || d == 'e' || d == 'E' || d == '+' || d == '-') {
+                    if (d >= '0' && d <= '9') {
+                        digits += 1;
+                    }
+                    this.at += 1;
+                } else {
+                    break;
+                }
+            }
+            if (digits == 0) {
+                return Err(this.fail("A number has no digits."));
+            }
+            let text = stringOf(this.b[start..this.at]);
+            return Ok(this.add(JsonKind.Number, text));
+        }
+        return Err(this.fail("A value was expected."));
+    }
+
+    /// A string at the reader (its opening quote): its characters, escapes decoded.
+    fn string(borrow mut this) -> Result<String, JsonDocError> {
+        this.at += 1;
+        var out = Vector<u8>.create();
+        loop {
+            if (this.at >= this.b.length) {
+                return Err(this.fail("A string is not closed."));
+            }
+            let c = this.b[this.at];
+            this.at += 1;
+            if (c == '"') {
+                break;
+            }
+            if (c != '\\') {
+                let _ = out.push(c);
+                continue;
+            }
+            if (this.at >= this.b.length) {
+                return Err(this.fail("A string is not closed."));
+            }
+            let e = this.b[this.at];
+            this.at += 1;
+            if (e == 'u') {
+                var code = this.hex4()?;
+                if (code >= 0xD800 && code <= 0xDBFF && this.at + 1 < this.b.length && this.b[this.at] == '\\' &&
+                    this.b[this.at + 1] == 'u') {
+                    this.at += 2;
+                    let low = this.hex4()?;
+                    if (low >= 0xDC00 && low <= 0xDFFF) {
+                        code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+                    }
+                }
+                pushUtf8(mut out, code);
+            } else {
+                let _ = out.push(if (e == 'n') '\n' else if (e == 'r') '\r' else if (e == 't') '\t' else if (e == 'b') 8
+                    else if (e == 'f') 12 else e);
+            }
+        }
+        return Ok(stringOf(out.view()));
+    }
+
+    fn hex4(borrow mut this) -> Result<u32, JsonDocError> {
+        if (this.at + 4 > this.b.length) {
+            return Err(this.fail("A \\u escape needs four digits."));
+        }
+        var v: u32 = 0;
+        for (k in 0..4usize) {
+            let c = this.b[this.at + k];
+            let d: u32 = if (c >= '0' && c <= '9') (c - '0') as u32 else if (c >= 'a' && c <= 'f') (c - 'a') as u32 + 10
+                else if (c >= 'A' && c <= 'F') (c - 'A') as u32 + 10 else { return Err(this.fail("A \\u escape needs hex digits.")); };
+            v = v * 16 + d;
+        }
+        this.at += 4;
+        return Ok(v);
+    }
+}

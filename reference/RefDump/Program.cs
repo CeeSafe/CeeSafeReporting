@@ -18,9 +18,19 @@ if (args.Length == 1 && args[0] == "values")
     Console.Out.Write(Values.Table());
     return 0;
 }
+if (args.Length == 1 && args[0] == "sample")
+{
+    Console.Out.Write(Texts.SampleJson());
+    return 0;
+}
+if (args.Length == 4 && args[0] == "texts")
+{
+    Console.Out.Write(Texts.Evaluate(args[1], args[2], args[3]));
+    return 0;
+}
 if (args.Length != 2 || args[0] != "model")
 {
-    Console.Error.WriteLine("usage: RefDump model <file.frx> | values");
+    Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample | texts <file.frx> <data.json> <name>");
     return 2;
 }
 var report = new Report();

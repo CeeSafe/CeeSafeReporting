@@ -1,0 +1,60 @@
+Text12 | 
+Cell1 | Invoice #
+Cell2 | 1-C-TEST-001
+Cell3 | رقم الفاتورة:
+Cell6 | Date:
+Cell7 | 18/11/2026
+Cell8 | التاريخ:
+Cell9 | Time:
+Cell10 | 14:15:00
+Cell11 | الوقت:
+Cell51 | Cashier:
+Cell52 | admin
+Cell53 | الكاشير:
+Cell54 | العميل Customer: شركة الأمل التجارية
+Cell55 | 
+Cell56 | 
+Cell64 | 
+Cell65 | 
+Cell66 | 
+Text45 | 
+Text47 | 
+Text44 | 
+Text48 | فاتورة ضريبية
+Text52 | فاتورة ضريبية مبسطة
+Text29 | 
+Text7 | 
+Text9 | 1
+Text10 | 
+Text14 | 
+Text72 | 
+Text73 | 
+Text74 | 
+Text15 | المبلغ
+Text8 | اسم الصنف
+Text11 | العدد
+Text35 | #
+Text75 | الوحدة
+Text76 | السعر
+Text36 | شكراً لزيارتكم ... خدمتكم شرف لنا
+Barcode1 | 
+Text53 | 10,559.47
+Text54 | الاجمالي الفرعي\r\nSub Total
+Text55 | خصم\r\nDiscount
+Text56 | الصافي\r\nNet Amount
+Text57 | 9,182.15
+Text58 | 0.00
+Text59 | 
+Text60 | Tax الضريبة\r\n15%
+Text61 | الإجمالي النهائي\r\nGrand Total
+Text62 | عدد القطع\r\nItems Count
+Text63 | 1,377.32
+Text64 | 10,559.47
+Text65 | 
+Text66 | نقداً\r\nCash
+Text67 | الباقي\r\nChange
+Text68 | شبكة\r\nSpan
+Text69 | 10,000.00
+Text70 | 
+Text71 | 559.47
+Barcode2 | 
