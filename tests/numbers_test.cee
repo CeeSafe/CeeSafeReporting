@@ -128,3 +128,19 @@ fn numbersAndDatesAreWrittenAsDotNetWritesThem() -> Result<void, TestFailure> {
     Check.equalU64(94, lines as u64)?;
     return Check.isTrue(bad == 0, "every value is written as .NET writes it");
 }
+
+@test
+fn unixSecondsAreACalendarTime() -> Result<void, TestFailure> {
+    let t = DateTime.fromUnixSeconds(1795013640);
+    Check.equalI64(2026, t.year)?;
+    Check.equalI64(11, t.month)?;
+    Check.equalI64(18, t.day)?;
+    Check.equalI64(14, t.hour)?;
+    Check.equalI64(54, t.minute)?;
+    Check.equalI64(0, t.second)?;
+    let before = DateTime.fromUnixSeconds(-1);
+    Check.equalI64(1969, before.year)?;
+    Check.equalI64(12, before.month)?;
+    Check.equalI64(31, before.day)?;
+    return Check.equalI64(23, before.hour);
+}

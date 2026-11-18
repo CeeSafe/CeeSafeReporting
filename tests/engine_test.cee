@@ -34,8 +34,8 @@ fn samePages(file: StringView, sourceName: StringView, dataFile: StringView, exp
     var handlers = Handlers.create();
     handlers.add("Data1_BeforePrint", shadeOddRows);
     // PosInvoice's script does not compile in CosmoReport (it names Image), so it runs there with none.
-    let pages = if (file == "PosInvoice") preparePages(report, data, Handlers.create(), NewlinesOnly.create())
-        else preparePages(report, data, handlers, NewlinesOnly.create());
+    let pages = if (file == "PosInvoice") preparePages(report, data, Handlers.create(), NewlinesOnly.create(), testNow())
+        else preparePages(report, data, handlers, NewlinesOnly.create(), testNow());
     let got = dumpPrepared(report, pages);
     let want = readFile(expected);
     let wantText = StringView.fromUtf8(want.view()) ?? "";
@@ -88,3 +88,14 @@ fn aLongMyInvoiceRunsOverPagesAsCosmoReports() -> Result<void, TestFailure> =>
 @test
 fn aLongServersMyInvoiceRunsOverPagesAsCosmoReports() -> Result<void, TestFailure> =>
     samePages("MyInvoice.server", "Invoice", "tests/data/invoice45.json", "tests/expected/MyInvoice.server.prepared45.txt");
+
+/// The time [Date] prints in the tests: the reference harness's (RefDump's Prepared.TestNow).
+fn testNow() -> DateTime => DateTime { year: 2026, month: 11, day: 18, hour: 14, minute: 54, second: 0, ticks: 0 };
+
+@test
+fn theVoucherPagesAreCosmoReports() -> Result<void, TestFailure> =>
+    samePages("VoucherView", "Voucher", "tests/data/voucher.json", "tests/expected/VoucherView.prepared.txt");
+
+@test
+fn aLongVoucherRunsOverPagesAsCosmoReports() -> Result<void, TestFailure> =>
+    samePages("VoucherView", "Voucher", "tests/data/voucher30.json", "tests/expected/VoucherView.prepared30.txt");

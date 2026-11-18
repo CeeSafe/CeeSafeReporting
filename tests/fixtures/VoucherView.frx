@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="02/07/2015 19:14:46" ReportInfo.Modified="01/13/2022 13:06:28" ReportInfo.CreatorVersion="2022.1.6.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Voucher" ReferenceName="Voucher" DataType="null" Enabled="true">
+      <Column Name="CompanyInfo" DataType="null">
+        <Column Name="CompanyLogo" DataType="System.Byte[]" BindableControl="Picture"/>
+        <Column Name="ACompanyName" DataType="System.String"/>
+        <Column Name="ALine1" DataType="System.String"/>
+        <Column Name="ALine2" DataType="System.String"/>
+        <Column Name="ALine3" DataType="System.String"/>
+        <Column Name="ALine4" DataType="System.String"/>
+        <Column Name="ECompanyName" DataType="System.String"/>
+        <Column Name="ELine1" DataType="System.String"/>
+        <Column Name="ELine2" DataType="System.String"/>
+        <Column Name="ELine3" DataType="System.String"/>
+        <Column Name="ELine4" DataType="System.String"/>
+        <Column Name="SponsorNo" DataType="System.String"/>
+        <Column Name="SponsorName" DataType="System.String"/>
+        <Column Name="SponsorAddress" DataType="System.String"/>
+        <Column Name="SponsorTel" DataType="System.String"/>
+      </Column>
+      <Column Name="Logo" DataType="System.Drawing.Image, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" BindableControl="Picture"/>
+      <Column Name="BranchName" DataType="System.String"/>
+      <Column Name="Amount" DataType="System.Decimal"/>
+      <Column Name="AmountInWords" DataType="System.String"/>
+      <BusinessObjectDataSource Name="PrintLineItems" DataType="null" Enabled="true">
+        <Column Name="CostCenterName" DataType="System.String"/>
+        <Column Name="VoucherNo" DataType="System.String"/>
+        <Column Name="AccountNo" DataType="System.String"/>
+        <Column Name="AccountName" DataType="System.String"/>
+        <Column Name="Details2" DataType="System.String"/>
+        <Column Name="DebitAmount" DataType="System.Decimal"/>
+        <Column Name="CreditAmount" DataType="System.Decimal"/>
+        <Column Name="SerialNo" DataType="System.Int32"/>
+        <Column Name="CostCenterID" DataType="System.Int32"/>
+        <Column Name="DocumentNo" DataType="System.String"/>
+      </BusinessObjectDataSource>
+      <Column Name="ShowDetails" DataType="System.Boolean" BindableControl="CheckBox"/>
+      <Column Name="UserInterface" DataType="System.String"/>
+      <Column Name="VoucherNo" DataType="System.String"/>
+      <Column Name="VoucherDate" DataType="System.DateTime"/>
+      <Column Name="OtherNo" DataType="System.String"/>
+      <Column Name="BillTo" DataType="System.String"/>
+      <Column Name="Details" DataType="System.String"/>
+      <Column Name="UserName" DataType="System.String"/>
+      <Column Name="VoucherTypeID" DataType="System.Int32"/>
+      <Column Name="VoucherTypeName" DataType="System.String"/>
+      <Column Name="ChequeNo" DataType="System.String"/>
+      <Column Name="ChequeDueDate" DataType="System.DateTime"/>
+      <Column Name="ChequeType" DataType="System.Int32"/>
+      <Column Name="PendingInvoice" DataType="System.Boolean" BindableControl="CheckBox"/>
+      <Column Name="FinancialYear" DataType="System.Int32"/>
+      <Column Name="sno" DataType="System.Int32"/>
+      <Column Name="BranchID" DataType="System.Int32"/>
+      <Column Name="VoucherDate2" DataType="System.String"/>
+      <Column Name="AccountingDate" DataType="System.DateTime"/>
+      <Column Name="Posted" DataType="System.Boolean" BindableControl="CheckBox"/>
+      <Column Name="PaymentMethodID" DataType="System.Int32"/>
+      <Column Name="BalanceAmount" DataType="System.Decimal"/>
+      <Column Name="PaymentModeID" DataType="System.Int32"/>
+      <Column Name="VoucherTypeMenuName" DataType="System.String"/>
+      <Column Name="DebitAmountTotal" DataType="System.Decimal"/>
+      <Column Name="CreditAmountTotal" DataType="System.Decimal"/>
+      <BusinessObjectDataSource Name="VoucherDetails" DataType="null" Enabled="true">
+        <Column Name="VoucherNo" DataType="System.String"/>
+        <Column Name="AccountNo" DataType="System.String"/>
+        <Column Name="AccountName" DataType="System.String"/>
+        <Column Name="Details2" DataType="System.String"/>
+        <Column Name="DebitAmount" DataType="System.Decimal"/>
+        <Column Name="CreditAmount" DataType="System.Decimal"/>
+        <Column Name="SerialNo" DataType="System.Int32"/>
+        <Column Name="CostCenterID" DataType="System.Int32"/>
+        <Column Name="DocumentNo" DataType="System.String"/>
+      </BusinessObjectDataSource>
+    </BusinessObjectDataSource>
+  </Dictionary>
+  <ReportPage Name="Page1" Watermark.Font="Arial, 60pt">
+    <GroupHeaderBand Name="GroupHeader1" Width="718.2" Height="517.86" RepeatOnEveryPage="true" Condition="[Voucher.VoucherNo]" SortOrder="None">
+      <TextObject Name="Text6" Left="9.45" Top="18.9" Width="226.8" Height="24.57" Text="[Voucher.CompanyInfo.ECompanyName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
+      <TextObject Name="Text1" Left="481.95" Top="24.35" Width="226.8" Height="24.57" Text="[Voucher.CompanyInfo.ACompanyName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
+      <PictureObject Name="Picture1" Left="283.5" Top="18.9" Width="132.3" Height="75.6" DataColumn="Voucher.Logo"/>
+      <TextObject Name="Text2" Left="481.95" Top="47.25" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ALine1]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text3" Left="481.95" Top="66.15" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ALine2]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text7" Left="9.45" Top="51.25" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ELine1]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text8" Left="9.45" Top="70.15" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ELine2]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text4" Left="481.95" Top="85.05" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ALine3]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text9" Left="9.45" Top="89.05" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ELine3]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text5" Left="481.95" Top="100.5" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ALine4]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text30" Left="9.45" Top="141.75" Width="699.3" Height="28.35" Border.Lines="All" Fill.Color="Gainsboro" Text="[Voucher.VoucherTypeName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
+      <TextObject Name="Text10" Left="9.45" Top="107.95" Width="226.8" Height="18.9" Text="[Voucher.CompanyInfo.ELine4]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text31" Left="236.25" Top="113.4" Width="236.25" Height="18.9" Text="[Voucher.BranchName]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Underline"/>
+      <TableObject Name="Table1" Left="9.45" Top="170.1" Width="699.3" Height="105.84" Border.Lines="All">
+        <TableColumn Name="Column1" Width="94.5"/>
+        <TableColumn Name="Column2" Width="11.34"/>
+        <TableColumn Name="Column3" Width="143.64"/>
+        <TableColumn Name="Column4" Width="11.34"/>
+        <TableColumn Name="Column5"/>
+        <TableColumn Name="Column11"/>
+        <TableColumn Name="Column6" Width="83.16"/>
+        <TableColumn Name="Column7" Width="11.34"/>
+        <TableColumn Name="Column8" Width="143.64"/>
+        <TableColumn Name="Column9" Width="11.34"/>
+        <TableColumn Name="Column10" Width="56.7"/>
+        <TableRow Name="Row1" Height="26.46">
+          <TableCell Name="Cell1" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="Voucher No" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell2" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell3" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="Gainsboro" Text="[Voucher.VoucherNo]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell4" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell5" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="رقم السند" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell51" Border.Lines="Bottom" Border.BottomLine.Style="Dot" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell26" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="Date" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell27" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell36" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.VoucherDate]" Format="Custom" Format.Format="dd/MM/yyyy" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell37" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell38" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="التاريخ" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row2" Height="26.46">
+          <TableCell Name="Cell6" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="Document#" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell7" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell8" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.OtherNo]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell9" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell10" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="رقم مستند" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell52" Border.Lines="Bottom" Border.BottomLine.Style="Dot" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell28" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="Corresp." HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell29" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell39" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.VoucherDate2]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell40" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell41" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="الموافق" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row3" Height="26.46">
+          <TableCell Name="Cell11" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="Cheque No" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell12" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell13" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.ChequeNo]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell14" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell15" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="رقم شيك" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell53" Border.Lines="Bottom" Border.BottomLine.Style="Dot" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell30" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="Amount" HorzAlign="Center" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+          <TableCell Name="Cell31" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell42" Border.Lines="All" Border.BottomLine.Style="Dot" Fill.Color="Gainsboro" Text="[Voucher.Amount]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="1" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell43" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text=":" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+          <TableCell Name="Cell44" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="المبلغ" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+        </TableRow>
+        <TableRow Name="Row4" Height="26.46">
+          <TableCell Name="Cell54" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Fill.Color="Gainsboro" Text="[Voucher.AmountInWords]" AutoShrink="FontWidth" HorzAlign="Center" VertAlign="Bottom" RightToLeft="true" Font="Arial, 12pt, style=Bold" ColSpan="11"/>
+          <TableCell Name="Cell55" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell56" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell57" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell58" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell59" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell60" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell61" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell62" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell63" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+          <TableCell Name="Cell64" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Font="Arial, 10pt"/>
+        </TableRow>
+      </TableObject>
+      <TextObject Name="Text32" Left="9.45" Top="323.75" Width="699.3" Height="37.8" Border.Lines="All" Border.BottomLine.Style="Dot" Text="[Voucher.Details]" AutoShrink="FontWidth" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text11" Left="9.45" Top="276.5" Width="699.3" Height="47.25" Border.Lines="All" Border.BottomLine.Style="Dot" Text="[IIf([Voucher.VoucherTypeID]==2,&quot;اصرفو للمكرم/&quot;,&quot;تم القبض من المكرم/&quot;)] :  [Voucher.BillTo]" AutoShrink="FontWidth" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text18" Left="9.45" Top="463.05" Width="283.5" Height="26.46" Text="القيد المحاسبي" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text42" Left="614.25" Top="463.05" Width="94.5" Height="26.46" PrintOn="RepeatedBand" Text="تابع السند ...رقم " HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 10pt, style=Italic"/>
+      <TextObject Name="Text33" Left="9.45" Top="491.4" Width="56.7" Height="26.46" Border.Lines="All" Fill.Color="Gainsboro" Text="رقم الحساب" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text34" Left="66.15" Top="491.4" Width="141.75" Height="26.46" Border.Lines="All" Fill.Color="Gainsboro" Text="اسم الحساب" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text35" Left="207.9" Top="491.4" Width="85.05" Height="26.46" Border.Lines="All" Fill.Color="Gainsboro" Text="مركز تكلفة" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text36" Left="519.75" Top="491.4" Width="94.5" Height="26.46" Border.Lines="All" Fill.Color="Gainsboro" Text="دائن" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text37" Left="614.25" Top="491.4" Width="94.5" Height="26.46" Border.Lines="All" Fill.Color="Gainsboro" Text="مدين" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+      <TextObject Name="Text38" Left="292.95" Top="491.4" Width="226.8" Height="26.46" Border.Lines="All" Fill.Color="Gainsboro" Text="بيـــــــــــــــــــان" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text43" Left="292.95" Top="463.05" Width="198.45" Height="26.46" PrintOn="RepeatedBand" Text="Continued from Voucher # ..." HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Italic"/>
+      <TextObject Name="Text44" Left="491.4" Top="463.05" Width="122.85" Height="26.46" PrintOn="RepeatedBand" Text="[Voucher.VoucherNo]" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text48" Left="9.45" Top="359.1" Width="160.65" Height="85.05" Border.Lines="Left, Bottom" Border.BottomLine.Style="Dot" Text="يعتمد" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text20" Left="500.85" Top="359.1" Width="207.9" Height="85.05" Border.Lines="Right, Bottom" Border.BottomLine.Style="Dot" Text="المحاسب &#13;&#10;[Voucher.UserName]" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text46" Left="340.2" Top="359.1" Width="160.65" Height="85.05" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="أمين الصندوق" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text47" Left="179.55" Top="359.1" Width="160.65" Height="85.05" Border.Lines="Bottom" Border.BottomLine.Style="Dot" Text="المستلم" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 12pt, style=Bold"/>
+      <DataBand Name="Data1" Top="521.86" Width="718.2" DataSource="Voucher" KeepTogether="true">
+        <DataBand Name="Data2" Top="525.86" Width="718.2" Height="28.35" DataSource="PrintLineItems">
+          <TextObject Name="Text12" Left="9.45" Width="56.7" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.PrintLineItems.AccountNo]" AutoShrink="FontWidth" HorzAlign="Center" Font="Arial, 10pt"/>
+          <TextObject Name="Text13" Left="66.15" Width="141.75" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.PrintLineItems.AccountName]" AutoShrink="FontWidth" HorzAlign="Center" Font="Arial, 10pt"/>
+          <TextObject Name="Text14" Left="207.9" Width="85.05" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.PrintLineItems.CostCenterName]" AutoShrink="FontWidth" HorzAlign="Center" Font="Arial, 10pt"/>
+          <TextObject Name="Text15" Left="519.75" Width="94.5" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.PrintLineItems.CreditAmount]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="0" AutoShrink="FontWidth" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text16" Left="614.25" Width="94.5" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.PrintLineItems.DebitAmount]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="0" AutoShrink="FontWidth" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt" Trimming="EllipsisCharacter"/>
+          <TextObject Name="Text17" Left="292.95" Width="226.8" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Text="[Voucher.PrintLineItems.Details2]" AutoShrink="FontWidth" HorzAlign="Center" Font="Arial, 10pt"/>
+        </DataBand>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="558.21" Width="718.2" Height="37.8">
+        <TextObject Name="Text39" Left="519.75" Width="94.5" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Fill.Color="Gainsboro" Text="[Voucher.CreditAmountTotal]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="0" AutoShrink="FontWidth" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text40" Left="614.25" Width="94.5" Height="26.46" Border.Lines="Left, Right, Bottom" Border.BottomLine.Style="Dot" Fill.Color="Gainsboro" Text="[Voucher.DebitAmountTotal]" Format="Number" Format.UseLocale="false" Format.DecimalDigits="2" Format.DecimalSeparator="." Format.GroupSeparator="," Format.NegativePattern="0" AutoShrink="FontWidth" HorzAlign="Right" WordWrap="false" Font="Arial, 10pt, style=Bold" Trimming="EllipsisCharacter"/>
+        <TextObject Name="Text41" Left="9.45" Width="510.3" Height="26.46" Border.Lines="All" Fill.Color="Gainsboro" Text="الإجمالي" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <PageFooterBand Name="PageFooter1" Top="600.01" Width="718.2" Height="37.8">
+      <TextObject Name="Text19" Left="368.55" Width="340.2" Height="18.9" Border.Lines="Top" Fill.Color="White" Text="صفحة [Page]  من  [TotalPages#]" HorzAlign="Center" VertAlign="Bottom" Font="Arial, 11pt"/>
+      <TextObject Name="Text45" Left="9.45" Width="226.8" Height="28.35" Text="[Date]" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="Text21" Left="245.7" Width="94.5" Height="28.35" Text="وقت الطباعة:" HorzAlign="Center" VertAlign="Center" RightToLeft="true" Font="Arial, 10pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

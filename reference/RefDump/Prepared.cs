@@ -14,15 +14,17 @@ using FastReport.ZatcaTest;
 
 static class Prepared
 {
+    /// The time [Date] prints in every test: the port's tests give its engine the same.
+    internal static readonly DateTime TestNow = new(2026, 11, 18, 14, 54, 0);
+
     public static string Run(string frx, string jsonPath, string name)
     {
-        var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
         // No text measurer: a counter that never answers, so a growing text counts its newlines (and the bridge
         // CosmoPdf.FastReport would install is not looked for).
         TextMeasureBridge.LineCounter = (_, _, _, _, _, _) => null;
-        var report = new Report();
+        var report = new Report { Now = () => TestNow };
         report.Load(frx);
-        report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
+        RegisterJson(report, jsonPath, name);
         return DumpPages(report.Prepare());
     }
 
@@ -32,10 +34,9 @@ static class Prepared
     {
         CosmoPdf.FastReport.CoreTextMeasureBridge.Install();
         CosmoPdf.FastReport.CoreQrBridge.Install();
-        var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
-        var report = new Report();
+        var report = new Report { Now = () => TestNow };
         report.Load(frx);
-        report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
+        RegisterJson(report, jsonPath, name);
         var pages = report.Prepare();
         File.WriteAllText(outPrefix + ".prepared.txt", DumpPages(pages));
         if (noText)
@@ -65,15 +66,25 @@ static class Prepared
     {
         CosmoPdf.FastReport.CoreTextMeasureBridge.Install();
         CosmoPdf.FastReport.CoreQrBridge.Install();
-        var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
-        var report = new Report();
+        var report = new Report { Now = () => TestNow };
         report.Load(frx);
-        report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
+        RegisterJson(report, jsonPath, name);
         report.Prepare();
         using var stream = new MemoryStream();
         report.Export(new CosmoPdf.FastReport.EscPosExport(), stream);
         File.WriteAllBytes(outPath, stream.ToArray());
         return $"{stream.Length} bytes\n";
+    }
+
+    /// The JSON registered under `name` as the ERP registers its object: a VoucherPrintModel for "Voucher", the
+    /// server's MyInvoice otherwise.
+    static void RegisterJson(Report report, string jsonPath, string name)
+    {
+        var json = File.ReadAllText(jsonPath);
+        if (name == "Voucher")
+            report.RegisterData(new List<VoucherPrint> { JsonSerializer.Deserialize<VoucherPrint>(json)! }, name, 5);
+        else
+            report.RegisterData(new List<MyInvoice> { JsonSerializer.Deserialize<MyInvoice>(json)! }, name, 5);
     }
 
     static string DumpPages(PreparedPages pages)

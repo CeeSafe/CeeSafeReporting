@@ -1,0 +1,380 @@
+Page 1 "Page1"
+  GroupHeaderBand "GroupHeader1" box=0,0,718200,517860 fill=#00000000 repeated=0
+    TextObject "Text6" box=9450,18900,226800,24570 fill=#00000000 text="Demo Trading Co." color=#FF000000 font="Arial",14000,700,Upright
+    TextObject "Text1" box=481950,24350,226800,24570 fill=#00000000 text="شركة التجارة التجريبية" color=#FF000000 font="Arial",14000,700,Upright
+    PictureObject "Picture1" box=283500,18900,132300,75600 fill=#00000000 image=0
+    TextObject "Text2" box=481950,47250,226800,18900 fill=#00000000 text="شارع الملك فهد، حي الشفا" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text3" box=481950,66150,226800,18900 fill=#00000000 text="ص.ب 1234 الرياض 12345" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text7" box=9450,51250,226800,18900 fill=#00000000 text="King Fahd Road, Al Shifa" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text8" box=9450,70150,226800,18900 fill=#00000000 text="P.O. Box 1234 Riyadh 12345" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text4" box=481950,85050,226800,18900 fill=#00000000 text="المملكة العربية السعودية" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text9" box=9450,89050,226800,18900 fill=#00000000 text="Kingdom of Saudi Arabia" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text5" box=481950,100500,226800,18900 fill=#00000000 text="الرقم الضريبي: 300000000000003" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text30" box=9450,141750,699300,28350 fill=#FFDCDCDC text="سند قبض Receipt Voucher" color=#FF000000 font="Arial",14000,700,Upright
+    TextObject "Text10" box=9450,107950,226800,18900 fill=#00000000 text="VAT: 300000000000003" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text31" box=236250,113400,236250,18900 fill=#00000000 text="الفرع الرئيسي - Main Branch" color=#FF000000 font="Arial",14000,700,Upright
+    TableObject "Table1" box=9450,170100,699300,105840 fill=#00000000
+      TableRow "Row1" height=26460
+        TableCell "Cell1" box=0,0,0,0 fill=#00000000 text="Voucher No" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell2" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell3" box=0,0,0,0 fill=#FFDCDCDC text="RV-000017" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell4" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell5" box=0,0,0,0 fill=#00000000 text="رقم السند" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell51" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell26" box=0,0,0,0 fill=#00000000 text="Date" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell27" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell36" box=0,0,0,0 fill=#00000000 text="18/11/2026" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell37" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell38" box=0,0,0,0 fill=#00000000 text="التاريخ" color=#FF000000 font="Arial",12000,700,Upright
+      TableRow "Row2" height=26460
+        TableCell "Cell6" box=0,0,0,0 fill=#00000000 text="Document#" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell7" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell8" box=0,0,0,0 fill=#00000000 text="D-2291" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell9" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell10" box=0,0,0,0 fill=#00000000 text="رقم مستند" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell52" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell28" box=0,0,0,0 fill=#00000000 text="Corresp." color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell29" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell39" box=0,0,0,0 fill=#00000000 text="1448/05/27" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell40" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell41" box=0,0,0,0 fill=#00000000 text="الموافق" color=#FF000000 font="Arial",12000,700,Upright
+      TableRow "Row3" height=26460
+        TableCell "Cell11" box=0,0,0,0 fill=#00000000 text="Cheque No" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell12" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell13" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell14" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell15" box=0,0,0,0 fill=#00000000 text="رقم شيك" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell53" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell30" box=0,0,0,0 fill=#00000000 text="Amount" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell31" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell42" box=0,0,0,0 fill=#FFDCDCDC text="10,263.75" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell43" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell44" box=0,0,0,0 fill=#00000000 text="المبلغ" color=#FF000000 font="Arial",12000,700,Upright
+      TableRow "Row4" height=26460
+        TableCell "Cell54" box=0,0,0,0 fill=#FFDCDCDC text="فقط ألف ومائتان وخمسة وثلاثون ريالاً لا غير" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell55" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell56" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell57" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell58" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell59" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell60" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell61" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell62" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell63" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell64" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text32" box=9450,323750,699300,37800 fill=#00000000 text="سداد دفعة من حساب العميل عن فواتير شهر نوفمبر" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text11" box=9450,276500,699300,47250 fill=#00000000 text="تم القبض من المكرم/ :  سيتي مارت City Mart" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text18" box=9450,463050,283500,26460 fill=#00000000 text="القيد المحاسبي" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text33" box=9450,491400,56700,26460 fill=#FFDCDCDC text="رقم الحساب" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text34" box=66150,491400,141750,26460 fill=#FFDCDCDC text="اسم الحساب" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text35" box=207900,491400,85050,26460 fill=#FFDCDCDC text="مركز تكلفة" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text36" box=519750,491400,94500,26460 fill=#FFDCDCDC text="دائن" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text37" box=614250,491400,94500,26460 fill=#FFDCDCDC text="مدين" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text38" box=292950,491400,226800,26460 fill=#FFDCDCDC text="بيـــــــــــــــــــان" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text48" box=9450,359100,160650,85050 fill=#00000000 text="يعتمد" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text20" box=500850,359100,207900,85050 fill=#00000000 text="المحاسب \r\ndemo" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text46" box=340200,359100,160650,85050 fill=#00000000 text="أمين الصندوق" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text47" box=179550,359100,160650,85050 fill=#00000000 text="المستلم" color=#FF000000 font="Arial",12000,700,Upright
+  DataBand "Data1" box=0,517860,718200,0 fill=#00000000 repeated=0
+  DataBand "Data2" box=0,517860,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="125.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000040 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,546210,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="162.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000041 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,574560,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="2105" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="ضريبة القيمة المضافة" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="200.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000042 VAT" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,602910,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="4101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="إيرادات المبيعات" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="237.25" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000043 Sales" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,631260,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="274.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000044 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,659610,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="311.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000045 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,687960,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="2105" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="ضريبة القيمة المضافة" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="349.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000046 VAT" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,716310,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="4101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="إيرادات المبيعات" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="386.25" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000047 Sales" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,744660,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="423.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000048 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,773010,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="460.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000049 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,801360,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="2105" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="ضريبة القيمة المضافة" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="498.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000050 VAT" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,829710,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="4101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="إيرادات المبيعات" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="535.25" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000051 Sales" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,858060,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="572.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000052 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,886410,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="609.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000053 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,914760,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="2105" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="ضريبة القيمة المضافة" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="647.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000054 VAT" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,943110,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="4101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="إيرادات المبيعات" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="684.25" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000055 Sales" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,971460,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="721.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000056 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  PageFooterBand "PageFooter1" box=0,1009260,718200,37800 fill=#00000000 repeated=0
+    TextObject "Text19" box=368550,0,340200,18900 fill=#FFFFFFFF text="صفحة 1  من  2" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text45" box=9450,0,226800,28350 fill=#00000000 text="11/18/2026 14:54:00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text21" box=245700,0,94500,28350 fill=#00000000 text="وقت الطباعة:" color=#FF000000 font="Arial",10000,400,Upright
+Page 2 "Page1"
+  GroupHeaderBand "GroupHeader1" box=0,0,718200,517860 fill=#00000000 repeated=1
+    TextObject "Text6" box=9450,18900,226800,24570 fill=#00000000 text="Demo Trading Co." color=#FF000000 font="Arial",14000,700,Upright
+    TextObject "Text1" box=481950,24350,226800,24570 fill=#00000000 text="شركة التجارة التجريبية" color=#FF000000 font="Arial",14000,700,Upright
+    PictureObject "Picture1" box=283500,18900,132300,75600 fill=#00000000 image=0
+    TextObject "Text2" box=481950,47250,226800,18900 fill=#00000000 text="شارع الملك فهد، حي الشفا" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text3" box=481950,66150,226800,18900 fill=#00000000 text="ص.ب 1234 الرياض 12345" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text7" box=9450,51250,226800,18900 fill=#00000000 text="King Fahd Road, Al Shifa" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text8" box=9450,70150,226800,18900 fill=#00000000 text="P.O. Box 1234 Riyadh 12345" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text4" box=481950,85050,226800,18900 fill=#00000000 text="المملكة العربية السعودية" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text9" box=9450,89050,226800,18900 fill=#00000000 text="Kingdom of Saudi Arabia" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text5" box=481950,100500,226800,18900 fill=#00000000 text="الرقم الضريبي: 300000000000003" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text30" box=9450,141750,699300,28350 fill=#FFDCDCDC text="سند قبض Receipt Voucher" color=#FF000000 font="Arial",14000,700,Upright
+    TextObject "Text10" box=9450,107950,226800,18900 fill=#00000000 text="VAT: 300000000000003" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text31" box=236250,113400,236250,18900 fill=#00000000 text="الفرع الرئيسي - Main Branch" color=#FF000000 font="Arial",14000,700,Upright
+    TableObject "Table1" box=9450,170100,699300,105840 fill=#00000000
+      TableRow "Row1" height=26460
+        TableCell "Cell1" box=0,0,0,0 fill=#00000000 text="Voucher No" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell2" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell3" box=0,0,0,0 fill=#FFDCDCDC text="RV-000017" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell4" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell5" box=0,0,0,0 fill=#00000000 text="رقم السند" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell51" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell26" box=0,0,0,0 fill=#00000000 text="Date" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell27" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell36" box=0,0,0,0 fill=#00000000 text="18/11/2026" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell37" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell38" box=0,0,0,0 fill=#00000000 text="التاريخ" color=#FF000000 font="Arial",12000,700,Upright
+      TableRow "Row2" height=26460
+        TableCell "Cell6" box=0,0,0,0 fill=#00000000 text="Document#" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell7" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell8" box=0,0,0,0 fill=#00000000 text="D-2291" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell9" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell10" box=0,0,0,0 fill=#00000000 text="رقم مستند" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell52" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell28" box=0,0,0,0 fill=#00000000 text="Corresp." color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell29" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell39" box=0,0,0,0 fill=#00000000 text="1448/05/27" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell40" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell41" box=0,0,0,0 fill=#00000000 text="الموافق" color=#FF000000 font="Arial",12000,700,Upright
+      TableRow "Row3" height=26460
+        TableCell "Cell11" box=0,0,0,0 fill=#00000000 text="Cheque No" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell12" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell13" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell14" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell15" box=0,0,0,0 fill=#00000000 text="رقم شيك" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell53" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell30" box=0,0,0,0 fill=#00000000 text="Amount" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell31" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell42" box=0,0,0,0 fill=#FFDCDCDC text="10,263.75" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell43" box=0,0,0,0 fill=#00000000 text=":" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell44" box=0,0,0,0 fill=#00000000 text="المبلغ" color=#FF000000 font="Arial",12000,700,Upright
+      TableRow "Row4" height=26460
+        TableCell "Cell54" box=0,0,0,0 fill=#FFDCDCDC text="فقط ألف ومائتان وخمسة وثلاثون ريالاً لا غير" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell55" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell56" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell57" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell58" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell59" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell60" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell61" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell62" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell63" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell64" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text32" box=9450,323750,699300,37800 fill=#00000000 text="سداد دفعة من حساب العميل عن فواتير شهر نوفمبر" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text11" box=9450,276500,699300,47250 fill=#00000000 text="تم القبض من المكرم/ :  سيتي مارت City Mart" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text18" box=9450,463050,283500,26460 fill=#00000000 text="القيد المحاسبي" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text42" box=614250,463050,94500,26460 fill=#00000000 text="تابع السند ...رقم " color=#FF000000 font="Arial",10000,400,Italic
+    TextObject "Text33" box=9450,491400,56700,26460 fill=#FFDCDCDC text="رقم الحساب" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text34" box=66150,491400,141750,26460 fill=#FFDCDCDC text="اسم الحساب" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text35" box=207900,491400,85050,26460 fill=#FFDCDCDC text="مركز تكلفة" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text36" box=519750,491400,94500,26460 fill=#FFDCDCDC text="دائن" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text37" box=614250,491400,94500,26460 fill=#FFDCDCDC text="مدين" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text38" box=292950,491400,226800,26460 fill=#FFDCDCDC text="بيـــــــــــــــــــان" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text43" box=292950,463050,198450,26460 fill=#00000000 text="Continued from Voucher # ..." color=#FF000000 font="Arial",10000,400,Italic
+    TextObject "Text44" box=491400,463050,122850,26460 fill=#00000000 text="RV-000017" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text48" box=9450,359100,160650,85050 fill=#00000000 text="يعتمد" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text20" box=500850,359100,207900,85050 fill=#00000000 text="المحاسب \r\ndemo" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text46" box=340200,359100,160650,85050 fill=#00000000 text="أمين الصندوق" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text47" box=179550,359100,160650,85050 fill=#00000000 text="المستلم" color=#FF000000 font="Arial",12000,700,Upright
+  DataBand "Data2" box=0,517860,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="758.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000057 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,546210,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="2105" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="ضريبة القيمة المضافة" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="796.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000058 VAT" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,574560,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="4101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="إيرادات المبيعات" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="833.25" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000059 Sales" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,602910,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="870.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000060 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,631260,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="907.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000061 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,659610,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="2105" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="ضريبة القيمة المضافة" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="945.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000062 VAT" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,687960,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="4101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="إيرادات المبيعات" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="982.25" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000063 Sales" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,716310,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="1,019.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000064 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,744660,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="1,056.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000065 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,773010,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="2105" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="ضريبة القيمة المضافة" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="1,094.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000066 VAT" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,801360,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="4101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="إيرادات المبيعات" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="1,131.25" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000067 Sales" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,829710,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1101" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="الصندوق الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="1,168.50" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000068 Main cash" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,858060,718200,28350 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,0,56700,26460 fill=#00000000 text="1201" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text13" box=66150,0,141750,26460 fill=#00000000 text="المدينون - سيتي مارت" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=207900,0,85050,26460 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text15" box=519750,0,94500,26460 fill=#00000000 text="1,205.75" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=614250,0,94500,26460 fill=#00000000 text="0.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text17" box=292950,0,226800,26460 fill=#00000000 text="سداد فاتورة S-000069 Receivables" color=#FF000000 font="Arial",10000,400,Upright
+  GroupFooterBand "GroupFooter1" box=0,886410,718200,37800 fill=#00000000 repeated=0
+    TextObject "Text39" box=519750,0,94500,26460 fill=#FFDCDCDC text="10,263.75" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text40" box=614250,0,94500,26460 fill=#FFDCDCDC text="9,705.00" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text41" box=9450,0,510300,26460 fill=#FFDCDCDC text="الإجمالي" color=#FF000000 font="Arial",10000,700,Upright
+  PageFooterBand "PageFooter1" box=0,1009260,718200,37800 fill=#00000000 repeated=0
+    TextObject "Text19" box=368550,0,340200,18900 fill=#FFFFFFFF text="صفحة 2  من  2" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text45" box=9450,0,226800,28350 fill=#00000000 text="11/18/2026 14:54:00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text21" box=245700,0,94500,28350 fill=#00000000 text="وقت الطباعة:" color=#FF000000 font="Arial",10000,400,Upright

@@ -400,10 +400,11 @@ fn contains(text: StringView, part: StringView) -> bool {
 // ---- the engine --------------------------------------------------------------------------------------------------------
 
 /// Prepares `report`'s pages over `data` (its sources registered), calling `handlers` for the report's script events
-/// and `counter`, if given, to measure growing texts.
-public fn preparePages(report: borrow Report, data: DataSet, handlers: borrow Handlers, counter: borrow dyn LineCounter)
-    -> Vector<PreparedPage> {
-    var engine = Engine.create(report, data, handlers, counter);
+/// and `counter`, if given, to measure growing texts. `now` is the time [Date] and [Time] print: the time of printing,
+/// or the first print's for a reprint.
+public fn preparePages(report: borrow Report, data: DataSet, handlers: borrow Handlers, counter: borrow dyn LineCounter,
+    now: DateTime) -> Vector<PreparedPage> {
+    var engine = Engine.create(report, data, handlers, counter, now);
     engine.run();
     return engine.pages;
 }
@@ -443,8 +444,8 @@ struct Engine<region r> {
 }
 
 impl<region r> Engine<r> {
-    fn create(report: borrow(r) Report, data: DataSet, handlers: borrow(r) Handlers, counter: borrow(r) dyn LineCounter)
-        -> Engine<r> {
+    fn create(report: borrow(r) Report, data: DataSet, handlers: borrow(r) Handlers, counter: borrow(r) dyn LineCounter,
+        now: DateTime) -> Engine<r> {
         var e = Engine {
             report: report,
             handlers: handlers,
@@ -485,6 +486,7 @@ impl<region r> Engine<r> {
             }
             let _ = e.epages.push(EPage { bands: top });
         }
+        e.state.now = now;
         return e;
     }
 

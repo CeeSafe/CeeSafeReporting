@@ -71,7 +71,7 @@ if (args.Length != 2 || args[0] != "model")
     Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample [items] | texts <file.frx> <data.json> <name> | prepare <file.frx> <data.json> <name> | escpos <file.frx> <data.json> <name> <out> | image <file.frx> <data.json> <name> <out> [notext] | qr <list> | shape <font.ttf> <list> | lines <font.ttf> <list> | exprs <file.frx> <data.json> <name> <list>");
     return 2;
 }
-var report = new Report();
+var report = new Report { Now = () => Prepared.TestNow };
 report.Load(args[1]);
 var o = new StringBuilder();
 Dump.Report(report, o);

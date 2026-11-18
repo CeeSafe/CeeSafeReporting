@@ -84,6 +84,12 @@ impl<region r> Fonts<r> {
             bytes: bytes,
         };
         let _ = this.faces.push(face);
+        // A character a bold or italic face lacks is drawn from a regular face (CosmoReport's ImageExport gives the
+        // family's: macOS's Arial Italic has no Arabic). The regular faces are the Raster's fallbacks, in the order
+        // they were given.
+        if (!bold && !italic) {
+            let _ = this.raster.addFallback(id);
+        }
         return true;
     }
 
@@ -652,7 +658,7 @@ fn drawTextIn(canvas: borrow mut Canvas, fonts: borrow Fonts, t: borrow TextProp
         let lineX = originX + startX;
         glyphs.clear();
         for (b in 0..line.text.bytes().length * 2 + 1) {
-            let _ = glyphs.push(ShapedGlyph { font: 0, glyph: 0, x: 0.0, y: 0.0, cluster: 0 });
+            let _ = glyphs.push(ShapedGlyph { font: 0, glyph: 0, x: 0.0, y: 0.0, cluster: 0, advance: 0.0 });
         }
         // ShapeLine: Arabic in its presentation forms, then shaped (claywind: bidi runs, cmap, GSUB, GPOS).
         let shapedText = arabicPresentation(line.text.view());
@@ -662,14 +668,29 @@ fn drawTextIn(canvas: borrow mut Canvas, fonts: borrow Fonts, t: borrow TextProp
             Some(r) => r,
             null => { continue; }
         };
+        // TextRenderer's pen, as CosmoFonts shapes: a letter has no offset and moves the pen to where the next letter
+        // goes (its advance, kerning in it: whole font units here, so exact); a mark (no advance) is off the pen where
+        // it is. (Moving the pen to each glyph's place instead moves it there and back over a mark, (a + o) - o, a
+        // float step from a.)
         var penX = lineX;
         for (gi in 0..run.count) {
             let g = glyphs[gi];
-            let next = if (gi + 1 < run.count) glyphs[gi + 1].x else run.width;
+            var nextLetter = run.width;
+            for (n in gi + 1..run.count) {
+                if (glyphs[n].advance != 0.0) {
+                    nextLetter = glyphs[n].x;
+                    break;
+                }
+            }
+            let mark = g.advance == 0.0;
+            // The pen is where the next letter goes.
+            let gx = if (mark) penX + (g.x - nextLetter) * scale else penX;
             let gk = fonts.faceOfSlot(g.font) ?? face;
-            glyphOutline(fonts.faces[gk], g.glyph, scale, penX, (0.0 - g.y) * scale, identity, baseline, 0, mut pen);
+            glyphOutline(fonts.faces[gk], g.glyph, scale, gx, (0.0 - g.y) * scale, identity, baseline, 0, mut pen);
             pen.flush(mut canvas, color, clip);
-            penX += (next - g.x) * scale;
+            if (!mark) {
+                penX += (nextLetter - g.x) * scale;
+            }
         }
     }
 }

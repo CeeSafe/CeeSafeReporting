@@ -3,6 +3,6 @@
 [[package]]
 name = "claywind"
 source = "git+https://github.com/CeeSafe/Clay.git"
-commit = "f9cccf27cee5882fb3e7caf1eee138bed8b2c50b"
+commit = "fc8e0e55e8053d12703f1a58ca7e0bb70c36a047"
 dir = "claywind"
-hash = "sha256:aff258e4420a0b53002ecdddfb92273c0c191c695e49487238575b0211b2b44a"
+hash = "sha256:8d5b4e0ea845274bcc69673f538a090b10c935f9b11dab844a3b08603761986a"

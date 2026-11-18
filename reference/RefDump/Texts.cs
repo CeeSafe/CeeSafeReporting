@@ -105,7 +105,7 @@ static class Texts
     public static string Evaluate(string frx, string jsonPath, string name)
     {
         var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
-        var report = new Report();
+        var report = new Report { Now = () => Prepared.TestNow };
         report.Load(frx);
         report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
         report.GetDataSource(name)!.First();
@@ -131,7 +131,7 @@ static class Texts
     public static string Expressions(string frx, string jsonPath, string name, string listPath)
     {
         var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
-        var report = new Report();
+        var report = new Report { Now = () => Prepared.TestNow };
         report.Load(frx);
         report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
         report.GetDataSource(name)!.First();

@@ -34,8 +34,8 @@ fn preparedOf(file: StringView, sourceName: StringView, dataFile: StringView, re
     }
     var handlers = Handlers.create();
     handlers.add("Data1_BeforePrint", shadeOddRows);
-    return Ok(if (file == "PosInvoice") preparePages(report, data, Handlers.create(), NewlinesOnly.create())
-        else preparePages(report, data, handlers, NewlinesOnly.create()));
+    return Ok(if (file == "PosInvoice") preparePages(report, data, Handlers.create(), NewlinesOnly.create(), testNow())
+        else preparePages(report, data, handlers, NewlinesOnly.create(), testNow()));
 }
 
 /// Canvas `got` against the PNG at `expected`: their sizes, then every pixel's red (the pages are black and white).
@@ -119,14 +119,16 @@ fn heapBytes(n: usize) -> Vector<u8> {
 /// The macOS faces CosmoReport finds for the reports' families (FontBridge: /System/Library/Fonts/Supplemental).
 fn addSystemFonts(fonts: borrow mut Fonts) -> bool {
     let dir = "/System/Library/Fonts/Supplemental/";
-    let names: [StringView; 4] = ["Arial.ttf", "Arial Bold.ttf", "Tahoma.ttf", "Tahoma Bold.ttf"];
-    let families: [StringView; 4] = ["Arial", "Arial", "Tahoma", "Tahoma"];
-    let bold: [bool; 4] = [false, true, false, true];
-    for (k in 0..4usize) {
+    let names: [StringView; 6] = ["Arial.ttf", "Arial Bold.ttf", "Tahoma.ttf", "Tahoma Bold.ttf", "Arial Italic.ttf",
+        "Arial Bold Italic.ttf"];
+    let families: [StringView; 6] = ["Arial", "Arial", "Tahoma", "Tahoma", "Arial", "Arial"];
+    let bold: [bool; 6] = [false, true, false, true, false, true];
+    let italic: [bool; 6] = [false, false, false, false, true, true];
+    for (k in 0..6usize) {
         var path = copyOf(dir);
         let _ = path.append(names[k]);
         let bytes = readFile(path.view());
-        if (bytes.length == 0 || !fonts.add(families[k], bold[k], false, bytes)) {
+        if (bytes.length == 0 || !fonts.add(families[k], bold[k], italic[k], bytes)) {
             return false;
         }
     }
@@ -336,3 +338,11 @@ fn onPaperTheFooterStaysAtThePagesFoot() -> Result<void, TestFailure> {
     }
     return Check.isTrue(found, "the group footer has its barcode");
 }
+
+@test
+fn theVoucherIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagePixels("VoucherView", "Voucher", "tests/data/voucher.json", "VoucherView");
+
+@test
+fn aLongVoucherIsCosmoReportsPixelsOnEveryPage() -> Result<void, TestFailure> =>
+    samePagePixels("VoucherView", "Voucher", "tests/data/voucher30.json", "VoucherView.30");

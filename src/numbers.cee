@@ -722,6 +722,24 @@ public struct DateTime {
     public second: i64;
     /// Ten-millionths of a second.
     public ticks: i64;
+
+    /// The time `seconds` after 1970-01-01 00:00:00 (Unix time; UTC unless the caller has moved it to its zone).
+    public fn fromUnixSeconds(seconds: i64) -> DateTime {
+        // Howard Hinnant's civil_from_days.
+        let days = if (seconds >= 0) seconds / 86400 else (seconds - 86399) / 86400;
+        let z = days + 719468;
+        let era = (if (z >= 0) z else z - 146096) / 146097;
+        let doe = z - era * 146097;
+        let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        let mp = (5 * doy + 2) / 153;
+        let day = doy - (153 * mp + 2) / 5 + 1;
+        let month = if (mp < 10) mp + 3 else mp - 9;
+        let year = yoe + era * 400 + (if (month <= 2) 1 else 0);
+        let second = seconds - days * 86400;
+        return DateTime { year: year, month: month, day: day, hour: second / 3600, minute: second / 60 % 60,
+            second: second % 60, ticks: 0 };
+    }
 }
 
 fn digitsValue(b: Slice<u8>) -> i64? {
