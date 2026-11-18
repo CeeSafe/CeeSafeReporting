@@ -104,9 +104,25 @@ public struct Format {
     };
 }
 
+/// A Highlight's Condition: when Expression is true, its fill, text colour and font replace the text's (each when
+/// given and its Apply* flag is set).
+public struct Highlight {
+    public expression: String;
+    public fill: Color?;
+    public textColor: Color?;
+    public font: FontSpec?;
+    public applyFill: bool;
+    public applyTextFill: bool;
+    public applyFont: bool;
+}
+
 /// A text's parts (TextObject; a TableCell is one too).
 public struct TextProps {
     public text: String;
+    /// The text as the engine evaluated it (ProcessedText): the text itself until then.
+    public processed: String;
+    /// Highlight conditions: the first true one changes the fill, text colour or font of the printed copy.
+    public highlights: Vector<Highlight>;
     public font: FontSpec;
     public color: Color;
     public horzAlign: HorzAlign;
@@ -149,6 +165,8 @@ public struct BandProps {
     public keepDetail: bool;
     public keepSummary: bool;
     public columns: i64;
+    /// Column width in millimetres (0: the printable width shared out).
+    public columnWidth: f32;
     public printIfDatasourceEmpty: bool;
     public printIfDetailEmpty: bool;
     /// GroupHeaderBand's.
@@ -203,6 +221,8 @@ public struct BarcodeProps {
     public quietZone: bool;
     public showMarker: bool;
     public allowExpressions: bool;
+    /// The text as the engine evaluated it.
+    public processed: String;
 }
 
 /// A component of a report page: a band or an object.
@@ -349,6 +369,8 @@ public struct ReportPage {
     public rightMargin: f32;
     public bottomMargin: f32;
     public columns: i64;
+    /// Column width in millimetres (0: the printable width shared out).
+    public columnWidth: f32;
     public unlimitedHeight: bool;
     public unlimitedWidth: bool;
     public border: Border;
@@ -518,6 +540,7 @@ fn readPage(node: borrow XmlNode) -> ReportPage {
         rightMargin: a.float("RightMargin", 10.0),
         bottomMargin: a.float("BottomMargin", 10.0),
         columns: a.int("Columns", 1),
+        columnWidth: a.float("ColumnWidth", 0.0),
         unlimitedHeight: a.bool("UnlimitedHeight", false),
         unlimitedWidth: a.bool("UnlimitedWidth", false),
         border: uniformBorder(a),
@@ -591,11 +614,14 @@ fn readComponent(node: borrow XmlNode) -> Component? {
         Kind.GroupHeaderBand => { readGroupHeader(mut c, a, node); }
         Kind.TextObject => {
             readReportComponent(mut c, a);
-            c.text = readText(a);
+            var t = readText(a);
+            readHighlights(mut t, node);
+            c.text = t;
         }
         Kind.TableCell => {
             readReportComponent(mut c, a);
             var t = readText(a);
+            readHighlights(mut t, node);
             t.colSpan = a.int("ColSpan", 1);
             t.rowSpan = a.int("RowSpan", 1);
             c.text = t;
@@ -630,6 +656,7 @@ fn readComponent(node: borrow XmlNode) -> Component? {
                 quietZone: a.bool("Barcode.QuietZone", true),
                 showMarker: a.bool("Barcode.ShowMarker", true),
                 allowExpressions: a.bool("AllowExpressions", true),
+                processed: String.create(),
             };
         }
         Kind.SubreportObject => {
@@ -740,6 +767,7 @@ fn emptyBand() -> BandProps => BandProps {
     keepDetail: false,
     keepSummary: false,
     columns: 0,
+    columnWidth: 0.0,
     printIfDatasourceEmpty: false,
     printIfDetailEmpty: false,
     condition: String.create(),
@@ -826,6 +854,7 @@ fn readDataBand(c: borrow mut Component, a: borrow Attrs, node: borrow XmlNode) 
     band.resetPageNumber = a.bool("ResetPageNumber", false);
     band.relation = copyOf(a.str("Relation"));
     band.columns = a.int("Columns", 0);
+    band.columnWidth = a.float("ColumnWidth", 0.0);
     band.printIfDatasourceEmpty = a.bool("PrintIfDatasourceEmpty", false);
     band.printIfDetailEmpty = a.bool("PrintIfDetailEmpty", false);
     c.band = band;
@@ -903,6 +932,8 @@ fn readText(a: borrow Attrs) -> TextProps {
     let shrink = a.str("AutoShrink");
     return TextProps {
         text: copyOf(a.str("Text")),
+        processed: copyOf(a.str("Text")),
+        highlights: Vector<Highlight>.create(),
         font: font,
         color: if (textFill.length > 0) parseColor(textFill, Color.black()) else a.color("TextColor", Color.black()),
         horzAlign: if (horz.length > 0) parseHorzAlign(horz)
@@ -924,6 +955,34 @@ fn readText(a: borrow Attrs) -> TextProps {
         colSpan: 1,
         rowSpan: 1,
     };
+}
+
+/// A text's <Highlight> conditions (ParseHighlightCondition): Fill.Color, TextFill.Color, Font, and the Apply* flags
+/// (true unless "false").
+fn readHighlights(t: borrow mut TextProps, node: borrow XmlNode) {
+    for (h in node.children.view()) {
+        if (h.name.view() != "Highlight") {
+            continue;
+        }
+        for (cond in h.children.view()) {
+            if (cond.name.view() != "Condition") {
+                continue;
+            }
+            let fill = cond.attr("Fill.Color");
+            let textFill = cond.attr("TextFill.Color");
+            let font = cond.attr("Font");
+            let _ = t.highlights.push(Highlight {
+                expression: copyOf(cond.attr("Expression")),
+                fill: if (fill.length > 0) parseColor(fill, Color.transparent()) else null,
+                textColor: if (textFill.length > 0) parseColor(textFill, Color.black()) else null,
+                font: if (font.length > 0) parseFont(font) else null,
+                applyFill: !sameIgnoringCase(trimmed(cond.attr("ApplyFill")), "false"),
+                applyTextFill: !sameIgnoringCase(trimmed(cond.attr("ApplyTextFill")), "false"),
+                applyFont: !sameIgnoringCase(trimmed(cond.attr("ApplyFont")), "false"),
+            });
+        }
+        return; // FindChildOrDefault: the first <Highlight>
+    }
 }
 
 /// TextObject's Format and its Format.* attributes.

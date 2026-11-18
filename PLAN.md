@@ -57,6 +57,16 @@ dumps (bands, positions, texts) and as pixels.
 3. **The engine.** Pages, page header and footer, groups, data bands with header and footer, child bands, subreports,
    CanGrow and CanShrink (text measured with ClayWind), page breaks, TotalPages, and the host's event handlers. Test:
    PosInvoice.frx's prepared pages match CosmoReport's.
+   *Done.* The engine (src/engine.cee) is ReportEngine's: pages, page and column headers and footers, the headers
+   and footers in scope that repeat, groups (KeepWithData, KeepTogether's roll back), data bands with header, footer,
+   details, child (CompleteToNRows, FillUnusedSpace), PrintOnBottom, StartNewPage, subreports in place, multi-column
+   flow, totals and aggregates, highlights, CanGrow and CanShrink, the PrintOn filter and [TotalPages] at the end.
+   Scripts are the program's handlers by event name. Text is measured by a line counter the program gives (step 4
+   gives ClayWind's); without one a text counts its newlines, as CosmoReport does without its bridge. The prepared
+   pages of all three reports, with 7 items and with 45 (three A4 pages), are CosmoReport's, line for line.
+   Not yet: a table taller or wider than the page (TryEmitBandAsTableSlices; the engine stops), hierarchical bands
+   (IdColumn), relations, Visible/Printable expressions, check boxes, containers, matrices, charts. CosmoReport's
+   printed copies of a table share its rows (a table printed twice shows its last values twice); the port copies them.
 4. **Pixels.** Rendering prepared pages with ClayWind: text (shaped, right to left), borders, fills, tables with spans,
    lines, pictures, and QR codes (a QR encoder, written here). PNG output (a PNG encoder). Test: PosInvoice.frx at 203 dpi,
    monochrome, against CosmoReport's ImageExport.

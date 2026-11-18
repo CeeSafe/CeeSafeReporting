@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: MIT
+// Deep copies of a report's parts: the engine prints a copy of a band (CloneBand), so what it does to the template
+// next (the next row's values, growth) does not reach the printed one. A table's rows are copied too, where
+// CosmoReport's clone shares them with the template.
+
+fn cloneString(s: borrow String) -> String => copyOf(s.view());
+
+public fn cloneFont(f: borrow FontSpec) -> FontSpec => FontSpec {
+    family: cloneString(f.family),
+    size: f.size,
+    weight: f.weight,
+    slant: f.slant,
+};
+
+public fn cloneFormat(f: borrow Format) -> Format => Format {
+    kind: f.kind,
+    decimalDigits: f.decimalDigits,
+    decimalSeparator: cloneString(f.decimalSeparator),
+    groupSeparator: cloneString(f.groupSeparator),
+    currencySymbol: cloneString(f.currencySymbol),
+    positivePattern: f.positivePattern,
+    negativePattern: f.negativePattern,
+    useLocale: f.useLocale,
+    formatString: cloneString(f.formatString),
+    trueText: cloneString(f.trueText),
+    falseText: cloneString(f.falseText),
+};
+
+fn cloneHighlight(h: borrow Highlight) -> Highlight => Highlight {
+    expression: cloneString(h.expression),
+    fill: h.fill,
+    textColor: h.textColor,
+    font: match (borrow h.font) {
+        Some(f) => cloneFont(f),
+        null => null,
+    },
+    applyFill: h.applyFill,
+    applyTextFill: h.applyTextFill,
+    applyFont: h.applyFont,
+};
+
+public fn cloneText(t: borrow TextProps) -> TextProps {
+    var highlights = Vector<Highlight>.create();
+    for (h in t.highlights.view()) {
+        let _ = highlights.push(cloneHighlight(h));
+    }
+    return TextProps {
+        text: cloneString(t.text),
+        processed: cloneString(t.processed),
+        highlights: highlights,
+        font: cloneFont(t.font),
+        color: t.color,
+        horzAlign: t.horzAlign,
+        vertAlign: t.vertAlign,
+        wordWrap: t.wordWrap,
+        allowExpressions: t.allowExpressions,
+        autoShrink: t.autoShrink,
+        autoShrinkMinSize: t.autoShrinkMinSize,
+        angle: t.angle,
+        lineHeight: t.lineHeight,
+        rightToLeft: t.rightToLeft,
+        trimming: cloneString(t.trimming),
+        padLeft: t.padLeft,
+        padRight: t.padRight,
+        padTop: t.padTop,
+        padBottom: t.padBottom,
+        format: cloneFormat(t.format),
+        colSpan: t.colSpan,
+        rowSpan: t.rowSpan,
+    };
+}
+
+fn cloneBandProps(b: borrow BandProps) -> BandProps => BandProps {
+    startNewPage: b.startNewPage,
+    firstRowStartsNewPage: b.firstRowStartsNewPage,
+    printOnBottom: b.printOnBottom,
+    keepChild: b.keepChild,
+    repeatBandNTimes: b.repeatBandNTimes,
+    canBreak: b.canBreak,
+    repeatOnEveryPage: b.repeatOnEveryPage,
+    keepWithData: b.keepWithData,
+    dataSource: cloneString(b.dataSource),
+    filter: cloneString(b.filter),
+    relation: cloneString(b.relation),
+    maxRows: b.maxRows,
+    rowCount: b.rowCount,
+    keepDetail: b.keepDetail,
+    keepSummary: b.keepSummary,
+    columns: b.columns,
+    columnWidth: b.columnWidth,
+    printIfDatasourceEmpty: b.printIfDatasourceEmpty,
+    printIfDetailEmpty: b.printIfDetailEmpty,
+    condition: cloneString(b.condition),
+    sortOrder: b.sortOrder,
+    keepTogether: b.keepTogether,
+    resetPageNumber: b.resetPageNumber,
+    fillUnusedSpace: b.fillUnusedSpace,
+    completeToNRows: b.completeToNRows,
+    printIfDatabandEmpty: b.printIfDatabandEmpty,
+};
+
+fn cloneBytes(v: borrow Vector<u8>) -> Vector<u8> {
+    var out = Vector<u8>.create();
+    for (b in v.view()) {
+        let _ = out.push(b);
+    }
+    return out;
+}
+
+fn clonePicture(p: borrow PictureProps) -> PictureProps => PictureProps {
+    sizeMode: p.sizeMode,
+    image: cloneBytes(p.image),
+    location: cloneString(p.location),
+    dataColumn: cloneString(p.dataColumn),
+    maxWidth: p.maxWidth,
+    maxHeight: p.maxHeight,
+    padLeft: p.padLeft,
+    padRight: p.padRight,
+    padTop: p.padTop,
+    padBottom: p.padBottom,
+    transparency: p.transparency,
+};
+
+fn cloneBarcode(b: borrow BarcodeProps) -> BarcodeProps => BarcodeProps {
+    barcode: cloneString(b.barcode),
+    text: cloneString(b.text),
+    encoding: cloneString(b.encoding),
+    errorCorrection: cloneString(b.errorCorrection),
+    showText: b.showText,
+    autoSize: b.autoSize,
+    quietZone: b.quietZone,
+    showMarker: b.showMarker,
+    allowExpressions: b.allowExpressions,
+    processed: cloneString(b.processed),
+};
+
+/// A copy of `c`; its children with role `keep` only when `onlyObjects` (a band's objects, not its nested bands).
+fn cloneWith(c: borrow Component, onlyObjects: bool) -> Component {
+    var columns = Vector<TableColumn>.create();
+    for (col in c.tableColumns.view()) {
+        let _ = columns.push(TableColumn { name: cloneString(col.name), width: col.width });
+    }
+    var rows = Vector<TableRow>.create();
+    for (row in c.tableRows.view()) {
+        var cells = Vector<Component>.create();
+        for (cell in row.cells.view()) {
+            let _ = cells.push(cloneComponent(cell));
+        }
+        let _ = rows.push(TableRow { name: cloneString(row.name), height: row.height, cells: cells });
+    }
+    var children = Vector<Component>.create();
+    for (child in c.children.view()) {
+        if (!onlyObjects || child.role == Role.Object) {
+            let _ = children.push(cloneComponent(child));
+        }
+    }
+    return Component {
+        kind: c.kind,
+        role: c.role,
+        typeName: cloneString(c.typeName),
+        name: cloneString(c.name),
+        left: c.left,
+        top: c.top,
+        width: c.width,
+        height: c.height,
+        visible: c.visible,
+        canGrow: c.canGrow,
+        canShrink: c.canShrink,
+        growToBottom: c.growToBottom,
+        printOn: c.printOn,
+        border: c.border,
+        fillKind: c.fillKind,
+        fill: c.fill,
+        beforePrintEvent: cloneString(c.beforePrintEvent),
+        afterPrintEvent: cloneString(c.afterPrintEvent),
+        band: match (borrow c.band) {
+            Some(b) => cloneBandProps(b),
+            null => null,
+        },
+        text: match (borrow c.text) {
+            Some(t) => cloneText(t),
+            null => null,
+        },
+        picture: match (borrow c.picture) {
+            Some(p) => clonePicture(p),
+            null => null,
+        },
+        barcode: match (borrow c.barcode) {
+            Some(b) => cloneBarcode(b),
+            null => null,
+        },
+        diagonal: c.diagonal,
+        reportPage: cloneString(c.reportPage),
+        printOnParent: c.printOnParent,
+        tableColumns: columns,
+        tableRows: rows,
+        children: children,
+    };
+}
+
+/// A deep copy of `c` with all its children.
+public fn cloneComponent(c: borrow Component) -> Component => cloneWith(c, false);
+
+/// A copy of band `c` with its objects but not its nested bands (header, footer, child...).
+public fn cloneBandOnly(c: borrow Component) -> Component => cloneWith(c, true);

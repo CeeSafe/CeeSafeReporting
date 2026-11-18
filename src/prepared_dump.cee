@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: MIT
+// Prepared pages as text, in the form the reference harness writes CosmoReport's (`RefDump prepare`), so the two
+// compare line by line: each page, its bands in print order with their place, and their objects with the text the
+// engine gave them.
+
+/// `pages` (of `report`) as text.
+public fn dumpPrepared(report: borrow Report, pages: borrow Vector<PreparedPage>) -> String {
+    var o = String.create();
+    for (i in 0..pages.length) {
+        text(mut o, "Page ");
+        number(mut o, truncate<i64>(i) + 1);
+        text(mut o, " ");
+        quoted(mut o, report.pages[pages[i].source].name.view());
+        text(mut o, "\n");
+        for (b in pages[i].bands.view()) {
+            preparedComponent(mut o, b.band, 1, b.repeated);
+        }
+    }
+    return o;
+}
+
+fn preparedComponent(o: borrow mut String, c: borrow Component, depth: u32, repeated: bool) {
+    indent(mut o, depth);
+    text(mut o, kindName(c));
+    text(mut o, " ");
+    quoted(mut o, c.name.view());
+    text(mut o, " box=");
+    milli(mut o, c.left);
+    text(mut o, ",");
+    milli(mut o, c.top);
+    text(mut o, ",");
+    milli(mut o, c.width);
+    text(mut o, ",");
+    milli(mut o, c.height);
+    text(mut o, " fill=");
+    match (c.fillKind) {
+        FillKind.Solid => { color(mut o, c.fill); }
+        FillKind.Gradient => { text(mut o, "GradientFill"); }
+        FillKind.Hatch => { text(mut o, "HatchFill"); }
+    }
+    if (c.band != null) {
+        text(mut o, " repeated=");
+        flag(mut o, repeated);
+    }
+    match (borrow c.text) {
+        Some(t) => {
+            text(mut o, " text=");
+            quoted(mut o, t.processed.view());
+            text(mut o, " color=");
+            color(mut o, t.color);
+            text(mut o, " font=");
+            quoted(mut o, t.font.family.view());
+            text(mut o, ",");
+            milli(mut o, t.font.size);
+            text(mut o, ",");
+            number(mut o, t.font.weight as i64);
+            text(mut o, ",");
+            text(mut o, slantName(t.font.slant));
+        }
+        null => {}
+    }
+    match (borrow c.picture) {
+        Some(p) => {
+            text(mut o, " image=");
+            number(mut o, truncate<i64>(p.image.length));
+        }
+        null => {}
+    }
+    match (borrow c.barcode) {
+        Some(b) => {
+            text(mut o, " text=");
+            quoted(mut o, b.processed.view());
+        }
+        null => {}
+    }
+    text(mut o, "\n");
+    for (row in c.tableRows.view()) {
+        indent(mut o, depth + 1);
+        text(mut o, "TableRow ");
+        quoted(mut o, row.name.view());
+        text(mut o, " height=");
+        milli(mut o, row.height);
+        text(mut o, "\n");
+        for (cell in row.cells.view()) {
+            preparedComponent(mut o, cell, depth + 2, false);
+        }
+    }
+    if (c.band != null) {
+        for (child in c.children.view()) {
+            preparedComponent(mut o, child, depth + 1, false);
+        }
+    }
+}

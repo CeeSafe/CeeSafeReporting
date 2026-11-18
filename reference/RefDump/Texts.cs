@@ -34,7 +34,7 @@ static class Texts
             ExpiryDate = new DateTime(2027, 6, 30), ItemDetails = [],
         };
 
-    public static string SampleJson()
+    public static string SampleJson(int count = 7)
     {
         var day = new DateTime(2026, 11, 18, 14, 15, 0);
         var items = new List<LineItem>
@@ -52,6 +52,12 @@ static class Texts
             new ItemDetail { ItemID = "ITEM-007", Description = "Front", Length = 1.20m, Width = 0.80m, Height = 0.006m, TotalSize = 0.96m, Quantity = 1 },
             new ItemDetail { ItemID = "ITEM-007", Description = "Side", Length = 0.60m, Width = 0.80m, Height = 0.006m, TotalSize = 0.48m, Quantity = 1 },
         ];
+        // A longer invoice: the seven items again and again, numbered on, so it runs over pages.
+        for (int k = items.Count; k < count; k++)
+        {
+            var from = items[k % 7];
+            items.Add(Item(k + 1, $"ITEM-{k + 1:000}", from.ItemName, from.Quantity + k / 7, from.SalesPrice, from.TaxAmount, from.Discount));
+        }
         var invoice = new MyInvoice
         {
             TransactionID = "1-C-TEST-001",

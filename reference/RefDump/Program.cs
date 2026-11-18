@@ -21,14 +21,19 @@ if (args.Length == 1 && args[0] == "values")
     Console.Out.Write(Values.Table());
     return 0;
 }
-if (args.Length == 1 && args[0] == "sample")
+if (args.Length is 1 or 2 && args[0] == "sample")
 {
-    Console.Out.Write(Texts.SampleJson());
+    Console.Out.Write(Texts.SampleJson(args.Length == 2 ? int.Parse(args[1]) : 7));
     return 0;
 }
 if (args.Length == 4 && args[0] == "texts")
 {
     Console.Out.Write(Texts.Evaluate(args[1], args[2], args[3]));
+    return 0;
+}
+if (args.Length == 4 && args[0] == "prepare")
+{
+    Console.Out.Write(Prepared.Run(args[1], args[2], args[3]));
     return 0;
 }
 if (args.Length == 5 && args[0] == "exprs")
@@ -38,7 +43,7 @@ if (args.Length == 5 && args[0] == "exprs")
 }
 if (args.Length != 2 || args[0] != "model")
 {
-    Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample | texts <file.frx> <data.json> <name> | exprs <file.frx> <data.json> <name> <list>");
+    Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample [items] | texts <file.frx> <data.json> <name> | prepare <file.frx> <data.json> <name> | exprs <file.frx> <data.json> <name> <list>");
     return 2;
 }
 var report = new Report();
@@ -50,9 +55,9 @@ return 0;
 
 static class Dump
 {
-    static string M(float v) => Math.Round((double)v * 1000.0, MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture);
+    public static string M(float v) => Math.Round((double)v * 1000.0, MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture);
 
-    static string Q(string? s)
+    public static string Q(string? s)
     {
         var b = new StringBuilder("\"");
         foreach (var c in s ?? "")
@@ -60,13 +65,13 @@ static class Dump
         return b.Append('"').ToString();
     }
 
-    static string C(FrColor c) => $"#{c.Alpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
+    public static string C(FrColor c) => $"#{c.Alpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
 
-    static string B(bool v) => v ? "1" : "0";
+    public static string B(bool v) => v ? "1" : "0";
 
     static string Line(BorderLine l) => $"{C(l.Color)}/{l.Style}/{M(l.Width)}";
 
-    static string Fill(FillBase f) => f is SolidFill s ? C(s.Color) : f.GetType().Name;
+    public static string Fill(FillBase f) => f is SolidFill s ? C(s.Color) : f.GetType().Name;
 
     static string Format(FormatBase? f) => f switch
     {

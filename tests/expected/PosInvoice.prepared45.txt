@@ -1,0 +1,429 @@
+Page 1 "Page1"
+  GroupHeaderBand "GroupHeader1" box=0,0,272540,276500 fill=#00000000 repeated=0
+    TextObject "Text12" box=9450,30800,264600,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
+    LineObject "Line1" box=9450,111850,264600,0 fill=#00000000
+    TableObject "Table1" box=9450,163100,264600,113400 fill=#00000000
+      TableRow "Row1" height=20000
+        TableCell "Cell1" box=0,0,0,0 fill=#00000000 text="Invoice #" color=#FF000000 font="Tahoma",10000,700,Upright
+        TableCell "Cell2" box=0,0,0,0 fill=#00000000 text="1-C-TEST-001" color=#FF000000 font="Tahoma",10000,400,Upright
+        TableCell "Cell3" box=0,0,0,0 fill=#00000000 text="رقم الفاتورة:" color=#FF000000 font="Tahoma",10000,700,Upright
+      TableRow "Row2" height=20000
+        TableCell "Cell6" box=0,0,0,0 fill=#00000000 text="Date:" color=#FF000000 font="Tahoma",10000,700,Upright
+        TableCell "Cell7" box=0,0,0,0 fill=#00000000 text="18/11/2026" color=#FF000000 font="Tahoma",10000,400,Upright
+        TableCell "Cell8" box=0,0,0,0 fill=#00000000 text="التاريخ:" color=#FF000000 font="Tahoma",10000,700,Upright
+      TableRow "Row3" height=20000
+        TableCell "Cell9" box=0,0,0,0 fill=#00000000 text="Time:" color=#FF000000 font="Tahoma",10000,700,Upright
+        TableCell "Cell10" box=0,0,0,0 fill=#00000000 text="14:15:00" color=#FF000000 font="Tahoma",10000,400,Upright
+        TableCell "Cell11" box=0,0,0,0 fill=#00000000 text="الوقت:" color=#FF000000 font="Tahoma",10000,700,Upright
+      TableRow "Row17" height=20000
+        TableCell "Cell51" box=0,0,0,0 fill=#00000000 text="Cashier:" color=#FF000000 font="Tahoma",10000,700,Upright
+        TableCell "Cell52" box=0,0,0,0 fill=#00000000 text="admin" color=#FF000000 font="Tahoma",10000,400,Upright
+        TableCell "Cell53" box=0,0,0,0 fill=#00000000 text="الكاشير:" color=#FF000000 font="Tahoma",10000,700,Upright
+      TableRow "Row18" height=20000
+        TableCell "Cell54" box=0,0,0,0 fill=#00000000 text="العميل Customer: شركة الأمل التجارية" color=#FF000000 font="Tahoma",10000,400,Upright
+        TableCell "Cell55" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
+        TableCell "Cell56" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
+      TableRow "Row19" height=20000
+        TableCell "Cell64" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
+        TableCell "Cell65" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell66" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text45" box=9450,47250,264600,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text47" box=9450,66150,264600,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text44" box=9450,85050,264600,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",12000,400,Upright
+    TextObject "Text48" box=9450,139300,264600,18900 fill=#00000000 text="فاتورة ضريبية" color=#FF000000 font="Tahoma",12000,700,Upright
+    TextObject "Text52" box=9450,115400,264600,18900 fill=#00000000 text="فاتورة ضريبية مبسطة" color=#FF000000 font="Tahoma",12000,700,Upright
+    TextObject "Text29" box=9450,2450,264600,28350 fill=#00000000 text="" color=#FF000000 font="Tahoma",15000,700,Upright
+  DataBand "Data1" box=0,276500,272540,0 fill=#00000000 repeated=0
+  DataHeaderBand "DataHeader1" box=0,276500,272540,18900 fill=#00000000 repeated=0
+    TextObject "Text15" box=229800,0,47250,18900 fill=#FFDCDCDC text="المبلغ" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text8" box=9450,0,103950,18900 fill=#FFDCDCDC text="اسم الصنف" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text11" box=191000,0,37800,18900 fill=#FFDCDCDC text="العدد" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text35" box=0,0,13230,18900 fill=#00000000 text="#" color=#FF000000 font="Tahoma",6000,700,Upright
+    TextObject "Text75" box=113400,0,37800,18900 fill=#FFDCDCDC text="الوحدة" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text76" box=151200,0,37800,18900 fill=#FFDCDCDC text="السعر" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,295400,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="1" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="2" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="3,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-001" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="1,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,333200,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="2" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="1" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-002" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,371000,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="3" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="1" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-003" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,408800,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="خلاط مولينكس" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="4" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="3" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="450.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-004" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="150.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,446600,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Water 330ml x 40" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="5" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="4" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="45.20" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-005" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="11.30" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,484400,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Laban 2L" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="6" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="12" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="111.15" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-006" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="9.26" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,522200,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Glass sheet" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="7" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="2" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="241.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-007" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="120.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,560000,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="8" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="3" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="4,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-008" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="1,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,597800,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="9" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="2" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="4,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-009" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,635600,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="10" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="2" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="1,800.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-010" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,673400,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="خلاط مولينكس" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="11" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="4" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="600.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-011" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="150.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,711200,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Water 330ml x 40" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="12" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="5" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="56.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-012" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="11.30" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,749000,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Laban 2L" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="13" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="13" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="120.41" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-013" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="9.26" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,786800,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Glass sheet" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="14" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="3" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="361.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-014" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="120.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,824600,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="15" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="4" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="6,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-015" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="1,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,862400,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="16" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="3" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="6,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-016" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,900200,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="17" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="3" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="2,700.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-017" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,938000,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="خلاط مولينكس" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="18" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="5" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="750.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-018" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="150.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,975800,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Water 330ml x 40" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="19" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="6" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="67.80" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-019" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="11.30" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1013600,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Laban 2L" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="20" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="14" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="129.68" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-020" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="9.26" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1051400,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Glass sheet" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="21" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="4" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="482.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-021" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="120.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1089200,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="22" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="5" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="7,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-022" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="1,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1127000,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="23" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="4" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="8,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-023" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1164800,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="24" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="4" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="3,600.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-024" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1202600,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="خلاط مولينكس" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="25" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="6" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-025" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="150.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1240400,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Water 330ml x 40" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="26" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="7" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="79.10" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-026" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="11.30" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1278200,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Laban 2L" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="27" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="15" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="138.94" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-027" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="9.26" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1316000,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Glass sheet" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="28" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="5" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="602.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-028" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="120.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1353800,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="29" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="6" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="9,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-029" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="1,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1391600,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="30" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="5" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="10,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-030" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1429400,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="31" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="5" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="4,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-031" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1467200,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="خلاط مولينكس" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="32" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="7" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="1,050.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-032" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="150.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1505000,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Water 330ml x 40" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="33" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="8" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="90.40" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-033" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="11.30" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1542800,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Laban 2L" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="34" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="16" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="148.20" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-034" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="9.26" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1580600,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Glass sheet" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="35" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="6" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="723.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-035" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="120.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1618401,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="36" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="7" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="10,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-036" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="1,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1656201,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="37" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="6" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="12,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-037" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1694001,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="38" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="6" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="5,400.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-038" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1731801,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="خلاط مولينكس" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="39" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="8" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="1,200.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-039" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="150.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1769601,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Water 330ml x 40" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="40" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="9" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="101.70" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-040" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="11.30" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1807401,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Laban 2L" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="41" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="17" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="157.46" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-041" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="9.26" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1845201,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="Glass sheet" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="42" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="7" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="843.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-042" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="120.50" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1883001,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="43" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="8" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="12,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-043" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="1,500.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1920801,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="44" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="7" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="14,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-044" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="2,000.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataBand "Data2" box=0,1958601,272540,37800 fill=#00000000 repeated=0
+    TextObject "Text7" box=0,0,274050,18900 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text9" box=9450,18900,17010,18900 fill=#00000000 text="45" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text10" box=191000,18900,28350,18900 fill=#00000000 text="7" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text14" box=220350,18900,56700,18900 fill=#00000000 text="6,300.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text72" box=28350,18900,83160,18900 fill=#00000000 text="ITEM-045" color=#FF000000 font="Tahoma",10000,400,Upright
+    TextObject "Text73" box=151200,18900,37800,18900 fill=#00000000 text="900.00" color=#FF000000 font="Tahoma",11000,400,Upright
+    TextObject "Text74" box=113400,18900,35910,18900 fill=#00000000 text="PCE" color=#FF000000 font="Tahoma",10000,400,Upright
+  DataFooterBand "DataFooter1" box=0,1996401,272540,0 fill=#00000000 repeated=0
+  GroupFooterBand "GroupFooter1" box=0,1996401,272540,472500 fill=#00000000 repeated=0
+    TextObject "Text36" box=0,359100,264600,18900 fill=#00000000 text="شكراً لزيارتكم ... خدمتكم شرف لنا" color=#FF000000 font="Arial",11000,700,Upright
+    BarcodeObject "Barcode1" box=66150,207900,157450,138550 fill=#00000000 text=""
+    TextObject "Text53" box=85050,151200,170100,47250 fill=#00000000 text="10,559.47" color=#FF000000 font="Arial",28000,700,Upright
+    PictureObject "Picture3" box=47250,156200,37800,37800 fill=#00000000 image=33787
+    TextObject "Text54" box=9450,9450,85050,26460 fill=#FFDCDCDC text="الاجمالي الفرعي\r\nSub Total" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text55" box=94500,9450,85050,26460 fill=#FFDCDCDC text="خصم\r\nDiscount" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text56" box=179550,9450,94500,26460 fill=#FFDCDCDC text="الصافي\r\nNet Amount" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text57" box=9450,35800,85050,18900 fill=#00000000 text="9,182.15" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text58" box=94500,35800,85050,18900 fill=#00000000 text="0.00" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text59" box=179550,35800,94500,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text60" box=9450,54700,85050,26460 fill=#FFDCDCDC text="Tax الضريبة\r\n15%" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text61" box=94500,54700,85050,26460 fill=#FFDCDCDC text="الإجمالي النهائي\r\nGrand Total" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text62" box=179550,54700,94500,26460 fill=#FFDCDCDC text="عدد القطع\r\nItems Count" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text63" box=9450,80600,85050,18900 fill=#00000000 text="1,377.32" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text64" box=94500,80600,85050,18900 fill=#00000000 text="10,559.47" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text65" box=179550,80600,94500,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text66" box=9450,99950,85050,26460 fill=#FFDCDCDC text="نقداً\r\nCash" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text67" box=94500,99950,85050,26460 fill=#FFDCDCDC text="الباقي\r\nChange" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text68" box=179550,99950,94500,26460 fill=#FFDCDCDC text="شبكة\r\nSpan" color=#FF000000 font="Tahoma",8000,400,Upright
+    TextObject "Text69" box=9450,126850,85050,18900 fill=#00000000 text="10,000.00" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text70" box=94500,126850,85050,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,700,Upright
+    TextObject "Text71" box=179550,126850,94500,18900 fill=#00000000 text="559.47" color=#FF000000 font="Tahoma",10000,700,Upright
+    BarcodeObject "Barcode2" box=18900,396900,221600,28350 fill=#00000000 text=""
+  PageFooterBand "PageFooter1" box=0,12339054,272540,9450 fill=#00000000 repeated=0

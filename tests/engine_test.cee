@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: MIT
+// The engine's pages against CosmoReport's for the same report and data (tests/expected/X.prepared*.txt, written by
+// `dotnet RefDump.dll prepare tests/fixtures/X.frx tests/data/invoice*.json Name`): every band and object, where it is
+// and what it says, on every page. The reports' script (MyInvoice shades every other row) is the program's handler
+// here, as it is CosmoReport's compiled script there.
+
+/// MyInvoice's Data1_BeforePrint: `if (Row# % 2 != 0) Data1.FillColor = Color.FromArgb(223, 225, 228);`.
+fn shadeOddRows(band: borrow mut Component, info: ScriptInfo) {
+    if (info.rowNo % 2 != 0) {
+        band.fill = Color { r: 223, g: 225, b: 228, a: 255 };
+        band.fillKind = FillKind.Solid;
+    }
+}
+
+fn samePages(file: StringView, sourceName: StringView, dataFile: StringView, expected: StringView)
+    -> Result<void, TestFailure> {
+    var path = String.create();
+    let _ = path.append("tests/fixtures/");
+    let _ = path.append(file);
+    let _ = path.append(".frx");
+    let report = match (loadReport(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    let root = match (parseXml(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report is not XML")); }
+    };
+    var data = DataSet.create(Schema.read(root));
+    match (data.register(sourceName, readFile(dataFile).view())) {
+        Ok() => {}
+        Err(_) => { return Err(TestFailure.create("the data did not read")); }
+    }
+    var handlers = Handlers.create();
+    handlers.add("Data1_BeforePrint", shadeOddRows);
+    // PosInvoice's script does not compile in CosmoReport (it names Image), so it runs there with none.
+    let pages = if (file == "PosInvoice") preparePages(report, data, Handlers.create(), null)
+        else preparePages(report, data, handlers, null);
+    let got = dumpPrepared(report, pages);
+    let want = readFile(expected);
+    let wantText = StringView.fromUtf8(want.view()) ?? "";
+    if (got.view() == wantText) {
+        return Ok();
+    }
+    let gotLines = splitOn(got.view(), '\n');
+    let wantLines = splitOn(wantText, '\n');
+    var shown = 0;
+    for (k in 0..gotLines.length.max(wantLines.length)) {
+        let g = if (k < gotLines.length) gotLines[k] else "<none>";
+        let w = if (k < wantLines.length) wantLines[k] else "<none>";
+        if (g != w && shown < 10) {
+            Console.write("  line ");
+            Console.writeLine(truncate<i64>(k) + 1);
+            Console.write("  want ");
+            Console.writeLine(w);
+            Console.write("  got  ");
+            Console.writeLine(g);
+            shown += 1;
+        }
+    }
+    Console.write("  lines: want ");
+    Console.write(truncate<i64>(wantLines.length));
+    Console.write(", got ");
+    Console.writeLine(truncate<i64>(gotLines.length));
+    return Err(TestFailure.create("the pages are not CosmoReport's"));
+}
+
+@test
+fn thePosInvoicePagesAreCosmoReports() -> Result<void, TestFailure> =>
+    samePages("PosInvoice", "Header", "tests/data/invoice.json", "tests/expected/PosInvoice.prepared.txt");
+
+@test
+fn theMyInvoicePagesAreCosmoReports() -> Result<void, TestFailure> =>
+    samePages("MyInvoice", "Invoice", "tests/data/invoice.json", "tests/expected/MyInvoice.prepared.txt");
+
+@test
+fn theServersMyInvoicePagesAreCosmoReports() -> Result<void, TestFailure> =>
+    samePages("MyInvoice.server", "Invoice", "tests/data/invoice.json", "tests/expected/MyInvoice.server.prepared.txt");
+
+@test
+fn aLongPosInvoiceIsCosmoReports() -> Result<void, TestFailure> =>
+    samePages("PosInvoice", "Header", "tests/data/invoice45.json", "tests/expected/PosInvoice.prepared45.txt");
+
+@test
+fn aLongMyInvoiceRunsOverPagesAsCosmoReports() -> Result<void, TestFailure> =>
+    samePages("MyInvoice", "Invoice", "tests/data/invoice45.json", "tests/expected/MyInvoice.prepared45.txt");
+
+@test
+fn aLongServersMyInvoiceRunsOverPagesAsCosmoReports() -> Result<void, TestFailure> =>
+    samePages("MyInvoice.server", "Invoice", "tests/data/invoice45.json", "tests/expected/MyInvoice.server.prepared45.txt");

@@ -1,0 +1,2001 @@
+// SPDX-License-Identifier: MIT
+// The band engine: a report and its data made into pages, as CosmoReport's ReportEngine makes them. Each page starts
+// with its page header (and the headers in scope that repeat), bands flow down until one does not fit, the page
+// footer closes the page; groups break on their condition, data bands print a row each with their header, footer,
+// details and child, subreports run another page's bands in place, totals add up their rows. A printed band is a copy
+// of the band as it was evaluated (CloneBand); afterwards the bands and objects a page's number excludes (PrintOn)
+// are dropped and the texts that name [TotalPages] are evaluated again.
+//
+// The engine is font free, as CosmoReport's is: a growing text asks a line counter how many lines it wraps to, and
+// without one counts its newlines (TextMeasureBridge).
+
+// ---- what a program gives the engine ---------------------------------------------------------------------------------
+
+/// What a script handler is told: the row, page and page count as the evaluator has them (Report.GetVariableValue).
+public struct ScriptInfo {
+    public rowNo: i64;
+    public pageNo: i64;
+    public totalPages: i64;
+}
+
+/// A report's script, as the program's own functions: each handles an event by the name the report gives it
+/// ("Data1_BeforePrint"), and is given the printed copy of the band to change.
+public struct Handlers {
+    names: Vector<String>;
+    fns: Vector<fn(borrow mut Component, ScriptInfo)>;
+
+    public fn create() -> Handlers => Handlers {
+        names: Vector<String>.create(),
+        fns: Vector<fn(borrow mut Component, ScriptInfo)>.create(),
+    };
+
+    /// Handles event `name` with `f`.
+    public fn add(borrow mut this, name: StringView, f: fn(borrow mut Component, ScriptInfo)) {
+        let _ = this.names.push(copyOf(name));
+        let _ = this.fns.push(f);
+    }
+
+    fn find(borrow this, name: StringView) -> fn(borrow mut Component, ScriptInfo)? {
+        for (k in 0..this.names.length) {
+            if (this.names[k].view() == name) {
+                return this.fns[k];
+            }
+        }
+        return null;
+    }
+}
+
+/// How many lines `text` wraps to in `family` at `size` points (bold, italic) in `width` (1/96 inch); 0 or less when
+/// it cannot say. CanGrow and CanShrink use it.
+public struct LineCounter {
+    public count: fn(StringView, StringView, f32, bool, bool, f32) -> i64;
+}
+
+// ---- what the engine makes -------------------------------------------------------------------------------------------
+
+/// A printed band: a copy of the band with its objects, at its place on the page (top), and whether it is a
+/// repeated copy (a header or footer printed again on a later page).
+public struct PreparedBand {
+    public band: Component;
+    public repeated: bool;
+}
+
+/// A prepared page: the report page it is made from (an index into Report.pages) and its bands in print order.
+public struct PreparedPage {
+    public source: usize;
+    public bands: Vector<PreparedBand>;
+}
+
+// ---- the engine's own copy of the report's bands -------------------------------------------------------------------
+
+const MM: f32 = 3.78;
+
+/// A band the engine runs: the band with its objects (changed as it runs: values, growth), where its nested bands are,
+/// and the layout it was designed with (NormalizeGrowth's).
+struct EBand {
+    c: Component;
+    page: usize;
+    topLevel: bool;
+    header: usize?;
+    footer: usize?;
+    child: usize?;
+    nested: usize?;
+    data: usize?;
+    groupFooter: usize?;
+    details: Vector<usize>;
+    hasLayout: bool;
+    designTops: Vector<f32>;
+    designHeights: Vector<f32>;
+    designHeight: f32;
+    engineHeight: f32;
+    hasEngineHeight: bool;
+    repeated: bool;
+}
+
+struct EPage {
+    bands: Vector<usize>;
+}
+
+/// A child data source the engine made, to make again for the parent's next row (_childRegistry).
+struct ChildEntry {
+    name: String;
+    parent: String;
+    childPath: String;
+}
+
+/// What a KeepTogether group rolls back to when it does not fit (EngineSnapshot).
+struct Snapshot {
+    pageIndex: i64;
+    bandsCount: usize;
+    curY: f32;
+    curPageNo: i64;
+    evalPageNo: i64;
+    currentColumn: i64;
+    columnTopY: f32;
+    totals: Vector<TotalState>;
+    aggregates: Vector<AggregateState>;
+}
+
+fn cloneTotalState(t: borrow TotalState) -> TotalState {
+    var distinct = Vector<String>.create();
+    for (d in t.distinct.view()) {
+        let _ = distinct.push(copyOf(d.view()));
+    }
+    return TotalState {
+        hasValue: t.hasValue,
+        sum: t.sum,
+        count: t.count,
+        min: t.min,
+        max: t.max,
+        minDate: t.minDate,
+        maxDate: t.maxDate,
+        distinct: distinct,
+    };
+}
+
+fn cloneAggregate(a: borrow AggregateState) -> AggregateState => AggregateState {
+    key: copyOf(a.key.view()),
+    count: a.count,
+    sum: a.sum,
+    sumOfSquares: a.sumOfSquares,
+    min: a.min,
+    max: a.max,
+    first: a.first.clone(),
+    last: a.last.clone(),
+};
+
+/// Object.Equals of two values: the same kind and value (a decimal by its value, not its scale).
+fn valueEquals(a: borrow Value, b: borrow Value) -> bool {
+    if (a.kind != b.kind) {
+        return false;
+    }
+    return match (a.kind) {
+        ValueKind.Null => true,
+        ValueKind.Bool => a.b == b.b,
+        ValueKind.Int => a.i == b.i,
+        ValueKind.Double => a.d == b.d || (a.d != a.d && b.d != b.d),
+        ValueKind.Decimal => compareDecimal(a.dec, b.dec) == 0,
+        ValueKind.Str => a.s.view() == b.s.view(),
+        ValueKind.Date => dateKey(a.date) == dateKey(b.date) && a.date.ticks == b.date.ticks,
+        ValueKind.Bytes => a.bytes.view() == b.bytes.view(),
+        ValueKind.Collection | ValueKind.Object => a.doc == b.doc && a.node == b.node,
+    };
+}
+
+/// ShouldPrintComponent: whether PrintOn flags `po` print on page `pageNo` of `totalPages` (a repeated copy only with
+/// RepeatedBand).
+public fn shouldPrint(po: u32, pageNo: i64, totalPages: i64, repeated: bool) -> bool {
+    let first = pageNo == 1;
+    let last = pageNo == totalPages;
+    var can = false;
+    if ((po & 4) != 0 && pageNo % 2 == 1) {
+        can = true;
+    }
+    if ((po & 8) != 0 && pageNo % 2 == 0) {
+        can = true;
+    }
+    if (last) {
+        if ((po & 2) == 0) {
+            can = false;
+        }
+        if (po == 2 || po == (2 | 32) || po == (1 | 2)) {
+            can = true;
+        }
+    }
+    if (first) {
+        if ((po & 1) == 0) {
+            can = false;
+        }
+        if (po == 1 || po == (1 | 32) || po == (1 | 2)) {
+            can = true;
+        }
+    }
+    if (first && last) {
+        can = (po & 32) != 0;
+    }
+    if (repeated) {
+        can = (po & 16) != 0;
+    }
+    return can;
+}
+
+fn isPageBandKind(k: Kind) -> bool => k == Kind.PageHeaderBand || k == Kind.PageFooterBand;
+
+fn isText(c: borrow Component) -> bool => c.text != null && c.kind != Kind.TableCell;
+
+/// The objects HasRenderableContent counts: texts, lines, shapes, pictures, tables, barcodes (and subreports).
+fn isPayload(c: borrow Component, subreports: bool) -> bool {
+    return match (c.kind) {
+        Kind.TextObject | Kind.LineObject | Kind.PictureObject | Kind.TableObject | Kind.BarcodeObject => true,
+        Kind.SubreportObject => subreports,
+        Kind.Other => c.typeName.view() == "ShapeObject" || c.typeName.view() == "CheckBoxObject",
+        _ => false,
+    };
+}
+
+/// TextObject.CalcHeight: its lines (by the counter, else its newlines) times its line height (LineHeight, else
+/// 1.2 em at 96/72), and its top and bottom padding; its own height when it has no text.
+fn textHeight(c: borrow Component, counter: LineCounter?) -> f32 {
+    let t = match (borrow c.text) {
+        Some(t) => t,
+        null => { return c.height; }
+    };
+    if (c.kind != Kind.TextObject && c.kind != Kind.TableCell) {
+        return c.height;
+    }
+    let text = t.processed.view();
+    if (text.length == 0) {
+        return c.height;
+    }
+    var lines: i64 = 0;
+    let innerW = c.width - t.padLeft - t.padRight;
+    if (t.wordWrap && innerW > 0.0) {
+        match (counter) {
+            Some(lc) => {
+                let count = lc.count;
+                let counted = count(text, t.font.family.view(), t.font.size, t.font.weight >= 700,
+                    t.font.slant != FontSlant.Upright, innerW);
+                if (counted > 0) {
+                    lines = counted;
+                }
+            }
+            null => {}
+        }
+    }
+    if (lines <= 0) {
+        lines = 1;
+        for (b in text.bytes()) {
+            if (b == '\n') {
+                lines += 1;
+            }
+        }
+    }
+    let lineHeight: f32 = if (t.lineHeight > 0.0) t.lineHeight else t.font.size * 1.2 * 96.0 / 72.0;
+    return round<f32>(lines) * lineHeight + t.padTop + t.padBottom;
+}
+
+/// Each object of a band (a copy's objects) with its text processed, recursively: what EvaluateObject does to it.
+fn evaluateObject(obj: borrow mut Component, e: borrow Evaluator) {
+    match (borrow mut obj.picture) {
+        Some(p) => {
+            if (p.dataColumn.view().length > 0) {
+                let v = e.evaluate(p.dataColumn.view());
+                p.image.clear();
+                if (v.kind == ValueKind.Bytes) {
+                    for (b in v.bytes.view()) {
+                        let _ = p.image.push(b);
+                    }
+                } else if (v.kind == ValueKind.Str) {
+                    match (base64(v.s.view())) {
+                        Some(bytes) => { p.image = bytes; }
+                        null => { p.location = copyOf(v.s.view()); }
+                    }
+                }
+            }
+        }
+        null => {}
+    }
+    if (obj.kind == Kind.TextObject) {
+        match (borrow mut obj.text) {
+            Some(t) => {
+                if (t.allowExpressions) {
+                    t.processed = e.processText(t.text.view(), t.format);
+                }
+            }
+            null => {}
+        }
+    }
+    match (borrow mut obj.barcode) {
+        Some(b) => {
+            if (b.allowExpressions) {
+                b.processed = e.processText(b.text.view(), Format.none());
+            }
+        }
+        null => {}
+    }
+    if (obj.kind == Kind.TableObject) {
+        for (r in 0..obj.tableRows.length) {
+            let row = borrow mut obj.tableRows[r];
+            for (k in 0..row.cells.length) {
+                let cell = borrow mut row.cells[k];
+                match (borrow mut cell.text) {
+                    Some(t) => {
+                        if (t.allowExpressions) {
+                            t.processed = e.processText(t.text.view(), t.format);
+                        }
+                    }
+                    null => {}
+                }
+                for (j in 0..cell.children.length) {
+                    evaluateObject(mut cell.children[j], e);
+                }
+            }
+        }
+    }
+}
+
+/// GetData: a text's and a barcode's processed text set back to its text, before the band is evaluated.
+fn getData(obj: borrow mut Component) {
+    if (obj.kind == Kind.TextObject) {
+        match (borrow mut obj.text) {
+            Some(t) => { t.processed = copyOf(t.text.view()); }
+            null => {}
+        }
+    }
+    match (borrow mut obj.barcode) {
+        Some(b) => { b.processed = copyOf(b.text.view()); }
+        null => {}
+    }
+}
+
+/// The page's objects a page excludes, dropped (FilterObjectsRecursive): invisible ones and those PrintOn excludes;
+/// in a table, its cells' objects.
+fn filterObjects(objects: borrow mut Vector<Component>, pageNo: i64, totalPages: i64, repeated: bool) {
+    var j = objects.length;
+    while (j > 0) {
+        j -= 1;
+        if (!objects[j].visible || !shouldPrint(objects[j].printOn, pageNo, totalPages, repeated)) {
+            let _ = objects.remove(j);
+            continue;
+        }
+        let obj = borrow mut objects[j];
+        for (r in 0..obj.tableRows.length) {
+            let row = borrow mut obj.tableRows[r];
+            for (k in 0..row.cells.length) {
+                filterObjects(mut row.cells[k].children, pageNo, totalPages, repeated);
+            }
+        }
+    }
+}
+
+/// ReevaluateTotalPagesTexts: each text naming [TotalPages evaluated again; in a table, its cells' objects.
+fn reevaluateTotalPages(objects: borrow mut Vector<Component>, e: borrow Evaluator) {
+    for (j in 0..objects.length) {
+        let obj = borrow mut objects[j];
+        if (obj.kind == Kind.TextObject) {
+            match (borrow mut obj.text) {
+                Some(t) => {
+                    if (t.allowExpressions && contains(t.text.view(), "[TotalPages")) {
+                        t.processed = e.processText(t.text.view(), t.format);
+                    }
+                }
+                null => {}
+            }
+        }
+        for (r in 0..obj.tableRows.length) {
+            let row = borrow mut obj.tableRows[r];
+            for (k in 0..row.cells.length) {
+                reevaluateTotalPages(mut row.cells[k].children, e);
+            }
+        }
+    }
+}
+
+fn contains(text: StringView, part: StringView) -> bool {
+    let t = text.bytes();
+    let p = part.bytes();
+    if (p.length > t.length) {
+        return false;
+    }
+    for (i in 0..t.length - p.length + 1) {
+        var same = true;
+        for (j in 0..p.length) {
+            if (t[i + j] != p[j]) {
+                same = false;
+                break;
+            }
+        }
+        if (same) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// ---- the engine --------------------------------------------------------------------------------------------------------
+
+/// Prepares `report`'s pages over `data` (its sources registered), calling `handlers` for the report's script events
+/// and `counter`, if given, to measure growing texts.
+public fn preparePages(report: borrow Report, data: DataSet, handlers: borrow Handlers, counter: LineCounter?)
+    -> Vector<PreparedPage> {
+    var engine = Engine.create(report, data, handlers, counter);
+    engine.run();
+    return engine.pages;
+}
+
+struct Engine<region r> {
+    report: borrow(r) Report;
+    handlers: borrow(r) Handlers;
+    counter: LineCounter?;
+    data: DataSet;
+    state: EvalState;
+    bands: Vector<EBand>;
+    epages: Vector<EPage>;
+    pages: Vector<PreparedPage>;
+    // the page being made
+    reportPage: usize;
+    curY: f32;
+    curPageNo: i64;
+    subreportOffsetX: f32;
+    suppressHeaderReprintOnce: bool;
+    reprintSuppressOnce: Vector<usize>;
+    pageHeight: f32;
+    pageWidth: f32;
+    freeSpace: f32;
+    pageHeader: usize?;
+    pageFooter: usize?;
+    columnHeader: usize?;
+    columnFooter: usize?;
+    overlay: usize?;
+    activeHeaders: Vector<usize>;
+    activeFooters: Vector<usize>;
+    closingPage: bool;
+    children: Vector<ChildEntry>;
+    columnsCount: i64;
+    currentColumn: i64;
+    columnWidthPx: f32;
+    columnTopY: f32;
+}
+
+impl<region r> Engine<r> {
+    fn create(report: borrow(r) Report, data: DataSet, handlers: borrow(r) Handlers, counter: LineCounter?) -> Engine<r> {
+        var e = Engine {
+            report: report,
+            handlers: handlers,
+            counter: counter,
+            data: data,
+            state: EvalState.create(report),
+            bands: Vector<EBand>.create(),
+            epages: Vector<EPage>.create(),
+            pages: Vector<PreparedPage>.create(),
+            reportPage: 0,
+            curY: 0.0,
+            curPageNo: 0,
+            subreportOffsetX: 0.0,
+            suppressHeaderReprintOnce: false,
+            reprintSuppressOnce: Vector<usize>.create(),
+            pageHeight: 0.0,
+            pageWidth: 0.0,
+            freeSpace: 0.0,
+            pageHeader: null,
+            pageFooter: null,
+            columnHeader: null,
+            columnFooter: null,
+            overlay: null,
+            activeHeaders: Vector<usize>.create(),
+            activeFooters: Vector<usize>.create(),
+            closingPage: false,
+            children: Vector<ChildEntry>.create(),
+            columnsCount: 1,
+            currentColumn: 1,
+            columnWidthPx: 0.0,
+            columnTopY: 0.0,
+        };
+        for (p in 0..report.pages.length) {
+            var top = Vector<usize>.create();
+            for (b in report.pages[p].bands.view()) {
+                let k = e.flatten(b, p, true);
+                let _ = top.push(k);
+            }
+            let _ = e.epages.push(EPage { bands: top });
+        }
+        return e;
+    }
+
+    /// Band `c` and its nested bands added to the arena; its index.
+    fn flatten(borrow mut this, c: borrow Component, page: usize, topLevel: bool) -> usize {
+        let _ = this.bands.push(EBand {
+            c: cloneBandOnly(c),
+            page: page,
+            topLevel: topLevel,
+            header: null,
+            footer: null,
+            child: null,
+            nested: null,
+            data: null,
+            groupFooter: null,
+            details: Vector<usize>.create(),
+            hasLayout: false,
+            designTops: Vector<f32>.create(),
+            designHeights: Vector<f32>.create(),
+            designHeight: 0.0,
+            engineHeight: 0.0,
+            hasEngineHeight: false,
+            repeated: false,
+        });
+        let at = this.bands.length - 1;
+        for (child in c.children.view()) {
+            if (child.role == Role.Object) {
+                continue;
+            }
+            let k = this.flatten(child, page, false);
+            let b = borrow mut this.bands[at];
+            match (child.role) {
+                Role.Header => { b.header = k; }
+                Role.Footer => { b.footer = k; }
+                Role.Child => { b.child = k; }
+                Role.Nested => { b.nested = k; }
+                Role.Data => { b.data = k; }
+                Role.GroupFooter => { b.groupFooter = k; }
+                Role.Detail => { let _ = b.details.push(k); }
+                Role.Object => {}
+            }
+        }
+        return at;
+    }
+
+    fn props(borrow this, k: usize) -> borrow(this) BandProps {
+        return match (borrow this.bands[k].c.band) {
+            Some(p) => p,
+            null => panic("a band without band properties"),
+        };
+    }
+
+    fn kind(borrow this, k: usize) -> Kind => this.bands[k].c.kind;
+
+    fn info(borrow this) -> ScriptInfo => ScriptInfo {
+        rowNo: this.state.rowNo,
+        pageNo: this.state.pageNo,
+        totalPages: this.state.totalPages,
+    };
+
+    // ---- Run -------------------------------------------------------------------------------------------------------
+
+    fn run(borrow mut this) {
+        this.curPageNo = 0;
+        for (k in 0..this.data.sources.length) {
+            if (this.data.sources[k].rowCount() > 0) {
+                this.data.sources[k].first();
+            }
+        }
+        for (p in 0..this.report.pages.length) {
+            if (!this.isSubreportPage(p)) {
+                this.runReportPage(p);
+            }
+        }
+        this.state.totalPages = truncate<i64>(this.pages.length);
+        this.applyPrintOnFilter();
+    }
+
+    fn applyPrintOnFilter(borrow mut this) {
+        let total = truncate<i64>(this.pages.length);
+        for (i in 0..this.pages.length) {
+            let pageNo = truncate<i64>(i) + 1;
+            this.state.pageNo = pageNo;
+            this.state.totalPages = total;
+            let page = borrow mut this.pages[i];
+            var j = page.bands.length;
+            while (j > 0) {
+                j -= 1;
+                if (!shouldPrint(page.bands[j].band.printOn, pageNo, total, page.bands[j].repeated)) {
+                    let _ = page.bands.remove(j);
+                }
+            }
+            for (b in 0..page.bands.length) {
+                let repeated = page.bands[b].repeated;
+                filterObjects(mut page.bands[b].band.children, pageNo, total, repeated);
+            }
+            let e = Evaluator.of(this.report, this.data, this.state);
+            for (b in 0..this.pages[i].bands.length) {
+                reevaluateTotalPages(mut this.pages[i].bands[b].band.children, e);
+            }
+            this.shiftPrintOnBottom(i);
+        }
+    }
+
+    /// ShiftPrintOnBottomToReclaimedFooterSlot: where the page footer was dropped, the bands printed at the bottom
+    /// move down into its place.
+    fn shiftPrintOnBottom(borrow mut this, i: usize) {
+        let source = this.pages[i].source;
+        var footerHeight: f32? = null;
+        for (k in this.epages[source].bands.view()) {
+            if (this.bands[k].c.kind == Kind.PageFooterBand) {
+                footerHeight = this.bands[k].c.height;
+                break;
+            }
+        }
+        let shift = match (footerHeight) {
+            Some(h) => h,
+            null => { return; }
+        };
+        for (b in this.pages[i].bands.view()) {
+            if (b.band.kind == Kind.PageFooterBand) {
+                return;
+            }
+        }
+        if (shift <= 0.0) {
+            return;
+        }
+        let page = borrow mut this.pages[i];
+        for (b in 0..page.bands.length) {
+            let onBottom = match (borrow page.bands[b].band.band) {
+                Some(p) => p.printOnBottom,
+                null => false,
+            };
+            if (onBottom) {
+                page.bands[b].band.top += shift;
+            }
+        }
+    }
+
+    fn pageNamed(borrow this, name: StringView) -> usize? {
+        for (p in 0..this.report.pages.length) {
+            if (sameIgnoringCase(this.report.pages[p].name.view(), name)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /// Whether page `p` is another's subreport (a SubreportObject on any other page names it); the first never is.
+    fn isSubreportPage(borrow this, p: usize) -> bool {
+        if (this.report.pages.length <= 1 || p == 0) {
+            return false;
+        }
+        for (k in 0..this.bands.length) {
+            if (this.bands[k].page == p) {
+                continue;
+            }
+            for (o in this.bands[k].c.children.view()) {
+                if (o.kind == Kind.SubreportObject && sameIgnoringCase(o.reportPage.view(), this.report.pages[p].name.view())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    fn findBand(borrow this, p: usize, kind: Kind) -> usize? {
+        for (k in this.epages[p].bands.view()) {
+            if (this.bands[k].c.kind == kind) {
+                return k;
+            }
+        }
+        return null;
+    }
+
+    fn runReportPage(borrow mut this, p: usize) {
+        this.reportPage = p;
+        let page = borrow this.report.pages[p];
+        this.pageWidth = (page.paperWidth - page.leftMargin - page.rightMargin) * MM;
+        this.pageHeight = (page.paperHeight - page.topMargin - page.bottomMargin) * MM;
+        this.columnsCount = page.columns.max(1);
+        this.columnWidthPx = if (this.columnsCount > 1) page.columnWidth * MM else this.pageWidth;
+        this.pageHeader = this.findBand(p, Kind.PageHeaderBand);
+        this.pageFooter = this.findBand(p, Kind.PageFooterBand);
+        this.columnHeader = this.findBand(p, Kind.ColumnHeaderBand);
+        this.columnFooter = this.findBand(p, Kind.ColumnFooterBand);
+        this.overlay = this.findBand(p, Kind.OverlayBand);
+        this.startPage();
+        match (this.findBand(p, Kind.ReportTitleBand)) {
+            Some(k) => { this.showBand(k); }
+            null => {}
+        }
+        for (i in 0..this.epages[p].bands.length) {
+            let k = this.epages[p].bands[i];
+            if (this.kind(k) == Kind.GroupHeaderBand) {
+                this.runGroup(k);
+            } else if (this.kind(k) == Kind.DataBand) {
+                this.runDataBand(k);
+            }
+        }
+        match (this.findBand(p, Kind.ReportSummaryBand)) {
+            Some(k) => { this.showBand(k); }
+            null => {}
+        }
+        this.endPage();
+    }
+
+    fn heightOf(borrow this, k: usize?) -> f32 => match (k) {
+        Some(b) => this.bands[b].c.height,
+        null => 0.0,
+    };
+
+    fn currentBandCount(borrow this) -> usize {
+        if (this.pages.length == 0) {
+            return 0;
+        }
+        return this.pages[this.pages.length - 1].bands.length;
+    }
+
+    fn startPage(borrow mut this) {
+        this.curPageNo += 1;
+        this.state.pageNo = this.curPageNo;
+        let _ = this.pages.push(PreparedPage { source: this.reportPage, bands: Vector<PreparedBand>.create() });
+        this.curY = 0.0;
+        this.currentColumn = 1;
+        this.freeSpace = this.pageHeight - this.heightOf(this.pageFooter) - this.heightOf(this.columnFooter);
+        match (this.overlay) {
+            Some(k) => {
+                var copy = cloneBandOnly(this.bands[k].c);
+                copy.top = 0.0;
+                let last = this.pages.length - 1;
+                let _ = this.pages[last].bands.push(PreparedBand { band: copy, repeated: false });
+            }
+            null => {}
+        }
+        match (this.pageHeader) {
+            Some(k) => { this.showBand(k); }
+            null => {}
+        }
+        if (this.curPageNo > 1 && !this.suppressHeaderReprintOnce) {
+            for (i in 0..this.activeHeaders.length) {
+                let h = this.activeHeaders[i];
+                if (!this.props(h).repeatOnEveryPage) {
+                    continue;
+                }
+                var suppressed = false;
+                for (s in this.reprintSuppressOnce.view()) {
+                    if (s == h) {
+                        suppressed = true;
+                    }
+                }
+                if (suppressed) {
+                    continue;
+                }
+                this.bands[h].repeated = true;
+                this.showBand(h);
+                this.bands[h].repeated = false;
+            }
+        }
+        this.suppressHeaderReprintOnce = false;
+        this.reprintSuppressOnce.clear();
+        match (this.columnHeader) {
+            Some(k) => { this.showBand(k); }
+            null => {}
+        }
+    }
+
+    fn pushActiveHeader(borrow mut this, k: usize?) {
+        match (k) {
+            Some(h) => { let _ = this.activeHeaders.push(h); }
+            null => {}
+        }
+    }
+
+    fn popActiveHeader(borrow mut this, k: usize?) {
+        match (k) {
+            Some(h) => {
+                if (this.activeHeaders.length > 0 && this.activeHeaders[this.activeHeaders.length - 1] == h) {
+                    let _ = this.activeHeaders.pop();
+                }
+            }
+            null => {}
+        }
+    }
+
+    fn pushActiveFooter(borrow mut this, k: usize?) {
+        match (k) {
+            Some(f) => {
+                if (this.props(f).repeatOnEveryPage) {
+                    let _ = this.activeFooters.push(f);
+                }
+            }
+            null => {}
+        }
+    }
+
+    fn popActiveFooter(borrow mut this, k: usize?) {
+        match (k) {
+            Some(f) => {
+                if (this.activeFooters.length > 0 && this.activeFooters[this.activeFooters.length - 1] == f) {
+                    let _ = this.activeFooters.pop();
+                }
+            }
+            null => {}
+        }
+    }
+
+    fn bottomFooterReserve(borrow this, current: usize) -> f32 {
+        var reserve: f32 = 0.0;
+        for (f in this.activeFooters.view()) {
+            if (f == current) {
+                continue;
+            }
+            if (this.props(f).printOnBottom) {
+                reserve += this.bands[f].c.height;
+            }
+        }
+        return reserve;
+    }
+
+    fn endPage(borrow mut this) {
+        let was = this.closingPage;
+        this.closingPage = true;
+        if (this.activeFooters.length > 0 && this.curPageNo > 0) {
+            let pageFooterH = this.heightOf(this.pageFooter);
+            let columnFooterH = this.heightOf(this.columnFooter);
+            var i = this.activeFooters.length;
+            while (i > 0) {
+                i -= 1;
+                let f = this.activeFooters[i];
+                let maxY = this.pageHeight - pageFooterH - columnFooterH - this.bands[f].c.height;
+                if (this.curY > maxY) {
+                    this.curY = maxY;
+                }
+                this.bands[f].repeated = true;
+                this.showBand(f);
+                this.bands[f].repeated = false;
+            }
+        }
+        match (this.columnFooter) {
+            Some(k) => {
+                let maxY = this.pageHeight - this.heightOf(this.pageFooter) - this.bands[k].c.height;
+                if (this.curY > maxY) {
+                    this.curY = maxY;
+                }
+                this.showBand(k);
+            }
+            null => {}
+        }
+        match (this.pageFooter) {
+            Some(k) => {
+                this.curY = this.pageHeight - this.bands[k].c.height;
+                this.showBand(k);
+            }
+            null => {}
+        }
+        this.closingPage = was;
+    }
+
+    // ---- a band ------------------------------------------------------------------------------------------------------
+
+    /// GetData and EvaluateBandExpressions on band `k`'s objects.
+    fn evaluateBand(borrow mut this, k: usize) {
+        for (j in 0..this.bands[k].c.children.length) {
+            getData(mut this.bands[k].c.children[j]);
+        }
+        let e = Evaluator.of(this.report, this.data, this.state);
+        let objects = borrow mut this.bands[k].c.children;
+        for (j in 0..objects.length) {
+            evaluateObject(mut objects[j], e);
+        }
+    }
+
+    /// NormalizeGrowth: the design layout restored, then each growing or shrinking object sized to its text, those
+    /// below it moved by as much.
+    fn normalizeGrowth(borrow mut this, k: usize) {
+        let counter = this.counter;
+        let b = borrow mut this.bands[k];
+        if (!b.hasLayout) {
+            for (o in b.c.children.view()) {
+                let _ = b.designTops.push(o.top);
+                let _ = b.designHeights.push(o.height);
+            }
+            b.designHeight = b.c.height;
+            b.hasLayout = true;
+        } else {
+            for (j in 0..b.c.children.length) {
+                b.c.children[j].top = b.designTops[j];
+                b.c.children[j].height = b.designHeights[j];
+            }
+            if (b.hasEngineHeight && b.c.height == b.engineHeight) {
+                b.c.height = b.designHeight;
+            }
+        }
+        // By design top, ties in their order (OrderBy is stable).
+        var order = Vector<usize>.create();
+        for (j in 0..b.designTops.length) {
+            var at = order.length;
+            for (i in 0..order.length) {
+                if (b.designTops[j] < b.designTops[order[i]]) {
+                    at = i;
+                    break;
+                }
+            }
+            let _ = order.insert(at, j);
+        }
+        for (j in order.view()) {
+            let o = borrow b.c.children[j];
+            if (!o.visible || !(o.canGrow || o.canShrink)) {
+                continue;
+            }
+            let newHeight = textHeight(o, counter);
+            let grow = o.canGrow && newHeight > o.height;
+            let shrink = o.canShrink && newHeight < o.height;
+            if (!grow && !shrink) {
+                continue;
+            }
+            let delta = newHeight - o.height;
+            let originalBottom = o.top + o.height;
+            b.c.children[j].height = newHeight;
+            for (i in 0..b.c.children.length) {
+                if (i != j && b.c.children[i].top >= originalBottom - 0.01) {
+                    b.c.children[i].top += delta;
+                }
+            }
+        }
+    }
+
+    /// BandBase.CalcHeight: its height, or with CanGrow the lowest bottom of its visible objects if lower.
+    fn calcHeight(borrow this, k: usize) -> f32 {
+        let c = borrow this.bands[k].c;
+        var maxHeight = c.height;
+        if (!c.canGrow) {
+            return maxHeight;
+        }
+        for (o in c.children.view()) {
+            if (!o.visible) {
+                continue;
+            }
+            let bottom = o.top + (if (o.canGrow) textHeight(o, this.counter) else o.height);
+            if (bottom > maxHeight) {
+                maxHeight = bottom;
+            }
+        }
+        return maxHeight;
+    }
+
+    /// TryEmitBandAsTableSlices' test: a band holding only a table taller or wider than the space left. Its slicing is
+    /// not ported yet, so such a band is printed whole.
+    fn wouldSliceTable(borrow this, k: usize) -> bool {
+        let c = borrow this.bands[k].c;
+        if (isPageBandKind(c.kind)) {
+            return false;
+        }
+        var table: usize? = null;
+        for (j in 0..c.children.length) {
+            let o = borrow c.children[j];
+            if (o.kind == Kind.TableObject) {
+                if (table != null) {
+                    return false;
+                }
+                table = j;
+            } else if (isPayload(o, true) || o.typeName.view() == "ContainerObject") {
+                return false;
+            }
+        }
+        let t = match (table) {
+            Some(j) => borrow c.children[j],
+            null => { return false; }
+        };
+        if (t.tableRows.length == 0 || t.tableColumns.length == 0) {
+            return false;
+        }
+        var height: f32 = 0.0;
+        for (row in t.tableRows.view()) {
+            height += row.height;
+        }
+        var width: f32 = 0.0;
+        for (col in t.tableColumns.view()) {
+            width += col.width;
+        }
+        let availWidth = (this.pageWidth - t.left).max(0.0);
+        return height > this.freeSpace - this.curY || width > availWidth;
+    }
+
+    fn showBand(borrow mut this, k: usize) {
+        if (!this.bands[k].c.visible) {
+            return;
+        }
+        if (this.bands[k].c.width <= 0.0) {
+            this.bands[k].c.width = this.pageWidth;
+        }
+        this.evaluateBand(k);
+        this.normalizeGrowth(k);
+        if (this.wouldSliceTable(k)) {
+            panic("a table taller or wider than the page: slicing it is not ported yet");
+        }
+        let bandHeight = this.calcHeight(k);
+        this.bands[k].c.height = bandHeight;
+        this.bands[k].engineHeight = bandHeight;
+        this.bands[k].hasEngineHeight = true;
+        let kind = this.kind(k);
+        let isPageBand = isPageBandKind(kind);
+        let props = this.props(k);
+        let startNewPage = props.startNewPage;
+        let printOnBottom = props.printOnBottom;
+        let repeatTimes = props.repeatBandNTimes;
+        let repeated = this.bands[k].repeated;
+        if (!isPageBand && !this.closingPage && startNewPage && !repeated && this.pageHasFlowBands()) {
+            this.suppressHeaderReprintOnce = true;
+            this.endPage();
+            this.startPage();
+        }
+        var flowLimit = this.freeSpace - this.bottomFooterReserve(k);
+        if (kind == Kind.ColumnFooterBand) {
+            flowLimit += this.bands[k].c.height;
+        }
+        if (!isPageBand && !this.closingPage && this.curY + bandHeight > flowLimit && this.currentBandCount() > 0) {
+            if (kind == Kind.DataBand && this.columnsCount > 1 && this.currentColumn < this.columnsCount) {
+                match (this.columnFooter) {
+                    Some(f) => { this.showBand(f); }
+                    null => {}
+                }
+                this.currentColumn += 1;
+                this.curY = this.columnTopY;
+                match (this.columnHeader) {
+                    Some(h) => { this.showBand(h); }
+                    null => {}
+                }
+            } else {
+                this.endPage();
+                this.startPage();
+            }
+        }
+        var copy = cloneBandOnly(this.bands[k].c);
+        let columnar = kind == Kind.DataBand || kind == Kind.ColumnHeaderBand || kind == Kind.ColumnFooterBand;
+        if (columnar && this.columnsCount > 1 && this.currentColumn > 1) {
+            copy.left = this.bands[k].c.left + round<f32>(this.currentColumn - 1) * this.columnWidthPx;
+        }
+        if (this.subreportOffsetX != 0.0 && !isPageBand) {
+            copy.left += this.subreportOffsetX;
+        }
+        // The script's BeforePrint handler, on the printed copy.
+        let event = this.bands[k].c.beforePrintEvent.view();
+        if (event.length > 0) {
+            match (this.handlers.find(event)) {
+                Some(f) => { f(mut copy, this.info()); }
+                null => {}
+            }
+        }
+        this.applyHighlights(mut copy);
+        var placedY: f32 = 0.0;
+        let last = this.pages.length - 1;
+        if (printOnBottom && !isPageBand) {
+            let bottomY = this.freeSpace - bandHeight;
+            placedY = if (bottomY > this.curY) bottomY else this.curY;
+            copy.top = placedY;
+            let _ = this.pages[last].bands.push(PreparedBand { band: copy, repeated: repeated });
+            this.curY = this.freeSpace;
+        } else {
+            placedY = this.curY;
+            copy.top = this.curY;
+            let _ = this.pages[last].bands.push(PreparedBand { band: copy, repeated: repeated });
+            this.curY += bandHeight;
+            if (kind != Kind.DataBand && kind != Kind.ColumnHeaderBand && this.currentColumn == 1) {
+                this.columnTopY = this.curY;
+            }
+            for (n in 1..repeatTimes.max(1)) {
+                if (this.curY + bandHeight > flowLimit) {
+                    break;
+                }
+                var extra = cloneBandOnly(this.bands[k].c);
+                if (columnar && this.columnsCount > 1 && this.currentColumn > 1) {
+                    extra.left = this.bands[k].c.left + round<f32>(this.currentColumn - 1) * this.columnWidthPx;
+                }
+                extra.top = this.curY;
+                let _ = this.pages[this.pages.length - 1].bands.push(PreparedBand { band: extra, repeated: repeated });
+                this.curY += bandHeight;
+            }
+        }
+        if (!isPageBand) {
+            this.expandSubreports(k, placedY);
+        }
+        match (this.bands[k].child) {
+            Some(c) => {
+                if (!isPageBand && this.hasRenderableContent(c) && this.willBandEmit(c)) {
+                    this.showBand(c);
+                }
+            }
+            null => {}
+        }
+        this.processTotalsAfterBand(k);
+    }
+
+    /// Whether the page has a band besides its page header and footer.
+    fn pageHasFlowBands(borrow this) -> bool {
+        for (b in this.pages[this.pages.length - 1].bands.view()) {
+            if (!isPageBandKind(b.band.kind)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// ApplyHighlights: on each text of the printed copy, its first condition that holds.
+    fn applyHighlights(borrow this, copy: borrow mut Component) {
+        let e = Evaluator.of(this.report, this.data, this.state);
+        for (j in 0..copy.children.length) {
+            let o = borrow mut copy.children[j];
+            if (!isText(o)) {
+                continue;
+            }
+            var fill: Color? = null;
+            var textColor: Color? = null;
+            var font: FontSpec? = null;
+            match (borrow o.text) {
+                Some(t) => {
+                    for (h in t.highlights.view()) {
+                        if (h.expression.view().length == 0 || !e.evaluateBool(h.expression.view())) {
+                            continue;
+                        }
+                        if (h.applyFill) {
+                            fill = h.fill;
+                        }
+                        if (h.applyTextFill) {
+                            textColor = h.textColor;
+                        }
+                        if (h.applyFont) {
+                            font = match (borrow h.font) {
+                                Some(f) => cloneFont(f),
+                                null => null,
+                            };
+                        }
+                        break;
+                    }
+                }
+                null => {}
+            }
+            match (fill) {
+                Some(c) => {
+                    o.fill = c;
+                    o.fillKind = FillKind.Solid;
+                }
+                null => {}
+            }
+            match (borrow mut o.text) {
+                Some(t) => {
+                    match (textColor) {
+                        Some(c) => { t.color = c; }
+                        null => {}
+                    }
+                    match (font) {
+                        Some(f) => { t.font = f; }
+                        null => {}
+                    }
+                }
+                null => {}
+            }
+        }
+    }
+
+    fn hasRenderableContent(borrow this, k: usize) -> bool {
+        for (o in this.bands[k].c.children.view()) {
+            if (isPayload(o, true)) {
+                return true;
+            }
+        }
+        return match (this.bands[k].child) {
+            Some(c) => this.hasRenderableContent(c),
+            null => false,
+        };
+    }
+
+    fn willBandEmit(borrow mut this, k: usize) -> bool {
+        for (o in this.bands[k].c.children.view()) {
+            if (isPayload(o, false)) {
+                return true;
+            }
+        }
+        var any = false;
+        var emits = false;
+        for (j in 0..this.bands[k].c.children.length) {
+            if (this.bands[k].c.children[j].kind != Kind.SubreportObject) {
+                continue;
+            }
+            any = true;
+            let page = copyOf(this.bands[k].c.children[j].reportPage.view());
+            if (this.willSubreportEmit(page.view())) {
+                emits = true;
+                break;
+            }
+        }
+        if (any) {
+            return emits;
+        }
+        return match (this.bands[k].child) {
+            Some(c) => this.willBandEmit(c),
+            null => false,
+        };
+    }
+
+    fn willSubreportEmit(borrow mut this, page: StringView) -> bool {
+        if (page.length == 0) {
+            return false;
+        }
+        let target = match (this.pageNamed(page)) {
+            Some(p) => p,
+            null => { return true; }
+        };
+        for (i in 0..this.epages[target].bands.length) {
+            let b = this.epages[target].bands[i];
+            let kind = this.kind(b);
+            if (kind == Kind.ReportTitleBand || kind == Kind.ReportSummaryBand) {
+                if (this.hasRenderableContent(b)) {
+                    return true;
+                }
+            } else if (kind == Kind.GroupHeaderBand) {
+                return true;
+            } else if (kind == Kind.DataBand) {
+                if (this.props(b).printIfDatasourceEmpty || this.props(b).printIfDetailEmpty) {
+                    return true;
+                }
+                match (this.resolveDataSource(b)) {
+                    Some(src) => {
+                        if (this.data.sources[src].rowCount() > 0) {
+                            return true;
+                        }
+                    }
+                    null => {}
+                }
+            }
+        }
+        return false;
+    }
+
+    fn expandSubreports(borrow mut this, k: usize, bandTop: f32) {
+        let bandBottom = this.curY;
+        let startPages = this.pages.length;
+        var colLeft = Vector<f32>.create();
+        var colRight = Vector<f32>.create();
+        var colPages = Vector<usize>.create();
+        var colY = Vector<f32>.create();
+        var bestPages = startPages;
+        var bestY = this.curY;
+        for (j in 0..this.bands[k].c.children.length) {
+            let o = borrow this.bands[k].c.children[j];
+            if (o.kind != Kind.SubreportObject || o.reportPage.view().length == 0) {
+                continue;
+            }
+            let target = match (this.pageNamed(o.reportPage.view())) {
+                Some(p) => p,
+                null => { continue; }
+            };
+            let subLeft = o.left;
+            let subRight = o.left + o.width;
+            let subTop = o.top;
+            let printOnParent = o.printOnParent;
+            var col: usize? = null;
+            for (c in 0..colLeft.length) {
+                if (subLeft < colRight[c] && subRight > colLeft[c]) {
+                    col = c;
+                    break;
+                }
+            }
+            match (col) {
+                Some(c) => {
+                    if (this.pages.length == colPages[c]) {
+                        this.curY = colY[c];
+                    }
+                }
+                null => {
+                    if (this.pages.length == startPages) {
+                        this.curY = bandTop + subTop;
+                    }
+                }
+            }
+            let savedOffset = this.subreportOffsetX;
+            this.subreportOffsetX += subLeft;
+            if (printOnParent) {
+                let savedY = this.curY;
+                this.runSubreportInline(target);
+                this.curY = savedY;
+            } else {
+                this.runSubreportInline(target);
+            }
+            this.subreportOffsetX = savedOffset;
+            match (col) {
+                Some(c) => {
+                    colLeft[c] = colLeft[c].min(subLeft);
+                    colRight[c] = colRight[c].max(subRight);
+                    colPages[c] = this.pages.length;
+                    colY[c] = this.curY;
+                }
+                null => {
+                    let _ = colLeft.push(subLeft);
+                    let _ = colRight.push(subRight);
+                    let _ = colPages.push(this.pages.length);
+                    let _ = colY.push(this.curY);
+                }
+            }
+            if (this.pages.length > bestPages || (this.pages.length == bestPages && this.curY > bestY)) {
+                bestPages = this.pages.length;
+                bestY = this.curY;
+            }
+        }
+        if (colLeft.length > 0 && this.pages.length == bestPages) {
+            this.curY = if (bestPages == startPages) bestY.max(bandBottom) else bestY;
+        }
+    }
+
+    fn runSubreportInline(borrow mut this, p: usize) {
+        for (i in 0..this.epages[p].bands.length) {
+            let b = this.epages[p].bands[i];
+            let kind = this.kind(b);
+            if (kind == Kind.ReportTitleBand || kind == Kind.ReportSummaryBand) {
+                this.showBand(b);
+            } else if (kind == Kind.GroupHeaderBand) {
+                this.runGroup(b);
+            } else if (kind == Kind.DataBand) {
+                this.runDataBand(b);
+            }
+        }
+    }
+
+    fn processTotalsAfterBand(borrow mut this, k: usize) {
+        for (i in 0..this.report.totals.length) {
+            let t = borrow this.report.totals[i];
+            if (!t.resetAfterPrint || t.printOn.view() != this.bands[k].c.name.view()) {
+                continue;
+            }
+            if (this.bands[k].repeated && !t.resetOnReprint) {
+                continue;
+            }
+            this.state.totals[i] = TotalState.create();
+        }
+    }
+
+    // ---- data ----------------------------------------------------------------------------------------------------------
+
+    /// ResolveChildCollection: `childPath` of `parentName`'s current row made a source named `registerName`, and
+    /// remembered to make again for the parent's next row.
+    fn resolveChildCollection(borrow mut this, parentName: StringView, childPath: StringView, registerName: StringView)
+        -> usize? {
+        let parent = this.data.find(parentName)?;
+        let made = this.data.childSource(parent, childPath, registerName)?;
+        for (k in 0..this.children.length) {
+            if (this.children[k].name.view() == registerName) {
+                this.children[k].parent = copyOf(parentName);
+                this.children[k].childPath = copyOf(childPath);
+                return made;
+            }
+        }
+        let _ = this.children.push(ChildEntry {
+            name: copyOf(registerName),
+            parent: copyOf(parentName),
+            childPath: copyOf(childPath),
+        });
+        return made;
+    }
+
+    /// ResolveDataSource: the source a data band runs over.
+    fn resolveDataSource(borrow mut this, k: usize) -> usize? {
+        let name = copyOf(this.props(k).dataSource.view());
+        if (name.view().length == 0) {
+            return null;
+        }
+        for (i in 0..this.children.length) {
+            if (this.children[i].name.view() == name.view()) {
+                let parent = copyOf(this.children[i].parent.view());
+                let path = copyOf(this.children[i].childPath.view());
+                match (this.resolveChildCollection(parent.view(), path.view(), name.view())) {
+                    Some(s) => { return s; }
+                    null => {}
+                }
+                match (this.data.find(parent.view())) {
+                    Some(p) => {
+                        if (this.data.sources[p].current >= 0) {
+                            return null;
+                        }
+                    }
+                    null => {}
+                }
+                break;
+            }
+        }
+        match (this.data.find(name.view())) {
+            Some(s) => { return s; }
+            null => {}
+        }
+        let b = name.bytes();
+        var dot: usize = 0;
+        while (dot < b.length && b[dot] != '.') {
+            dot += 1;
+        }
+        if (dot > 0 && dot < b.length) {
+            let parent = StringView.fromUtf8(b[0..dot]) ?? "";
+            let path = StringView.fromUtf8(b[dot + 1..]) ?? "";
+            match (this.resolveChildCollection(parent, path, name.view())) {
+                Some(s) => { return s; }
+                null => {}
+            }
+        }
+        var parents = Vector<String>.create();
+        for (s in this.data.sources.view()) {
+            let _ = parents.push(copyOf(s.name.view()));
+        }
+        for (p in parents.view()) {
+            match (this.resolveChildCollection(p.view(), name.view(), name.view())) {
+                Some(s) => { return s; }
+                null => {}
+            }
+        }
+        return null;
+    }
+
+    /// The totals evaluated by band `k` given the current row of source `src`.
+    fn addTotals(borrow mut this, k: usize, src: usize?) {
+        for (i in 0..this.report.totals.length) {
+            let t = borrow this.report.totals[i];
+            if (t.evaluator.view() != this.bands[k].c.name.view()) {
+                continue;
+            }
+            if (!t.includeInvisibleRows && !this.bands[k].c.visible) {
+                continue;
+            }
+            let e = Evaluator.of(this.report, this.data, this.state);
+            if (t.evaluateCondition.view().length > 0 && !e.evaluateBool(t.evaluateCondition.view())) {
+                continue;
+            }
+            let expr = trimBrackets(t.expression.view());
+            let b = expr.bytes();
+            var lastDot: usize = 0;
+            for (j in 0..b.length) {
+                if (b[j] == '.') {
+                    lastDot = j;
+                }
+            }
+            var v = Value.none();
+            match (src) {
+                Some(s) => {
+                    if (lastDot > 0) {
+                        v = this.data.value(s, StringView.fromUtf8(b[lastDot + 1..]) ?? "");
+                    }
+                }
+                null => {}
+            }
+            if (lastDot == 0 || src == null || v.isNull()) {
+                v = e.evaluate(expr);
+            }
+            let totalType = t.totalType;
+            addToTotal(mut this.state.totals[i], totalType, v);
+        }
+    }
+
+    /// CollectAggregateExpressions: the aggregates of band `k`'s footer and, for a band on its page, of the page's
+    /// summary.
+    fn collectAggregates(borrow this, k: usize) -> Vector<String> {
+        var out = Vector<String>.create();
+        match (this.bands[k].footer) {
+            Some(f) => {
+                for (o in this.bands[f].c.children.view()) {
+                    if (isText(o)) {
+                        match (borrow o.text) {
+                            Some(t) => { aggregateExpressions(t.text.view(), mut out); }
+                            null => {}
+                        }
+                    }
+                }
+            }
+            null => {}
+        }
+        if (this.bands[k].topLevel) {
+            for (s in this.epages[this.bands[k].page].bands.view()) {
+                if (this.bands[s].c.kind == Kind.ReportSummaryBand) {
+                    for (o in this.bands[s].c.children.view()) {
+                        if (isText(o)) {
+                            match (borrow o.text) {
+                                Some(t) => { aggregateExpressions(t.text.view(), mut out); }
+                                null => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /// TrackAggregates: each distinct inner expression's value added to band `band`'s states.
+    fn trackAggregates(borrow mut this, band: StringView, expressions: borrow Vector<String>) {
+        var seen = Vector<String>.create();
+        for (x in expressions.view()) {
+            let start = match (aggregateName(x.view())) {
+                Some(s) => s,
+                null => { continue; }
+            };
+            let b = x.bytes();
+            let inner = StringView.fromUtf8(b[start..b.length - 1]) ?? "";
+            var dup = false;
+            for (s in seen.view()) {
+                if (sameIgnoringCase(s.view(), inner)) {
+                    dup = true;
+                }
+            }
+            if (dup) {
+                continue;
+            }
+            let _ = seen.push(copyOf(inner));
+            let v = Evaluator.of(this.report, this.data, this.state).evaluate(inner);
+            addAggregate(mut this.state, band, inner, v);
+        }
+    }
+
+    fn runDataBand(borrow mut this, k: usize) {
+        let src = this.resolveDataSource(k);
+        let aggregates = this.collectAggregates(k);
+        let tracking = if (this.props(k).dataSource.view().length > 0) copyOf(this.props(k).dataSource.view())
+            else copyOf(this.bands[k].c.name.view());
+        resetAggregates(mut this.state, tracking.view());
+        let perBandColumns = this.props(k).columns > 0;
+        let savedColumnsCount = this.columnsCount;
+        let savedColumnWidth = this.columnWidthPx;
+        let savedCurrentColumn = this.currentColumn;
+        let savedColumnTopY = this.columnTopY;
+        let savedColumnHeader = this.columnHeader;
+        let savedColumnFooter = this.columnFooter;
+        if (perBandColumns) {
+            this.columnsCount = this.props(k).columns;
+            this.columnWidthPx = if (this.props(k).columnWidth > 0.0) this.props(k).columnWidth * MM
+                else this.pageWidth / round<f32>(this.columnsCount);
+            this.currentColumn = 1;
+            this.columnTopY = this.curY;
+            this.columnHeader = null;
+            this.columnFooter = null;
+        }
+        var headerShown = false;
+        var emitted: i64 = 0;
+        let header = this.bands[k].header;
+        let footer = this.bands[k].footer;
+        match (src) {
+            Some(s) => {
+                this.data.sources[s].first();
+                var rowNo: i64 = 0;
+                while (this.data.sources[s].current < this.data.sources[s].rowCount()) {
+                    let filter = copyOf(this.props(k).filter.view());
+                    if (filter.view().length > 0 && !Evaluator.of(this.report, this.data, this.state).evaluateBool(filter.view())) {
+                        this.data.sources[s].next();
+                        continue;
+                    }
+                    rowNo += 1;
+                    this.state.rowNo = rowNo;
+                    let maxRows = this.props(k).maxRows;
+                    if (maxRows > 0 && rowNo > maxRows) {
+                        break;
+                    }
+                    if (aggregates.length > 0) {
+                        this.trackAggregates(tracking.view(), aggregates);
+                    }
+                    this.addTotals(k, src);
+                    if (!headerShown) {
+                        headerShown = true;
+                        this.pushActiveHeader(header);
+                        match (header) {
+                            Some(h) => { this.showBand(h); }
+                            null => {}
+                        }
+                        this.pushActiveFooter(footer);
+                    }
+                    this.showBand(k);
+                    emitted += 1;
+                    for (i in 0..this.bands[k].details.length) {
+                        let d = this.bands[k].details[i];
+                        if (this.kind(d) == Kind.DataBand) {
+                            this.runDataBand(d);
+                        }
+                    }
+                    this.data.sources[s].next();
+                }
+                let count = this.data.sources[s].rowCount();
+                if (count > 0 && this.data.sources[s].current >= count) {
+                    this.data.sources[s].current = count - 1;
+                }
+            }
+            null => {
+                let rows = this.props(k).rowCount;
+                for (i in 1..rows + 1) {
+                    this.state.rowNo = i;
+                    if (!headerShown) {
+                        headerShown = true;
+                        this.pushActiveHeader(header);
+                        match (header) {
+                            Some(h) => { this.showBand(h); }
+                            null => {}
+                        }
+                        this.pushActiveFooter(footer);
+                    }
+                    this.showBand(k);
+                    emitted += 1;
+                }
+            }
+        }
+        let sourceEmpty = match (src) {
+            Some(s) => this.data.sources[s].rowCount() == 0,
+            null => true,
+        };
+        if ((this.props(k).printIfDatasourceEmpty && sourceEmpty) || (this.props(k).printIfDetailEmpty && emitted == 0)) {
+            this.state.rowNo = 0;
+            if (!headerShown) {
+                headerShown = true;
+                this.pushActiveHeader(header);
+                match (header) {
+                    Some(h) => { this.showBand(h); }
+                    null => {}
+                }
+                this.pushActiveFooter(footer);
+            }
+            this.showBand(k);
+        }
+        match (this.bands[k].child) {
+            Some(c) => {
+                if (this.props(c).printIfDatabandEmpty && emitted == 0) {
+                    this.showBand(c);
+                }
+                let pad = this.props(c).completeToNRows;
+                if (pad > 0 && emitted < pad) {
+                    for (i in 0..pad - emitted) {
+                        if (this.curY + this.bands[c].c.height > this.freeSpace) {
+                            break;
+                        }
+                        this.showBand(c);
+                    }
+                }
+                if (this.props(c).fillUnusedSpace) {
+                    let remaining = this.freeSpace - this.curY;
+                    if (remaining > 0.0) {
+                        let saved = this.bands[c].c.height;
+                        this.bands[c].c.height = remaining;
+                        this.showBand(c);
+                        this.bands[c].c.height = saved;
+                    }
+                }
+            }
+            null => {}
+        }
+        match (footer) {
+            Some(f) => {
+                if (headerShown) {
+                    this.showBand(f);
+                }
+            }
+            null => {}
+        }
+        this.popActiveHeader(header);
+        this.popActiveFooter(footer);
+        if (perBandColumns) {
+            this.columnsCount = savedColumnsCount;
+            this.columnWidthPx = savedColumnWidth;
+            this.currentColumn = savedCurrentColumn;
+            this.columnTopY = savedColumnTopY;
+            this.columnHeader = savedColumnHeader;
+            this.columnFooter = savedColumnFooter;
+        }
+    }
+
+    // ---- groups ----------------------------------------------------------------------------------------------------------
+
+    fn snapshot(borrow this) -> Snapshot {
+        var totals = Vector<TotalState>.create();
+        for (t in this.state.totals.view()) {
+            let _ = totals.push(cloneTotalState(t));
+        }
+        var aggregates = Vector<AggregateState>.create();
+        for (a in this.state.aggregates.view()) {
+            let _ = aggregates.push(cloneAggregate(a));
+        }
+        return Snapshot {
+            pageIndex: truncate<i64>(this.pages.length) - 1,
+            bandsCount: this.currentBandCount(),
+            curY: this.curY,
+            curPageNo: this.curPageNo,
+            evalPageNo: this.state.pageNo,
+            currentColumn: this.currentColumn,
+            columnTopY: this.columnTopY,
+            totals: totals,
+            aggregates: aggregates,
+        };
+    }
+
+    fn restoreTo(borrow mut this, s: borrow Snapshot) {
+        while (truncate<i64>(this.pages.length) > s.pageIndex + 1) {
+            let _ = this.pages.pop();
+        }
+        if (this.pages.length > 0) {
+            let last = this.pages.length - 1;
+            while (this.pages[last].bands.length > s.bandsCount) {
+                let _ = this.pages[last].bands.pop();
+            }
+        }
+        this.curY = s.curY;
+        this.curPageNo = s.curPageNo;
+        this.state.pageNo = s.evalPageNo;
+        this.currentColumn = s.currentColumn;
+        this.columnTopY = s.columnTopY;
+        for (i in 0..s.totals.length) {
+            this.state.totals[i] = cloneTotalState(s.totals[i]);
+        }
+        this.state.aggregates.clear();
+        for (a in s.aggregates.view()) {
+            let _ = this.state.aggregates.push(cloneAggregate(a));
+        }
+    }
+
+    fn groupCouldFitOnePage(borrow this, s: borrow Snapshot) -> bool {
+        let spanned = truncate<i64>(this.pages.length) - 1 - s.pageIndex;
+        if (spanned <= 0) {
+            return true;
+        }
+        let rendered = (this.freeSpace - s.curY) + round<f32>(spanned - 1) * this.freeSpace + this.curY;
+        return rendered <= this.freeSpace;
+    }
+
+    fn runGroup(borrow mut this, top: usize) {
+        var groups = Vector<usize>.create();
+        var g: usize? = top;
+        while (g != null) {
+            let gi = g ?? 0;
+            let _ = groups.push(gi);
+            g = this.bands[gi].nested;
+        }
+        var dataBand: usize? = null;
+        var gi = groups.length;
+        while (gi > 0) {
+            gi -= 1;
+            if (this.bands[groups[gi]].data != null) {
+                dataBand = this.bands[groups[gi]].data;
+                break;
+            }
+        }
+        let db = match (dataBand) {
+            Some(d) => d,
+            null => { return; }
+        };
+        let src = match (this.resolveDataSource(db)) {
+            Some(s) => s,
+            null => { return; }
+        };
+        let n = groups.length;
+        for (i in 0..n) {
+            this.pushActiveHeader(groups[i]);
+        }
+        let dbHeader = this.bands[db].header;
+        let dbFooter = this.bands[db].footer;
+        this.pushActiveHeader(dbHeader);
+        for (i in 0..n) {
+            let f = this.bands[groups[i]].groupFooter;
+            this.pushActiveFooter(f);
+        }
+        this.pushActiveFooter(dbFooter);
+        match (dbHeader) {
+            Some(h) => { this.showBand(h); }
+            null => {}
+        }
+        this.data.sources[src].first();
+        var rowNo: i64 = 0;
+        var lastValues = Vector<Value>.create();
+        var lastValid = Vector<bool>.create();
+        var ktSnap = Vector<Snapshot?>.create();
+        var ktStartRow = Vector<i64>.create();
+        var ktStartRowNo = Vector<i64>.create();
+        var ktStartValues = Vector<Vector<Value>>.create();
+        var ktStartValid = Vector<Vector<bool>>.create();
+        var ktRetried = Vector<bool>.create();
+        for (i in 0..n) {
+            let _ = lastValues.push(Value.none());
+            let _ = lastValid.push(true);
+            let _ = ktSnap.push(null);
+            let _ = ktStartRow.push(0);
+            let _ = ktStartRowNo.push(0);
+            let _ = ktStartValues.push(Vector<Value>.create());
+            let _ = ktStartValid.push(Vector<bool>.create());
+            let _ = ktRetried.push(false);
+        }
+        var firstRow = true;
+        var lastEmittedRow: i64 = -1;
+        var ktReopenLevel: i64 = -1;
+        var ktSuppressCloseOnce = false;
+        loop {
+            while (this.data.sources[src].current < this.data.sources[src].rowCount()) {
+                let filter = copyOf(this.props(db).filter.view());
+                if (filter.view().length > 0 && !Evaluator.of(this.report, this.data, this.state).evaluateBool(filter.view())) {
+                    this.data.sources[src].next();
+                    continue;
+                }
+                rowNo += 1;
+                this.state.rowNo = rowNo;
+                var changeLevel = n;
+                for (i in 0..n) {
+                    let condition = copyOf(this.props(groups[i]).condition.view());
+                    let current = Evaluator.of(this.report, this.data, this.state).evaluate(condition.view());
+                    if (firstRow || !lastValid[i] || !valueEquals(current, lastValues[i])) {
+                        changeLevel = i;
+                        for (j in i..n) {
+                            let c = copyOf(this.props(groups[j]).condition.view());
+                            lastValues[j] = Evaluator.of(this.report, this.data, this.state).evaluate(c.view());
+                            lastValid[j] = true;
+                        }
+                        break;
+                    }
+                }
+                if (changeLevel < n) {
+                    if (!firstRow) {
+                        var retried = false;
+                        for (i in changeLevel..n) {
+                            let snap = match (borrow ktSnap[i]) {
+                                Some(s) => s,
+                                null => { continue; }
+                            };
+                            if (ktRetried[i] || truncate<i64>(this.pages.length) - 1 <= snap.pageIndex) {
+                                continue;
+                            }
+                            if (!this.groupCouldFitOnePage(snap)) {
+                                ktRetried[i] = true;
+                                continue;
+                            }
+                            this.restoreTo(snap);
+                            this.data.sources[src].first();
+                            for (r in 0..ktStartRow[i]) {
+                                this.data.sources[src].next();
+                            }
+                            for (j in i..n) {
+                                let _ = this.reprintSuppressOnce.push(groups[j]);
+                            }
+                            this.endPage();
+                            this.startPage();
+                            rowNo = ktStartRowNo[i];
+                            for (j in 0..n) {
+                                lastValues[j] = ktStartValues[i][j].clone();
+                                lastValid[j] = ktStartValid[i][j];
+                            }
+                            for (j in i..n) {
+                                lastValid[j] = false;
+                            }
+                            ktRetried[i] = true;
+                            for (j in i + 1..n) {
+                                ktSnap[j] = null;
+                                ktRetried[j] = false;
+                            }
+                            firstRow = i == 0;
+                            ktSuppressCloseOnce = !firstRow;
+                            ktReopenLevel = truncate<i64>(i);
+                            retried = true;
+                            break;
+                        }
+                        if (retried) {
+                            continue;
+                        }
+                    }
+                    if (!firstRow && !ktSuppressCloseOnce) {
+                        let resume = this.data.sources[src].current;
+                        if (lastEmittedRow >= 0) {
+                            this.data.sources[src].current = lastEmittedRow;
+                        }
+                        var i = n;
+                        while (i > changeLevel) {
+                            i -= 1;
+                            match (this.bands[groups[i]].groupFooter) {
+                                Some(f) => { this.showBand(f); }
+                                null => {}
+                            }
+                        }
+                        this.data.sources[src].current = resume;
+                    }
+                    ktSuppressCloseOnce = false;
+                    let opening = groups[changeLevel];
+                    if ((this.props(opening).keepTogether || this.props(opening).keepWithData) && this.currentBandCount() > 0) {
+                        let footerHeight = match (this.bands[opening].groupFooter) {
+                            Some(f) => this.calcHeight(f),
+                            null => 0.0,
+                        };
+                        let minHeight = this.calcHeight(opening) + this.calcHeight(db) + footerHeight;
+                        if (this.curY + minHeight > this.freeSpace) {
+                            for (j in changeLevel..n) {
+                                let _ = this.reprintSuppressOnce.push(groups[j]);
+                            }
+                            this.endPage();
+                            this.startPage();
+                        }
+                    }
+                    for (i in changeLevel..n) {
+                        let reopen = ktReopenLevel == truncate<i64>(i);
+                        if (!reopen) {
+                            ktRetried[i] = false;
+                        }
+                        if (this.props(groups[i]).keepTogether && !ktRetried[i]) {
+                            ktSnap[i] = this.snapshot();
+                            ktStartRow[i] = this.data.sources[src].current;
+                            ktStartRowNo[i] = rowNo - 1;
+                            var values = Vector<Value>.create();
+                            for (v in lastValues.view()) {
+                                let _ = values.push(v.clone());
+                            }
+                            ktStartValues[i] = values;
+                            var valid = Vector<bool>.create();
+                            for (v in lastValid.view()) {
+                                let _ = valid.push(v);
+                            }
+                            ktStartValid[i] = valid;
+                        } else if (!this.props(groups[i]).keepTogether) {
+                            ktSnap[i] = null;
+                        }
+                        this.showBand(groups[i]);
+                    }
+                    ktReopenLevel = -1;
+                    firstRow = false;
+                }
+                this.addTotals(db, src);
+                this.showBand(db);
+                lastEmittedRow = this.data.sources[src].current;
+                for (i in 0..this.bands[db].details.length) {
+                    let d = this.bands[db].details[i];
+                    if (this.kind(d) == Kind.DataBand) {
+                        this.runDataBand(d);
+                    }
+                }
+                this.data.sources[src].next();
+            }
+            let count = this.data.sources[src].rowCount();
+            if (count > 0 && this.data.sources[src].current >= count) {
+                this.data.sources[src].current = count - 1;
+            }
+            // A KeepTogether group that ran over a page: once more from its first row on a new page.
+            var again = false;
+            for (i in 0..n) {
+                let snap = match (borrow ktSnap[i]) {
+                    Some(s) => s,
+                    null => { continue; }
+                };
+                if (ktRetried[i] || truncate<i64>(this.pages.length) - 1 <= snap.pageIndex) {
+                    continue;
+                }
+                if (!this.groupCouldFitOnePage(snap)) {
+                    ktRetried[i] = true;
+                    continue;
+                }
+                this.restoreTo(snap);
+                this.data.sources[src].first();
+                for (r in 0..ktStartRow[i]) {
+                    this.data.sources[src].next();
+                }
+                for (j in i..n) {
+                    let _ = this.reprintSuppressOnce.push(groups[j]);
+                }
+                this.endPage();
+                this.startPage();
+                rowNo = ktStartRowNo[i];
+                for (j in 0..n) {
+                    lastValues[j] = ktStartValues[i][j].clone();
+                    lastValid[j] = ktStartValid[i][j];
+                }
+                for (j in i..n) {
+                    lastValid[j] = false;
+                }
+                ktRetried[i] = true;
+                for (j in i + 1..n) {
+                    ktSnap[j] = null;
+                    ktRetried[j] = false;
+                }
+                firstRow = i == 0;
+                ktSuppressCloseOnce = !firstRow;
+                ktReopenLevel = truncate<i64>(i);
+                again = true;
+                break;
+            }
+            if (!again) {
+                break;
+            }
+        }
+        match (dbFooter) {
+            Some(f) => { this.showBand(f); }
+            null => {}
+        }
+        if (!firstRow) {
+            var i = n;
+            while (i > 0) {
+                i -= 1;
+                match (this.bands[groups[i]].groupFooter) {
+                    Some(f) => { this.showBand(f); }
+                    null => {}
+                }
+            }
+        }
+        this.popActiveFooter(dbFooter);
+        var i = n;
+        while (i > 0) {
+            i -= 1;
+            let f = this.bands[groups[i]].groupFooter;
+            this.popActiveFooter(f);
+        }
+        this.popActiveHeader(dbHeader);
+        i = n;
+        while (i > 0) {
+            i -= 1;
+            this.popActiveHeader(groups[i]);
+        }
+    }
+}
+
+/// string.Trim('[', ']').
+fn trimBrackets(s: StringView) -> StringView {
+    let b = s.bytes();
+    var start: usize = 0;
+    var end = b.length;
+    while (start < end && (b[start] == '[' || b[start] == ']')) {
+        start += 1;
+    }
+    while (end > start && (b[end - 1] == '[' || b[end - 1] == ']')) {
+        end -= 1;
+    }
+    return StringView.fromUtf8(b[start..end]) ?? "";
+}

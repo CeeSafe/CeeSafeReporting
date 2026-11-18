@@ -1,0 +1,249 @@
+Page 1 "Page1"
+  PageHeaderBand "PageHeader1" box=0,0,721980,145530 fill=#00000000 repeated=0
+    TextObject "Text10" box=472500,0,236250,37800 fill=#00000000 text="مؤسسة الغوباشي للأجهزة المنزلية" color=#FF000000 font="Arial",16000,700,Upright
+    TextObject "Text12" box=472500,37800,236250,18900 fill=#00000000 text="شارع الملك فهد، حي الشفا" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text14" box=472500,56700,236250,18900 fill=#00000000 text="ص.ب 1234 الرمز البريدي 12345" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text16" box=472500,75600,236250,18900 fill=#00000000 text="الرياض، المملكة العربية السعودية" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text18" box=472500,94500,236250,18900 fill=#00000000 text="الرقم الضريبي: 300753467100003" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text20" box=245700,122850,226800,22680 fill=#00000000 text="فاتورة ضريبية" color=#FF000000 font="Arial",16000,700,Upright
+    TextObject "Text35" box=472500,113400,236250,28350 fill=#00000000 text="الفرع الرئيسي" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text30" box=9450,0,236250,37800 fill=#00000000 text="Al Khubashi Home Appliances" color=#FF000000 font="Arial",16000,700,Upright
+    TextObject "Text31" box=9450,37800,236250,18900 fill=#00000000 text="Al Bahah, Shafi Street" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text32" box=9450,56700,236250,18900 fill=#00000000 text="P.O. Box 116  Fax: 017-7251518" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text33" box=9450,75600,236250,18900 fill=#00000000 text="Tel: 017-7251517 Fax: 017-7251518" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text34" box=9450,94500,236250,18900 fill=#00000000 text="VAT: 300753467100003" color=#FF000000 font="Arial",10000,400,Upright
+    PictureObject "Picture1" box=245700,3780,226800,113400 fill=#00000000 image=0
+    TextObject "Text41" box=18900,122850,189000,18900 fill=#00000000 text=" صفحة Page 1 / 1" color=#FF000000 font="Arial",10000,400,Upright
+  GroupHeaderBand "GroupHeader1" box=0,145530,721980,182500 fill=#00000000 repeated=0
+    TextObject "Text66" box=3000,146590,28350,35910 fill=#FFE7C262 text="#" color=#FF000000 font="Arial",10000,700,Upright
+    TableObject "Table5" box=3780,4000,715390,52920 fill=#00000000
+      TableRow "Row11" height=26460
+        TableCell "Cell59" box=0,0,0,0 fill=#FFE7C262 text="رقم مستند Doc No" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell76" box=0,0,0,0 fill=#FFE7C262 text="تاريخ التوريد  Delivery" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell60" box=0,0,0,0 fill=#FFE7C262 text="الوقت Time" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell61" box=0,0,0,0 fill=#FFE7C262 text="الموافق Hijri" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell62" box=0,0,0,0 fill=#FFE7C262 text="التاريخ Date" color=#FF000000 font="Arial",11000,700,Upright
+        TableCell "Cell63" box=0,0,0,0 fill=#FFE7C262 text="رقم الفاتورة # Invoice" color=#FF000000 font="Arial",11000,700,Upright
+      TableRow "Row12" height=26460
+        TableCell "Cell65" box=0,0,0,0 fill=#FFF5F5F5 text="DOC-2026-001" color=#FF000000 font="Arial",11000,400,Upright
+        TableCell "Cell77" box=0,0,0,0 fill=#FFF5F5F5 text="2026/12/18" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell66" box=0,0,0,0 fill=#FFF5F5F5 text="14:15" color=#FF000000 font="Arial",11000,400,Upright
+        TableCell "Cell67" box=0,0,0,0 fill=#FFF5F5F5 text="" color=#FF000000 font="Arial",11000,400,Upright
+        TableCell "Cell68" box=0,0,0,0 fill=#FFF5F5F5 text="2026/11/18" color=#FF000000 font="Arial",11000,400,Upright
+        TableCell "Cell69" box=0,0,0,0 fill=#FFF5F5F5 text="1-C-TEST-001" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text73" box=31350,163100,85050,18900 fill=#FFE7C262 text="Item Description" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text74" box=273050,163100,47250,18900 fill=#FFE7C262 text="Quantity" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text75" box=206900,163100,66150,18900 fill=#FFE7C262 text="Price" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text76" box=636150,163100,83160,18900 fill=#FFE7C262 text="Total w/VAT" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text78" box=541650,163100,37800,18900 fill=#FFE7C262 text="%" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text79" box=579450,163100,56700,18900 fill=#FFE7C262 text="SAR" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text80" box=319750,163100,86560,18900 fill=#FFE7C262 text="Total" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text62" box=31350,147040,85050,18900 fill=#FFE7C262 text="وصف الصنف" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text63" box=273050,147040,47250,18900 fill=#FFE7C262 text="الكمية" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text64" box=206900,147040,66150,18900 fill=#FFE7C262 text="السعر" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text69" box=541650,147040,94500,18900 fill=#FFE7C262 text="Tax   الضريبة" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text70" box=319750,147040,86560,18900 fill=#FFE7C262 text="المجموع" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text65" box=636150,147040,83160,18900 fill=#FFE7C262 text="الإجمالي" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text87" box=3020,87500,104710,26460 fill=#FFF5F5F5 text="0500000000" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text88" box=107350,87500,103950,26460 fill=#FFF5F5F5 text="CUST-001" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text89" box=211300,87500,132300,26460 fill=#FFF5F5F5 text=" 300000000000003" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text90" box=343600,87500,375730,26460 fill=#FFF5F5F5 text="شركة الأمل التجارية" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text91" box=3020,114720,56700,31370 fill=#FFFFFFFF text="Address:" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text92" box=678400,114720,37800,31370 fill=#FFFFFFFF text="العنوان:" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text93" box=54700,114720,625590,31370 fill=#FFFFFFFF text="الرياض، شارع العليا" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text82" box=3020,57150,104710,30240 fill=#FFE7C262 text="رقم الهاتف Telephone" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text83" box=107400,57150,103950,30240 fill=#FFE7C262 text="رقم الحساب Customer ID" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text84" box=211350,57150,132300,30240 fill=#FFE7C262 text="الرقم الضريبي للعميل Customer VAT" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text85" box=343600,57150,375730,30240 fill=#FFE7C262 text="Customer Name اسم العميل " color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text98" box=113850,162920,94500,18900 fill=#FFE7C262 text="Unit" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text99" box=113850,147040,94500,18900 fill=#FFE7C262 text="الوحدة" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text100" box=406350,162920,56700,18900 fill=#FFE7C262 text="Discount" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text101" box=406350,147040,56700,18900 fill=#FFE7C262 text="خصم" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text104" box=463050,162920,79380,18900 fill=#FFE7C262 text="Net Amount" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text105" box=463050,147040,79380,18900 fill=#FFE7C262 text="الصافي" color=#FF000000 font="Arial",10000,700,Upright
+  DataBand "Data1" box=0,328030,721980,30240 fill=#FFDFE1E4 repeated=0
+    TextObject "Text9" box=3000,0,28350,30240 fill=#00000000 text="1" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text1" box=31350,12900,687960,17010 fill=#00000000 text="غسالة سامسونج 8 كيلو" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text61" box=273050,0,47250,13230 fill=#00000000 text="2.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text5" box=206770,0,66150,13230 fill=#00000000 text="1,500.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text7" box=636150,0,83160,13230 fill=#00000000 text="3,450.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text39" box=31350,0,85050,13230 fill=#00000000 text="ITEM-001" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text46" box=541650,0,37800,13230 fill=#00000000 text="15%" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text47" box=579450,0,56700,13230 fill=#00000000 text="450.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text60" box=319750,0,86560,13230 fill=#00000000 text="3,000.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text102" box=406350,0,56700,13230 fill=#00000000 text="0" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text103" box=113780,0,94500,13230 fill=#00000000 text="PCE" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text106" box=463050,0,79380,13230 fill=#00000000 text="3,000.00" color=#FF000000 font="Arial",11000,400,Upright
+  DataBand "Data1" box=0,358270,721980,30240 fill=#00000000 repeated=0
+    TextObject "Text9" box=3000,0,28350,30240 fill=#00000000 text="2" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text1" box=31350,12900,687960,17010 fill=#00000000 text="ثلاجة LG 18 قدم" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text61" box=273050,0,47250,13230 fill=#00000000 text="1.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text5" box=206770,0,66150,13230 fill=#00000000 text="2,000.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text7" box=636150,0,83160,13230 fill=#00000000 text="2,300.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text39" box=31350,0,85050,13230 fill=#00000000 text="ITEM-002" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text46" box=541650,0,37800,13230 fill=#00000000 text="15%" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text47" box=579450,0,56700,13230 fill=#00000000 text="300.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text60" box=319750,0,86560,13230 fill=#00000000 text="2,000.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text102" box=406350,0,56700,13230 fill=#00000000 text="0" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text103" box=113780,0,94500,13230 fill=#00000000 text="PCE" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text106" box=463050,0,79380,13230 fill=#00000000 text="2,000.00" color=#FF000000 font="Arial",11000,400,Upright
+  DataBand "Data1" box=0,388510,721980,30240 fill=#FFDFE1E4 repeated=0
+    TextObject "Text9" box=3000,0,28350,30240 fill=#00000000 text="3" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text1" box=31350,12900,687960,17010 fill=#00000000 text="مكيف هاير 24000 وحدة" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text61" box=273050,0,47250,13230 fill=#00000000 text="1.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text5" box=206770,0,66150,13230 fill=#00000000 text="900.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text7" box=636150,0,83160,13230 fill=#00000000 text="1,035.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text39" box=31350,0,85050,13230 fill=#00000000 text="ITEM-003" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text46" box=541650,0,37800,13230 fill=#00000000 text="15%" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text47" box=579450,0,56700,13230 fill=#00000000 text="135.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text60" box=319750,0,86560,13230 fill=#00000000 text="900.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text102" box=406350,0,56700,13230 fill=#00000000 text="0" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text103" box=113780,0,94500,13230 fill=#00000000 text="PCE" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text106" box=463050,0,79380,13230 fill=#00000000 text="900.00" color=#FF000000 font="Arial",11000,400,Upright
+  DataBand "Data1" box=0,418750,721980,30240 fill=#00000000 repeated=0
+    TextObject "Text9" box=3000,0,28350,30240 fill=#00000000 text="4" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text1" box=31350,12900,687960,17010 fill=#00000000 text="خلاط مولينكس" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text61" box=273050,0,47250,13230 fill=#00000000 text="3.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text5" box=206770,0,66150,13230 fill=#00000000 text="150.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text7" box=636150,0,83160,13230 fill=#00000000 text="507.50" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text39" box=31350,0,85050,13230 fill=#00000000 text="ITEM-004" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text46" box=541650,0,37800,13230 fill=#00000000 text="15%" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text47" box=579450,0,56700,13230 fill=#00000000 text="67.50" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text60" box=319750,0,86560,13230 fill=#00000000 text="450.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text102" box=406350,0,56700,13230 fill=#00000000 text="10.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text103" box=113780,0,94500,13230 fill=#00000000 text="PCE" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text106" box=463050,0,79380,13230 fill=#00000000 text="440.00" color=#FF000000 font="Arial",11000,400,Upright
+  DataBand "Data1" box=0,448990,721980,30240 fill=#FFDFE1E4 repeated=0
+    TextObject "Text9" box=3000,0,28350,30240 fill=#00000000 text="5" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text1" box=31350,12900,687960,17010 fill=#00000000 text="Water 330ml x 40" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text61" box=273050,0,47250,13230 fill=#00000000 text="4.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text5" box=206770,0,66150,13230 fill=#00000000 text="11.30" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text7" box=636150,0,83160,13230 fill=#00000000 text="51.98" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text39" box=31350,0,85050,13230 fill=#00000000 text="ITEM-005" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text46" box=541650,0,37800,13230 fill=#00000000 text="15%" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text47" box=579450,0,56700,13230 fill=#00000000 text="6.78" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text60" box=319750,0,86560,13230 fill=#00000000 text="45.20" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text102" box=406350,0,56700,13230 fill=#00000000 text="0" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text103" box=113780,0,94500,13230 fill=#00000000 text="PCE" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text106" box=463050,0,79380,13230 fill=#00000000 text="45.20" color=#FF000000 font="Arial",11000,400,Upright
+  DataBand "Data1" box=0,479230,721980,30240 fill=#00000000 repeated=0
+    TextObject "Text9" box=3000,0,28350,30240 fill=#00000000 text="6" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text1" box=31350,12900,687960,17010 fill=#00000000 text="Laban 2L" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text61" box=273050,0,47250,13230 fill=#00000000 text="12.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text5" box=206770,0,66150,13230 fill=#00000000 text="9.26" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text7" box=636150,0,83160,13230 fill=#00000000 text="127.82" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text39" box=31350,0,85050,13230 fill=#00000000 text="ITEM-006" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text46" box=541650,0,37800,13230 fill=#00000000 text="15%" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text47" box=579450,0,56700,13230 fill=#00000000 text="16.67" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text60" box=319750,0,86560,13230 fill=#00000000 text="111.15" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text102" box=406350,0,56700,13230 fill=#00000000 text="0" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text103" box=113780,0,94500,13230 fill=#00000000 text="PCE" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text106" box=463050,0,79380,13230 fill=#00000000 text="111.15" color=#FF000000 font="Arial",11000,400,Upright
+  DataBand "Data1" box=0,509470,721980,30240 fill=#FFDFE1E4 repeated=0
+    TextObject "Text9" box=3000,0,28350,30240 fill=#00000000 text="7" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text1" box=31350,12900,687960,17010 fill=#00000000 text="Glass sheet" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text61" box=273050,0,47250,13230 fill=#00000000 text="2.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text5" box=206770,0,66150,13230 fill=#00000000 text="120.50" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text7" box=636150,0,83160,13230 fill=#00000000 text="277.15" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text39" box=31350,0,85050,13230 fill=#00000000 text="ITEM-007" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text46" box=541650,0,37800,13230 fill=#00000000 text="15%" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text47" box=579450,0,56700,13230 fill=#00000000 text="36.15" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text60" box=319750,0,86560,13230 fill=#00000000 text="241.00" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text102" box=406350,0,56700,13230 fill=#00000000 text="0" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text103" box=113780,0,94500,13230 fill=#00000000 text="PCE" color=#FF000000 font="Arial",11000,400,Upright
+    TextObject "Text106" box=463050,0,79380,13230 fill=#00000000 text="241.00" color=#FF000000 font="Arial",11000,400,Upright
+  ChildBand "Child1" box=0,539710,721980,18900 fill=#00000000 repeated=0
+    SubreportObject "Subreport1" box=0,0,368550,18900 fill=#00000000
+  DataHeaderBand "DataHeader1" box=0,539710,718200,18900 fill=#00000000 repeated=0
+    TextObject "Text11" box=144750,0,56700,18900 fill=#00000000 text="طول" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text13" box=201450,0,56700,18900 fill=#00000000 text="عرض" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text15" box=258150,0,56700,18900 fill=#00000000 text="ارتفاع" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text17" box=314850,0,56700,18900 fill=#00000000 text="العدد" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text19" box=371550,0,56700,18900 fill=#00000000 text="الإجمالي" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text21" box=31350,0,113400,18900 fill=#00000000 text="بيان" color=#FF000000 font="Arial",10000,700,Upright
+    TextObject "Text36" box=3000,0,28350,18900 fill=#00000000 text="2" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,558610,718200,18900 fill=#00000000 repeated=0
+    TextObject "Text24" box=144750,0,56700,18900 fill=#00000000 text="1.20" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text25" box=201450,0,56700,18900 fill=#00000000 text="0.80" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text26" box=258150,0,56700,18900 fill=#00000000 text="0.01" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text27" box=314850,0,56700,18900 fill=#00000000 text="1.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text28" box=371550,0,56700,18900 fill=#00000000 text="0.96" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text29" box=31350,0,113400,18900 fill=#00000000 text="Front" color=#FF000000 font="Arial",10000,400,Upright
+  DataBand "Data2" box=0,577510,718200,18900 fill=#00000000 repeated=0
+    TextObject "Text24" box=144750,0,56700,18900 fill=#00000000 text="0.60" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text25" box=201450,0,56700,18900 fill=#00000000 text="0.80" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text26" box=258150,0,56700,18900 fill=#00000000 text="0.01" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text27" box=314850,0,56700,18900 fill=#00000000 text="1.00" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text28" box=371550,0,56700,18900 fill=#00000000 text="0.48" color=#FF000000 font="Arial",10000,400,Upright
+    TextObject "Text29" box=31350,0,113400,18900 fill=#00000000 text="Side" color=#FF000000 font="Arial",10000,400,Upright
+  DataFooterBand "DataFooter1" box=0,596410,721980,20790 fill=#00000000 repeated=0
+    TextObject "Text107" box=274050,0,47250,20790 fill=#FFFFFACD text="25.00" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text108" box=637150,0,83160,20790 fill=#FFFFFACD text="7,749.45" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text110" box=542650,0,94500,20790 fill=#FFFFFACD text="1,012.10" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text111" box=320750,0,86560,20790 fill=#FFFFFACD text="6,747.35" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text112" box=407350,0,56700,20790 fill=#FFFFFACD text="10.00" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text113" box=464050,0,79380,20790 fill=#FFFFFACD text="6,737.35" color=#FF000000 font="Arial",11000,700,Upright
+    TextObject "Text114" box=0,0,274050,20790 fill=#FFFFFACD text="Total الإجمالي" color=#FF000000 font="Arial",11000,700,Upright
+  GroupFooterBand "GroupFooter1" box=0,747860,721980,280300 fill=#00000000 repeated=0
+    TableObject "Table2" box=3780,0,714370,102050 fill=#00000000
+      TableRow "Row4" height=20410
+        TableCell "Cell83" box=0,0,0,0 fill=#FF000000 text="Net Amount (SAR 10,559.47) الصافي " color=#FFFFFACD font="Arial",14000,700,Upright
+        TableCell "Cell30" box=0,0,0,0 fill=#FFFFFACD text="" color=#FF000000 font="Arial",14000,700,Upright
+        TableCell "Cell129" box=0,0,0,0 fill=#FFFFFACD text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell31" box=0,0,0,0 fill=#FFFFFACD text="" color=#FF000000 font="Arial",14000,700,Upright
+        TableCell "Cell139" box=0,0,0,0 fill=#FF000000 text="Payment Terms" color=#FFFFFACD font="Arial",9000,400,Upright
+        TableCell "Cell134" box=0,0,0,0 fill=#FF000000 text="شروط الدفع" color=#FFFFFACD font="Arial",10000,700,Upright
+        TableCell "Cell78" box=0,0,0,0 fill=#FFFFFACD text="Sub Total:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell32" box=0,0,0,0 fill=#FFFFFACD text="9182.15" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell33" box=0,0,0,0 fill=#FFFFFACD text="المجموع الفرعي:" color=#FF000000 font="Arial",13000,700,Upright
+      TableRow "Row5" height=20410
+        TableCell "Cell84" box=0,0,0,0 fill=#FFFFFACD text="" color=#FF000000 font="Arial",14000,700,Upright
+        TableCell "Cell35" box=0,0,0,0 fill=#FFFFFACD text="" color=#FF000000 font="Arial",14000,700,Upright
+        TableCell "Cell130" box=0,0,0,0 fill=#FFFFFACD text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell36" box=0,0,0,0 fill=#FFFFFACD text="" color=#FF000000 font="Arial",14000,700,Upright
+        TableCell "Cell140" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell135" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,700,Upright
+        TableCell "Cell79" box=0,0,0,0 fill=#FFFFFACD text="Discount:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell37" box=0,0,0,0 fill=#FFFFFACD text="0" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell38" box=0,0,0,0 fill=#FFFFFACD text="الخصم:" color=#FF000000 font="Arial",13000,700,Upright
+      TableRow "Row6" height=20410
+        TableCell "Cell85" box=0,0,0,0 fill=#FFFFFACD text="Cash:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell40" box=0,0,0,0 fill=#FFFFFACD text="10000.00" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell131" box=0,0,0,0 fill=#FFFFFACD text="Cash" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell41" box=0,0,0,0 fill=#FFFFFACD text="نقداً:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell141" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell136" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,700,Upright
+        TableCell "Cell80" box=0,0,0,0 fill=#FFFFFACD text="Net Amount:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell42" box=0,0,0,0 fill=#FFFFFACD text="9182.15" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell43" box=0,0,0,0 fill=#FFFFFACD text="صافي المبلغ:" color=#FF000000 font="Arial",13000,700,Upright
+      TableRow "Row9" height=20410
+        TableCell "Cell86" box=0,0,0,0 fill=#FFFFFACD text="فاتورة" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell51" box=0,0,0,0 fill=#FFFFFACD text="559.47" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell132" box=0,0,0,0 fill=#FFFFFACD text="Span" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell52" box=0,0,0,0 fill=#FFFFFACD text="شبكة:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell142" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell137" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,700,Upright
+        TableCell "Cell81" box=0,0,0,0 fill=#FFFFFACD text="VAT 15%:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell53" box=0,0,0,0 fill=#FFFFFACD text="1377.32" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell54" box=0,0,0,0 fill=#FFFFFACD text="الضريبة  15%:" color=#FF000000 font="Arial",13000,700,Upright
+      TableRow "Row10" height=20410
+        TableCell "Cell87" box=0,0,0,0 fill=#FFFFFACD text="Customer Due:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell55" box=0,0,0,0 fill=#FFFFFACD text="0" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell133" box=0,0,0,0 fill=#FFFFFACD text="على العميل" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell56" box=0,0,0,0 fill=#FFFFFACD text="آجل:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell143" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,400,Upright
+        TableCell "Cell138" box=0,0,0,0 fill=#FF70B7B3 text="" color=#FF000000 font="Arial",10000,700,Upright
+        TableCell "Cell82" box=0,0,0,0 fill=#FFFFFACD text="Net Payable:" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell57" box=0,0,0,0 fill=#FFFFFACD text="10559.47" color=#FF000000 font="Arial",12000,700,Upright
+        TableCell "Cell58" box=0,0,0,0 fill=#FFFFFACD text="الإجمالي:" color=#FF000000 font="Arial",13000,700,Upright
+    TextObject "Text37" box=244030,103950,468340,22680 fill=#00000000 text="" color=#FF000000 font="Arial",12000,400,Upright
+    TableObject "Table3" box=255150,141750,453600,28350 fill=#00000000
+      TableRow "Row7" height=28350
+        TableCell "Cell44" box=0,0,0,0 fill=#00000000 text="Credit دائن" color=#FF000000 font="Arial",12000,400,Upright
+        TableCell "Cell45" box=0,0,0,0 fill=#00000000 text="(125.50)" color=#FF000000 font="Arial",12000,400,Upright
+        TableCell "Cell46" box=0,0,0,0 fill=#00000000 text="رصيد حساب العميل Account Balance" color=#FF000000 font="Arial",12000,700,Upright
+    TextObject "Text23" box=387450,179550,302400,18900 fill=#00000000 text="اسم الموظف: admin" color=#FF000000 font="Arial",12000,400,Upright
+    TextObject "Text71" box=387450,217350,302400,18900 fill=#00000000 text="المستلم: Received By" color=#FF000000 font="Arial",12000,400,Upright
+    BarcodeObject "Barcode1" box=0,103950,223600,176350 fill=#00000000 text="QR_PLACEHOLDER_DATA"
+    LineObject "Line1" box=224800,103950,0,175770 fill=#00000000
+    TextObject "Text120" box=236250,245700,463050,28350 fill=#00000000 text="شكراً لتعاملكم معنا" color=#FF000000 font="Arial",12000,400,Upright

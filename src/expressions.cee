@@ -259,6 +259,103 @@ public struct AggregateState {
     public last: Value;
 }
 
+/// AggregateTracker.ResetForBand: drops the states of band `band` (their keys start "band.", case not minded).
+public fn resetAggregates(state: borrow mut EvalState, band: StringView) {
+    var k: usize = 0;
+    while (k < state.aggregates.length) {
+        let key = state.aggregates[k].key.bytes();
+        let b = band.bytes();
+        if (key.length > b.length && key[b.length] == '.' && sameIgnoringCase(StringView.fromUtf8(key[0..b.length]) ?? "", band)) {
+            let _ = state.aggregates.remove(k);
+        } else {
+            k += 1;
+        }
+    }
+}
+
+/// AggregateTracker.AddValue: a row's value of `expression` added to band `band`'s state.
+public fn addAggregate(state: borrow mut EvalState, band: StringView, expression: StringView, v: Value) {
+    var at: usize? = null;
+    for (k in 0..state.aggregates.length) {
+        let key = state.aggregates[k].key.bytes();
+        let b = band.bytes();
+        let e = expression.bytes();
+        if (key.length == b.length + 1 + e.length && key[b.length] == '.' &&
+            sameIgnoringCase(StringView.fromUtf8(key[0..b.length]) ?? "", band) &&
+            sameIgnoringCase(StringView.fromUtf8(key[b.length + 1..]) ?? "", expression)) {
+            at = k;
+            break;
+        }
+    }
+    let index = match (at) {
+        Some(k) => k,
+        null => {
+            var key = copyOf(band);
+            let _ = key.append(".");
+            let _ = key.append(expression);
+            let _ = state.aggregates.push(AggregateState {
+                key: key,
+                count: 0,
+                sum: 0.0,
+                sumOfSquares: 0.0,
+                min: 1.7976931348623157e308,
+                max: -1.7976931348623157e308,
+                first: Value.none(),
+                last: Value.none(),
+            });
+            state.aggregates.length - 1
+        }
+    };
+    let a = borrow mut state.aggregates[index];
+    a.count += 1;
+    if (a.first.isNull()) {
+        a.first = v.clone();
+    }
+    // IConvertible.ToDouble: numbers and bools, a string that parses; a date or anything else is counted only.
+    let d: f64? = if (v.kind == ValueKind.Date) null else v.toDouble();
+    a.last = v;
+    match (d) {
+        Some(x) => {
+            a.sum += x;
+            a.sumOfSquares += x * x;
+            if (x < a.min) {
+                a.min = x;
+            }
+            if (x > a.max) {
+                a.max = x;
+            }
+        }
+        null => {}
+    }
+}
+
+/// FindAggregateExpressions: the [..] parts of `text` that are aggregates ("Sum([x])").
+public fn aggregateExpressions(text: StringView, into: borrow mut Vector<String>) {
+    if (!hasExpressions(text)) {
+        return;
+    }
+    for (s in parseSegments(text).view()) {
+        if (s.expression && aggregateName(s.text.view()) != null) {
+            let _ = into.push(copyOf(s.text.view()));
+        }
+    }
+}
+
+/// The aggregate an expression is ("Sum" of "Sum(x)", its case not minded) and its inner expression's start.
+public fn aggregateName(e: StringView) -> usize? {
+    let b = e.bytes();
+    if (b.length == 0 || b[b.length - 1] != ')') {
+        return null;
+    }
+    for (name in AGGREGATES) {
+        let n = name.bytes().length;
+        if (b.length > n + 2 && b[n] == '(' && sameIgnoringCase(StringView.fromUtf8(b[0..n]) ?? "", name)) {
+            return n + 1;
+        }
+    }
+    return null;
+}
+
 // ---- the evaluator ----------------------------------------------------------------------------------------------------
 
 /// What an evaluation reads besides the data: the page and row numbers, the totals' and aggregates' states.
@@ -447,8 +544,9 @@ public struct Evaluator<region r> {
         for (a in this.state.aggregates.view()) {
             let k = a.key.bytes();
             let bb = band.bytes();
-            if (k.length == bb.length + 1 + expression.bytes().length && (StringView.fromUtf8(k[0..bb.length]) ?? "") == band &&
-                k[bb.length] == '.' && (StringView.fromUtf8(k[bb.length + 1..]) ?? "") == expression) {
+            if (k.length == bb.length + 1 + expression.bytes().length &&
+                sameIgnoringCase(StringView.fromUtf8(k[0..bb.length]) ?? "", band) && k[bb.length] == '.' &&
+                sameIgnoringCase(StringView.fromUtf8(k[bb.length + 1..]) ?? "", expression)) {
                 return a;
             }
         }
@@ -488,11 +586,11 @@ public struct Evaluator<region r> {
     }
 
     fn aggregateValue(borrow this, name: StringView, expression: StringView) -> Value {
-        // Each data source's name as the band's, a zero or null meaning none; then "*".
+        // FindAggregateValue: only a null result moves on (its "a zero is no match" case is never reached, since a
+        // zero double falls to its default), so a number comes from the first data source.
         for (src in this.data.sources.view()) {
             let v = this.aggregateFor(name, src.name.view(), expression);
-            let none = v.isNull() || (v.kind == ValueKind.Double && v.d == 0.0) || (v.kind == ValueKind.Int && v.i == 0);
-            if (!none) {
+            if (!v.isNull()) {
                 return v;
             }
         }
