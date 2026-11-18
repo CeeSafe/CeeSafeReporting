@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: MIT
+// Pages drawn to pixels against CosmoReport's ImageExport (with the fixes on CosmoPdf's fix/image-export-text
+// branch): tests/expected/images/X*.png, written by `dotnet RefDump.dll image tests/fixtures/X.frx ... [notext]`.
+// Every pixel is compared. A page that differs is written to out/X.png beside a count of what differs and where.
+import claywind;
+
+fn emptyTexts(objects: borrow mut Vector<Component>) {
+    for (j in 0..objects.length) {
+        let o = borrow mut objects[j];
+        match (borrow mut o.text) {
+            Some(t) => { t.processed = String.create(); }
+            null => {}
+        }
+        for (r in 0..o.tableRows.length) {
+            emptyTexts(mut o.tableRows[r].cells);
+        }
+    }
+}
+
+fn preparedOf(file: StringView, sourceName: StringView, dataFile: StringView, report: borrow Report)
+    -> Result<Vector<PreparedPage>, TestFailure> {
+    var path = String.create();
+    let _ = path.append("tests/fixtures/");
+    let _ = path.append(file);
+    let _ = path.append(".frx");
+    let root = match (parseXml(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report is not XML")); }
+    };
+    var data = DataSet.create(Schema.read(root));
+    match (data.register(sourceName, readFile(dataFile).view())) {
+        Ok() => {}
+        Err(_) => { return Err(TestFailure.create("the data did not read")); }
+    }
+    var handlers = Handlers.create();
+    handlers.add("Data1_BeforePrint", shadeOddRows);
+    return Ok(if (file == "PosInvoice") preparePages(report, data, Handlers.create(), null)
+        else preparePages(report, data, handlers, null));
+}
+
+/// Canvas `got` against the PNG at `expected`: their sizes, then every pixel's red (the pages are black and white).
+fn samePixels(got: borrow Canvas, expected: StringView, name: StringView) -> Result<void, TestFailure> {
+    let png = readFile(expected);
+    let info = match (imageInfo(png.view())) {
+        Ok(i) => i,
+        Err(_) => { return Err(TestFailure.create("the expected image does not decode")); }
+    };
+    var pixels = Vector<u32>.create();
+    for (k in 0..info.w * info.h) {
+        let _ = pixels.push(0);
+    }
+    var scratch = Vector<u8>.create();
+    for (k in 0..info.scratchBytes) {
+        let _ = scratch.push(0);
+    }
+    match (decodeImage(png.view(), pixels.viewMut(), scratch.viewMut())) {
+        Ok(_) => {}
+        Err(_) => { return Err(TestFailure.create("the expected image does not decode")); }
+    }
+    var differ: i64 = 0;
+    var firstX: i64 = -1;
+    var firstY: i64 = -1;
+    let sameSize = truncate<i64>(info.w) == got.width && truncate<i64>(info.h) == got.height;
+    if (sameSize) {
+        for (y in 0..got.height) {
+            for (x in 0..got.width) {
+                let want = truncate<u8>(pixels[truncate<usize>(y * got.width + x)] & 0xFF);
+                let have = got.rgb[truncate<usize>((y * got.width + x) * 3)];
+                if (want != have) {
+                    if (differ == 0) {
+                        firstX = x;
+                        firstY = y;
+                    }
+                    differ += 1;
+                }
+            }
+        }
+    }
+    if (sameSize && differ == 0) {
+        return Ok();
+    }
+    var out = String.create();
+    let _ = out.append("out/");
+    let _ = out.append(name);
+    let _ = out.append(".png");
+    match (File.create(out.view())) {
+        Ok(f) => {
+            var file = f;
+            let bytes = got.png();
+            let _ = file.write(bytes.view());
+        }
+        Err(_) => {}
+    }
+    Console.write("  want ");
+    Console.write(truncate<i64>(info.w));
+    Console.write("x");
+    Console.write(truncate<i64>(info.h));
+    Console.write(", got ");
+    Console.write(got.width);
+    Console.write("x");
+    Console.writeLine(got.height);
+    Console.write("  pixels that differ: ");
+    Console.write(differ);
+    Console.write(", the first at ");
+    Console.write(firstX);
+    Console.write(",");
+    Console.writeLine(firstY);
+    return Err(TestFailure.create("the page is not CosmoReport's"));
+}
+
+fn samePagesWithoutText(file: StringView, sourceName: StringView) -> Result<void, TestFailure> {
+    var path = String.create();
+    let _ = path.append("tests/fixtures/");
+    let _ = path.append(file);
+    let _ = path.append(".frx");
+    let report = match (loadReport(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    var pages = preparedOf(file, sourceName, "tests/data/invoice.json", report)?;
+    for (p in 0..pages.length) {
+        for (b in 0..pages[p].bands.length) {
+            emptyTexts(mut pages[p].bands[b].band.children);
+        }
+    }
+    let canvases = renderPages(report, pages, Fonts.none(), RenderOptions.receipt());
+    var expected = String.create();
+    let _ = expected.append("tests/expected/images/");
+    let _ = expected.append(file);
+    let _ = expected.append(".notext-1.png");
+    var name = copyOf(file);
+    let _ = name.append(".notext");
+    return samePixels(canvases[0], expected.view(), name.view());
+}
+
+@test
+fn thePosInvoiceWithoutTextIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagesWithoutText("PosInvoice", "Header");
+
+@test
+fn theMyInvoiceWithoutTextIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagesWithoutText("MyInvoice", "Invoice");
+
+@test
+fn theServersMyInvoiceWithoutTextIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagesWithoutText("MyInvoice.server", "Invoice");
+
+/// A page written as PNG reads back as the same pixels (claywind's decoder), and is written to out/ for other readers.
+@test
+fn aPageWrittenAsPngReadsBack() -> Result<void, TestFailure> {
+    let report = match (loadReport(readFile("tests/fixtures/MyInvoice.server.frx").view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    let pages = preparedOf("MyInvoice.server", "Invoice", "tests/data/invoice.json", report)?;
+    let canvases = renderPages(report, pages, Fonts.none(), RenderOptions.receipt());
+    let png = canvases[0].png();
+    match (File.create("out/roundtrip.png")) {
+        Ok(f) => {
+            var file = f;
+            let _ = file.write(png.view());
+        }
+        Err(_) => {}
+    }
+    let info = match (imageInfo(png.view())) {
+        Ok(i) => i,
+        Err(_) => { return Err(TestFailure.create("the PNG does not read")); }
+    };
+    var pixels = Vector<u32>.create();
+    for (k in 0..info.w * info.h) {
+        let _ = pixels.push(0);
+    }
+    var scratch = Vector<u8>.create();
+    for (k in 0..info.scratchBytes) {
+        let _ = scratch.push(0);
+    }
+    match (decodeImage(png.view(), pixels.viewMut(), scratch.viewMut())) {
+        Ok(_) => {}
+        Err(_) => { return Err(TestFailure.create("the PNG does not decode")); }
+    }
+    let c = borrow canvases[0];
+    for (k in 0..info.w * info.h) {
+        let p = pixels[k];
+        if (truncate<u8>(p & 0xFF) != c.rgb[k * 3] || truncate<u8>((p >> 8) & 0xFF) != c.rgb[k * 3 + 1] ||
+            truncate<u8>((p >> 16) & 0xFF) != c.rgb[k * 3 + 2]) {
+            return Err(TestFailure.create("a pixel read back differs"));
+        }
+    }
+    Check.isTrue(png.length < c.rgb.length / 10, "the page compresses")?;
+    return Ok();
+}

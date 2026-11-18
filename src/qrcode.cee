@@ -1,0 +1,768 @@
+// SPDX-License-Identifier: MIT
+// A QR code encoder, as CosmoPdf's (CosmoPdf.QrCode) encodes: one segment in numeric, alphanumeric or byte mode (the
+// text as UTF-8), the smallest version that holds it at the level asked, Reed-Solomon blocks interleaved, and the
+// mask with the least penalty. The modules come out the same, so the barcode prints the same.
+
+/// The error correction levels.
+public enum QrLevel {
+    L,
+    M,
+    Q,
+    H,
+}
+
+/// Bit `i` of `v`.
+fn bit(v: i64, i: i64) -> bool => ((truncate<u64>(v) >> truncate<u64>(i)) & 1) == 1;
+
+fn levelIndex(l: QrLevel) -> usize => match (l) {
+    QrLevel.L => 0,
+    QrLevel.M => 1,
+    QrLevel.Q => 2,
+    QrLevel.H => 3,
+};
+
+/// A QR code's modules: `size` rows of `size`, dark true.
+public struct QrCode {
+    public size: i64;
+    public version: i64;
+    public mask: i64;
+    public modules: Vector<bool>;
+
+    public fn dark(borrow this, row: i64, col: i64) -> bool => this.modules[truncate<usize>(row * this.size + col)];
+
+    /// QrCode.Png(scale)'s pixels: the modules with a quiet zone of four, each `scale` pixels square, black on white
+    /// (0xAABBGGRR, for Canvas.compositeImage); and the image's side.
+    public fn pixels(borrow this, scale: i64) -> Vector<u32> {
+        let s = scale.max(1);
+        let side = (this.size + 8) * s;
+        var out = Vector<u32>.create();
+        for (py in 0..side) {
+            for (px in 0..side) {
+                let mx = px / s - 4;
+                let my = py / s - 4;
+                let dark = mx >= 0 && mx < this.size && my >= 0 && my < this.size && this.dark(my, mx);
+                let _ = out.push(if (dark) 0xFF000000 else 0xFFFFFFFF);
+            }
+        }
+        return out;
+    }
+}
+
+// ---- tables ---------------------------------------------------------------------------------------------------------
+
+/// [version-1][level]: total codewords, EC per block, group 1 blocks and data, group 2 blocks and data.
+const EC_TABLE: [i64; 960] = [
+    26,7,1,19,0,0, 26,10,1,16,0,0, 26,13,1,13,0,0, 26,17,1,9,0,0,
+    44,10,1,34,0,0, 44,16,1,28,0,0, 44,22,1,22,0,0, 44,28,1,16,0,0,
+    70,15,1,55,0,0, 70,26,1,44,0,0, 70,18,2,17,0,0, 70,22,2,13,0,0,
+    100,20,1,80,0,0, 100,18,2,32,0,0, 100,26,2,24,0,0, 100,16,4,9,0,0,
+    134,26,1,108,0,0, 134,24,2,43,0,0, 134,18,2,15,2,16, 134,22,2,11,2,12,
+    172,18,2,68,0,0, 172,16,4,27,0,0, 172,24,4,19,0,0, 172,28,4,15,0,0,
+    196,20,2,78,0,0, 196,18,4,31,0,0, 196,18,2,14,4,15, 196,26,4,13,1,14,
+    242,24,2,97,0,0, 242,22,2,38,2,39, 242,22,4,18,2,19, 242,26,4,14,2,15,
+    292,30,2,116,0,0, 292,22,3,36,2,37, 292,20,4,16,4,17, 292,24,4,12,4,13,
+    346,18,2,68,2,69, 346,26,4,43,1,44, 346,24,6,19,2,20, 346,28,6,15,2,16,
+    404,20,4,81,0,0, 404,30,1,50,4,51, 404,28,4,22,4,23, 404,24,3,12,8,13,
+    466,24,2,92,2,93, 466,22,6,36,2,37, 466,26,4,20,6,21, 466,28,7,14,4,15,
+    532,26,4,107,0,0, 532,22,8,37,1,38, 532,24,8,20,4,21, 532,22,12,11,4,12,
+    581,30,3,115,1,116, 581,24,4,40,5,41, 581,20,11,16,5,17, 581,24,11,12,5,13,
+    655,22,5,87,1,88, 655,24,5,41,5,42, 655,30,5,24,7,25, 655,24,11,12,7,13,
+    733,24,5,98,1,99, 733,28,7,45,3,46, 733,24,15,19,2,20, 733,30,3,15,13,16,
+    815,28,1,107,5,108, 815,28,10,46,1,47, 815,28,1,22,15,23, 815,28,2,14,17,15,
+    901,30,5,120,1,121, 901,26,9,43,4,44, 901,28,17,22,1,23, 901,28,2,14,19,15,
+    991,28,3,113,4,114, 991,26,3,44,11,45, 991,26,17,21,4,22, 991,26,9,13,16,14,
+    1085,28,3,107,5,108, 1085,26,3,41,13,42, 1085,30,15,24,5,25, 1085,28,15,15,10,16,
+    1156,28,4,116,4,117, 1156,26,17,42,0,0, 1156,28,17,22,6,23, 1156,30,19,16,6,17,
+    1258,28,2,111,7,112, 1258,28,17,46,0,0, 1258,30,7,24,16,25, 1258,24,34,13,0,0,
+    1364,30,4,121,5,122, 1364,28,4,47,14,48, 1364,30,11,24,14,25, 1364,30,16,15,14,16,
+    1474,30,6,117,4,118, 1474,28,6,45,14,46, 1474,30,11,24,16,25, 1474,30,30,16,2,17,
+    1588,26,8,106,4,107, 1588,28,8,47,13,48, 1588,30,7,24,22,25, 1588,30,22,15,13,16,
+    1706,28,10,114,2,115, 1706,28,19,46,4,47, 1706,28,28,22,6,23, 1706,30,33,16,4,17,
+    1828,30,8,122,4,123, 1828,28,22,45,3,46, 1828,30,8,23,26,24, 1828,30,12,15,28,16,
+    1921,30,3,117,10,118, 1921,28,3,45,23,46, 1921,30,4,24,31,25, 1921,30,11,15,31,16,
+    2051,30,7,116,7,117, 2051,28,21,45,7,46, 2051,30,1,23,37,24, 2051,30,19,15,26,16,
+    2185,30,5,115,10,116, 2185,28,19,47,10,48, 2185,30,15,24,25,25, 2185,30,23,15,25,16,
+    2323,30,13,115,3,116, 2323,28,2,46,29,47, 2323,30,42,24,1,25, 2323,30,23,15,28,16,
+    2465,30,17,115,0,0, 2465,28,10,46,23,47, 2465,30,10,24,35,25, 2465,30,19,15,35,16,
+    2611,30,17,115,1,116, 2611,28,14,46,21,47, 2611,30,29,24,19,25, 2611,30,11,15,46,16,
+    2761,30,13,115,6,116, 2761,28,14,46,23,47, 2761,30,44,24,7,25, 2761,30,59,16,1,17,
+    2876,30,12,121,7,122, 2876,28,12,47,26,48, 2876,30,39,24,14,25, 2876,30,22,15,41,16,
+    3034,30,6,121,14,122, 3034,28,6,47,34,48, 3034,30,46,24,10,25, 3034,30,2,15,64,16,
+    3196,30,17,122,4,123, 3196,28,29,46,14,47, 3196,30,49,24,10,25, 3196,30,24,15,46,16,
+    3362,30,4,122,18,123, 3362,28,13,46,32,47, 3362,30,48,24,14,25, 3362,30,42,15,32,16,
+    3532,30,20,117,4,118, 3532,28,40,47,7,48, 3532,30,43,24,22,25, 3532,30,10,15,67,16,
+    3706,30,19,118,6,119, 3706,28,18,47,31,48, 3706,30,34,24,34,25, 3706,30,20,15,61,16,
+];
+
+/// Alignment pattern centres per version: up to 7, padded with 0 (version 1 has none).
+const ALIGNMENT: [i64; 280] = [
+    0,0,0,0,0,0,0,
+    6,18,0,0,0,0,0, 6,22,0,0,0,0,0, 6,26,0,0,0,0,0, 6,30,0,0,0,0,0, 6,34,0,0,0,0,0,
+    6,22,38,0,0,0,0, 6,24,42,0,0,0,0, 6,26,46,0,0,0,0,
+    6,28,50,0,0,0,0, 6,30,54,0,0,0,0, 6,32,58,0,0,0,0, 6,34,62,0,0,0,0,
+    6,26,46,66,0,0,0, 6,26,48,70,0,0,0, 6,26,50,74,0,0,0,
+    6,30,54,78,0,0,0, 6,30,56,82,0,0,0, 6,30,58,86,0,0,0, 6,34,62,90,0,0,0,
+    6,28,50,72,94,0,0, 6,26,50,74,98,0,0, 6,30,54,78,102,0,0,
+    6,28,54,80,106,0,0, 6,32,58,84,110,0,0, 6,30,58,86,114,0,0,
+    6,34,62,90,118,0,0,
+    6,26,50,74,98,122,0, 6,30,54,78,102,126,0, 6,26,52,78,104,130,0,
+    6,30,56,82,108,134,0, 6,34,60,86,112,138,0, 6,30,58,86,114,142,0,
+    6,34,62,90,118,146,0,
+    6,30,54,78,102,126,150, 6,24,50,76,102,128,154,
+    6,28,54,80,106,132,158, 6,32,58,84,110,136,162,
+    6,26,54,82,110,138,166, 6,30,58,86,114,142,170,
+];
+
+const FORMAT_INFO: [i64; 32] = [
+    0x77c4, 0x72f3, 0x7daa, 0x789d, 0x662f, 0x6318, 0x6c41, 0x6976,
+    0x5412, 0x5125, 0x5e7c, 0x5b4b, 0x45f9, 0x40ce, 0x4f97, 0x4aa0,
+    0x355f, 0x3068, 0x3f31, 0x3a06, 0x24b4, 0x2183, 0x2eda, 0x2bed,
+    0x1689, 0x13be, 0x1ce7, 0x19d0, 0x0762, 0x0255, 0x0d0c, 0x083b,
+];
+
+const VERSION_INFO: [i64; 34] = [
+    0x07c94, 0x085bc, 0x09a99, 0x0a4d3, 0x0bbf6, 0x0c762, 0x0d847, 0x0e60d,
+    0x0f928, 0x10b78, 0x1145d, 0x12a17, 0x13532, 0x149a6, 0x15683, 0x168c9,
+    0x177ec, 0x18ec4, 0x191e1, 0x1afab, 0x1b08e, 0x1cc1a, 0x1d33f, 0x1ed75,
+    0x1f250, 0x209d5, 0x216f0, 0x228ba, 0x2379f, 0x24b0b, 0x2542e, 0x26a64,
+    0x27541, 0x28c69,
+];
+
+const ALPHANUMERIC: StringView = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+
+fn ec(version: i64, level: usize, field: usize) -> i64 => EC_TABLE[truncate<usize>(version - 1) * 24 + level * 6 + field];
+
+fn dataCapacity(version: i64, level: usize) -> i64 =>
+    ec(version, level, 2) * ec(version, level, 3) + ec(version, level, 4) * ec(version, level, 5);
+
+fn alphanumericValue(b: u8) -> i64 {
+    let a = ALPHANUMERIC.bytes();
+    for (k in 0..a.length) {
+        if (a[k] == b) {
+            return truncate<i64>(k);
+        }
+    }
+    return -1;
+}
+
+/// 0 numeric, 1 alphanumeric, 2 byte.
+fn detectMode(data: Slice<u8>) -> usize {
+    var allNum = true;
+    var allAlpha = true;
+    for (b in data) {
+        if (b < '0' || b > '9') {
+            allNum = false;
+        }
+        if (b >= 128 || alphanumericValue(b) < 0) {
+            allAlpha = false;
+        }
+    }
+    if (allNum && data.length > 0) {
+        return 0;
+    }
+    return if (allAlpha) 1 else 2;
+}
+
+fn charCountBits(version: i64, mode: usize) -> i64 {
+    let band: usize = if (version <= 9) 0 else if (version <= 26) 1 else 2;
+    let table: [i64; 9] = [10, 9, 8, 12, 11, 16, 14, 13, 16];
+    return table[band * 3 + mode];
+}
+
+fn numericRemainderBits(r: i64) -> i64 => if (r == 1) 4 else if (r == 2) 7 else 0;
+
+// ---- bits, GF(256), Reed-Solomon ------------------------------------------------------------------------------------
+
+struct Bits {
+    data: Vector<u8>;
+    length: i64;
+}
+
+impl Bits {
+    fn put(borrow mut this, value: i64, length: i64) {
+        var i = length - 1;
+        while (i >= 0) {
+            let byteIdx = truncate<usize>(this.length / 8);
+            while (byteIdx >= this.data.length) {
+                let _ = this.data.push(0);
+            }
+            if (bit(value, i)) {
+                this.data[byteIdx] |= truncate<u8>(0x80u32 >> truncate<u32>(this.length % 8));
+            }
+            this.length += 1;
+            i -= 1;
+        }
+    }
+}
+
+struct Gf {
+    exp: [u8; 512];
+    log: [u8; 256];
+}
+
+fn gfTables() -> Gf {
+    var g = Gf { exp: [0u8; 512], log: [0u8; 256] };
+    var x: u32 = 1;
+    for (i in 0..255usize) {
+        g.exp[i] = truncate<u8>(x);
+        g.log[truncate<usize>(x)] = truncate<u8>(i);
+        x <<= 1;
+        if (x >= 256) {
+            x ^= 0x11D;
+        }
+    }
+    for (i in 255..512usize) {
+        g.exp[i] = g.exp[i - 255];
+    }
+    return g;
+}
+
+fn gfMul(g: borrow Gf, a: u8, b: u8) -> u8 {
+    if (a == 0 || b == 0) {
+        return 0;
+    }
+    return g.exp[(g.log[a as usize] as usize) + (g.log[b as usize] as usize)];
+}
+
+fn reedSolomon(g: borrow Gf, data: Slice<u8>, ecCount: usize) -> Vector<u8> {
+    var gen = Vector<u8>.create();
+    for (k in 0..ecCount + 1) {
+        let _ = gen.push(0);
+    }
+    gen[0] = 1;
+    for (i in 0..ecCount) {
+        var j = ecCount;
+        while (j > 0) {
+            gen[j] = gen[j - 1] ^ gfMul(g, gen[j], g.exp[i]);
+            j -= 1;
+        }
+        gen[0] = gfMul(g, gen[0], g.exp[i]);
+    }
+    var result = Vector<u8>.create();
+    for (k in 0..ecCount) {
+        let _ = result.push(0);
+    }
+    for (b in data) {
+        let coeff = b ^ result[0];
+        for (i in 0..ecCount - 1) {
+            result[i] = result[i + 1];
+        }
+        result[ecCount - 1] = 0;
+        if (coeff != 0) {
+            for (j in 0..ecCount) {
+                result[j] ^= gfMul(g, gen[ecCount - 1 - j], coeff);
+            }
+        }
+    }
+    return result;
+}
+
+// ---- encoding ----------------------------------------------------------------------------------------------------------
+
+fn encodeData(data: Slice<u8>, level: usize, version: i64) -> Vector<u8> {
+    let mode = detectMode(data);
+    let totalData = dataCapacity(version, level);
+    var buf = Bits { data: Vector<u8>.create(), length: 0 };
+    buf.put(if (mode == 0) 1 else if (mode == 1) 2 else 4, 4);
+    buf.put(truncate<i64>(data.length), charCountBits(version, mode));
+    if (mode == 0) {
+        var i: usize = 0;
+        while (i < data.length) {
+            let end = (i + 3).min(data.length);
+            var v: i64 = 0;
+            for (j in i..end) {
+                v = v * 10 + ((data[j] - '0') as i64);
+            }
+            buf.put(v, if (end - i == 3) 10 else numericRemainderBits(truncate<i64>(end - i)));
+            i += 3;
+        }
+    } else if (mode == 1) {
+        var i: usize = 0;
+        while (i < data.length) {
+            if (i + 1 < data.length) {
+                buf.put(alphanumericValue(data[i]) * 45 + alphanumericValue(data[i + 1]), 11);
+            } else {
+                buf.put(alphanumericValue(data[i]), 6);
+            }
+            i += 2;
+        }
+    } else {
+        for (b in data) {
+            buf.put(b as i64, 8);
+        }
+    }
+    let capacityBits = totalData * 8;
+    let termLen = (capacityBits - buf.length).min(4);
+    if (termLen > 0) {
+        buf.put(0, termLen);
+    }
+    if (buf.length % 8 != 0) {
+        buf.put(0, 8 - buf.length % 8);
+    }
+    var pi = 0;
+    while (buf.length / 8 < totalData) {
+        buf.put(if (pi % 2 == 0) 0xEC else 0x11, 8);
+        pi += 1;
+    }
+    let n = truncate<usize>((buf.length + 7) / 8).min(buf.data.length);
+    // Interleave the blocks' data, then their EC codewords.
+    let g = gfTables();
+    let g1 = ec(version, level, 2);
+    let g1Data = ec(version, level, 3);
+    let g2 = ec(version, level, 4);
+    let g2Data = ec(version, level, 5);
+    let ecPer = truncate<usize>(ec(version, level, 1));
+    var starts = Vector<usize>.create();
+    var lengths = Vector<usize>.create();
+    var offset: usize = 0;
+    for (i in 0..g1) {
+        let _ = starts.push(offset);
+        let _ = lengths.push(truncate<usize>(g1Data));
+        offset += truncate<usize>(g1Data);
+    }
+    for (i in 0..g2) {
+        let _ = starts.push(offset);
+        let _ = lengths.push(truncate<usize>(g2Data));
+        offset += truncate<usize>(g2Data);
+    }
+    let bytes = buf.data.view()[0..n];
+    var ecBlocks = Vector<Vector<u8>>.create();
+    for (i in 0..starts.length) {
+        let _ = ecBlocks.push(reedSolomon(g, bytes[starts[i]..starts[i] + lengths[i]], ecPer));
+    }
+    var result = Vector<u8>.create();
+    let maxData = truncate<usize>(g1Data.max(g2Data));
+    for (col in 0..maxData) {
+        for (i in 0..starts.length) {
+            if (col < lengths[i]) {
+                let _ = result.push(bytes[starts[i] + col]);
+            }
+        }
+    }
+    for (col in 0..ecPer) {
+        for (i in 0..starts.length) {
+            if (col < ecBlocks[i].length) {
+                let _ = result.push(ecBlocks[i][col]);
+            }
+        }
+    }
+    return result;
+}
+
+// ---- the matrix --------------------------------------------------------------------------------------------------------
+
+struct Matrix {
+    size: i64;
+    modules: Vector<bool>;
+    set: Vector<bool>;
+}
+
+impl Matrix {
+    fn create(size: i64) -> Matrix {
+        var m = Vector<bool>.create();
+        var s = Vector<bool>.create();
+        for (k in 0..truncate<usize>(size * size)) {
+            let _ = m.push(false);
+            let _ = s.push(false);
+        }
+        return Matrix { size: size, modules: m, set: s };
+    }
+
+    fn at(borrow this, r: i64, c: i64) -> usize => truncate<usize>(r * this.size + c);
+
+    fn setModule(borrow mut this, r: i64, c: i64, dark: bool) {
+        if (r < 0 || r >= this.size || c < 0 || c >= this.size) {
+            return;
+        }
+        let k = this.at(r, c);
+        this.modules[k] = dark;
+        this.set[k] = true;
+    }
+
+    fn isSet(borrow this, r: i64, c: i64) -> bool {
+        if (r < 0 || r >= this.size || c < 0 || c >= this.size) {
+            return true;
+        }
+        return this.set[this.at(r, c)];
+    }
+
+    fn put(borrow mut this, r: i64, c: i64, dark: bool) {
+        let k = this.at(r, c);
+        this.modules[k] = dark;
+    }
+
+    fn get(borrow this, r: i64, c: i64) -> bool => this.modules[this.at(r, c)];
+
+    fn finder(borrow mut this, cr: i64, cc: i64) {
+        for (dr in -3..4i64) {
+            for (dc in -3..4i64) {
+                let adr = if (dr < 0) -dr else dr;
+                let adc = if (dc < 0) -dc else dc;
+                let d = adr.max(adc);
+                this.setModule(cr + dr, cc + dc, d == 3 || d == 0 || (adr <= 1 && adc <= 1));
+            }
+        }
+    }
+
+    fn alignment(borrow mut this, row: i64, col: i64) {
+        for (dr in -2..3i64) {
+            for (dc in -2..3i64) {
+                let adr = if (dr < 0) -dr else dr;
+                let adc = if (dc < 0) -dc else dc;
+                let d = adr.max(adc);
+                this.setModule(row + dr, col + dc, d == 2 || d == 0);
+            }
+        }
+    }
+
+    fn build(data: Slice<u8>, version: i64, level: usize, mask: i64) -> Matrix {
+        let size = 17 + version * 4;
+        var m = Matrix.create(size);
+        m.finder(3, 3);
+        m.finder(3, size - 4);
+        m.finder(size - 4, 3);
+        for (i in 0..8i64) {
+            m.setModule(7, i, false);
+            m.setModule(i, 7, false);
+            m.setModule(7, size - 8 + i, false);
+            m.setModule(i, size - 8, false);
+            m.setModule(size - 8, i, false);
+            m.setModule(size - 8 + i, 7, false);
+        }
+        let base = truncate<usize>(version - 1) * 7;
+        for (a in 0..7usize) {
+            let row = ALIGNMENT[base + a];
+            if (row == 0) {
+                continue;
+            }
+            for (b in 0..7usize) {
+                let col = ALIGNMENT[base + b];
+                if (col == 0 || m.isSet(row, col)) {
+                    continue;
+                }
+                m.alignment(row, col);
+            }
+        }
+        for (i in 8..size - 8) {
+            let dark = i % 2 == 0;
+            if (!m.isSet(6, i)) {
+                m.setModule(6, i, dark);
+            }
+            if (!m.isSet(i, 6)) {
+                m.setModule(i, 6, dark);
+            }
+        }
+        for (i in 0..9i64) {
+            if (!m.isSet(8, i)) {
+                m.setModule(8, i, false);
+            }
+            if (!m.isSet(i, 8)) {
+                m.setModule(i, 8, false);
+            }
+        }
+        for (i in 0..8i64) {
+            if (!m.isSet(8, size - 1 - i)) {
+                m.setModule(8, size - 1 - i, false);
+            }
+            if (!m.isSet(size - 1 - i, 8)) {
+                m.setModule(size - 1 - i, 8, false);
+            }
+        }
+        m.setModule(size - 8, 8, true);
+        if (version >= 7) {
+            for (i in 0..6i64) {
+                for (j in 0..3i64) {
+                    m.setModule(size - 11 + j, i, false);
+                    m.setModule(i, size - 11 + j, false);
+                }
+            }
+        }
+        // The data, two columns at a time from the right, up then down.
+        let totalBits = truncate<i64>(data.length) * 8;
+        var bitIdx: i64 = 0;
+        var col = size - 1;
+        while (col >= 0) {
+            if (col == 6) {
+                col -= 1;
+            }
+            let upward = ((size - 1 - col) / 2) % 2 == 0;
+            for (i in 0..size) {
+                let row = if (upward) size - 1 - i else i;
+                for (dc in 0..2i64) {
+                    let c = col - dc;
+                    if (c < 0 || m.isSet(row, c)) {
+                        continue;
+                    }
+                    let k = m.at(row, c);
+                    if (bitIdx < totalBits) {
+                        let byte = data[truncate<usize>(bitIdx / 8)];
+                        let pos = truncate<u32>(7 - bitIdx % 8);
+                        m.modules[k] = ((byte >> pos) & 1) == 1;
+                        bitIdx += 1;
+                    } else {
+                        m.modules[k] = false;
+                    }
+                    m.set[k] = true;
+                }
+            }
+            col -= 2;
+        }
+        applyMask(mut m, mask, version);
+        // Format information.
+        let bits = FORMAT_INFO[level * 8 + truncate<usize>(mask)];
+        for (i in 0..6i64) {
+            m.put(8, i, bit(bits, 14 - i));
+            m.put(i, 8, bit(bits, i));
+        }
+        m.put(8, 7, bit(bits, 8));
+        m.put(8, 8, bit(bits, 7));
+        m.put(7, 8, bit(bits, 6));
+        for (i in 9..15i64) {
+            m.put(14 - i, 8, bit(bits, 14 - i));
+        }
+        for (i in 0..8i64) {
+            m.put(8, size - 1 - i, bit(bits, i));
+        }
+        for (i in 0..7i64) {
+            m.put(size - 1 - i, 8, bit(bits, 14 - i));
+        }
+        m.put(size - 8, 8, true);
+        if (version >= 7) {
+            let vbits = VERSION_INFO[truncate<usize>(version - 7)];
+            for (i in 0..18i64) {
+                let dark = bit(vbits, i);
+                m.put(size - 11 + i % 3, i / 3, dark);
+                m.put(i / 3, size - 11 + i % 3, dark);
+            }
+        }
+        return m;
+    }
+}
+
+fn maskBit(id: i64, r: i64, c: i64) -> bool => match (id) {
+    0 => (r + c) % 2 == 0,
+    1 => r % 2 == 0,
+    2 => c % 3 == 0,
+    3 => (r + c) % 3 == 0,
+    4 => (r / 2 + c / 3) % 2 == 0,
+    5 => (r * c) % 2 + (r * c) % 3 == 0,
+    6 => ((r * c) % 2 + (r * c) % 3) % 2 == 0,
+    _ => ((r + c) % 2 + (r * c) % 3) % 2 == 0,
+};
+
+fn markRect(mask: borrow mut Vector<bool>, size: i64, row: i64, col: i64, h: i64, w: i64) {
+    for (r in row..row + h) {
+        if (r < 0 || r >= size) {
+            continue;
+        }
+        for (c in col..col + w) {
+            if (c < 0 || c >= size) {
+                continue;
+            }
+            mask[truncate<usize>(r * size + c)] = true;
+        }
+    }
+}
+
+/// Mask.Apply: the mask flips every module outside the function patterns (which it marks again itself, with the
+/// version guessed from the size, as CosmoPdf's does).
+fn applyMask(m: borrow mut Matrix, id: i64, version: i64) {
+    let size = m.size;
+    let guessed = (size - 17) / 4;
+    var fp = Vector<bool>.create();
+    for (k in 0..truncate<usize>(size * size)) {
+        let _ = fp.push(false);
+    }
+    markRect(mut fp, size, 0, 0, 9, 9);
+    markRect(mut fp, size, 0, size - 8, 9, 8);
+    markRect(mut fp, size, size - 8, 0, 8, 9);
+    for (i in 8..size - 8) {
+        fp[truncate<usize>(6 * size + i)] = true;
+        fp[truncate<usize>(i * size + 6)] = true;
+    }
+    // AlignmentPositions[guessed]: CosmoPdf's table has an unused entry 0, so index `guessed` is version `guessed`.
+    if (guessed >= 2) {
+        let base = truncate<usize>(guessed - 1) * 7;
+        for (a in 0..7usize) {
+            let row = ALIGNMENT[base + a];
+            if (row == 0) {
+                continue;
+            }
+            for (b in 0..7usize) {
+                let col = ALIGNMENT[base + b];
+                if (col == 0) {
+                    continue;
+                }
+                let overlaps = (row <= 8 && col <= 8) || (row <= 8 && col >= size - 9) || (row >= size - 9 && col <= 8);
+                if (!overlaps) {
+                    markRect(mut fp, size, row - 2, col - 2, 5, 5);
+                }
+            }
+        }
+    }
+    for (i in 0..9i64) {
+        fp[truncate<usize>(8 * size + i)] = true;
+        fp[truncate<usize>(i * size + 8)] = true;
+    }
+    for (i in 0..8i64) {
+        fp[truncate<usize>(8 * size + size - 1 - i)] = true;
+        fp[truncate<usize>((size - 1 - i) * size + 8)] = true;
+    }
+    if (guessed >= 7) {
+        for (i in 0..6i64) {
+            for (j in 0..3i64) {
+                fp[truncate<usize>((size - 11 + j) * size + i)] = true;
+                fp[truncate<usize>(i * size + size - 11 + j)] = true;
+            }
+        }
+    }
+    for (r in 0..size) {
+        for (c in 0..size) {
+            let k = truncate<usize>(r * size + c);
+            if (!fp[k] && maskBit(id, r, c)) {
+                m.modules[k] = !m.modules[k];
+            }
+        }
+    }
+}
+
+fn penalty(m: borrow Matrix) -> i64 {
+    let size = m.size;
+    var score: i64 = 0;
+    // Runs of five or more.
+    for (r in 0..size) {
+        var count: i64 = 1;
+        for (c in 1..size) {
+            if (m.get(r, c) == m.get(r, c - 1)) {
+                count += 1;
+            } else {
+                if (count >= 5) {
+                    score += count - 2;
+                }
+                count = 1;
+            }
+        }
+        if (count >= 5) {
+            score += count - 2;
+        }
+    }
+    for (c in 0..size) {
+        var count: i64 = 1;
+        for (r in 1..size) {
+            if (m.get(r, c) == m.get(r - 1, c)) {
+                count += 1;
+            } else {
+                if (count >= 5) {
+                    score += count - 2;
+                }
+                count = 1;
+            }
+        }
+        if (count >= 5) {
+            score += count - 2;
+        }
+    }
+    // 2×2 blocks.
+    for (r in 0..size - 1) {
+        for (c in 0..size - 1) {
+            let v = m.get(r, c);
+            if (v == m.get(r, c + 1) && v == m.get(r + 1, c) && v == m.get(r + 1, c + 1)) {
+                score += 3;
+            }
+        }
+    }
+    // Finder-like patterns.
+    let p1: [bool; 11] = [true, false, true, true, true, false, true, false, false, false, false];
+    let p2: [bool; 11] = [false, false, false, false, true, false, true, true, true, false, true];
+    for (r in 0..size) {
+        for (c in 0..size - 10) {
+            var m1 = true;
+            var m2 = true;
+            for (k in 0..11usize) {
+                let v = m.get(r, c + truncate<i64>(k));
+                if (v != p1[k]) {
+                    m1 = false;
+                }
+                if (v != p2[k]) {
+                    m2 = false;
+                }
+            }
+            if (m1 || m2) {
+                score += 40;
+            }
+        }
+    }
+    for (c in 0..size) {
+        for (r in 0..size - 10) {
+            var m1 = true;
+            var m2 = true;
+            for (k in 0..11usize) {
+                let v = m.get(r + truncate<i64>(k), c);
+                if (v != p1[k]) {
+                    m1 = false;
+                }
+                if (v != p2[k]) {
+                    m2 = false;
+                }
+            }
+            if (m1 || m2) {
+                score += 40;
+            }
+        }
+    }
+    // Balance of dark and light.
+    var dark: i64 = 0;
+    for (v in m.modules.view()) {
+        if (v) {
+            dark += 1;
+        }
+    }
+    let pct = dark * 100 / (size * size);
+    let prev5 = pct / 5 * 5;
+    let next5 = prev5 + 5;
+    let d1 = if (prev5 - 50 < 0) 50 - prev5 else prev5 - 50;
+    let d2 = if (next5 - 50 < 0) 50 - next5 else next5 - 50;
+    return score + d1.min(d2) / 5 * 10;
+}
+
+/// `text` (as UTF-8) as a QR code at `level`; null when it is empty or too long for version 40.
+public fn encodeQr(text: StringView, level: QrLevel) -> QrCode? {
+    let data = text.bytes();
+    if (data.length == 0) {
+        return null;
+    }
+    let l = levelIndex(level);
+    let mode = detectMode(data);
+    let n = truncate<i64>(data.length);
+    var version: i64 = 0;
+    for (v in 1..41i64) {
+        var bits = 4 + charCountBits(v, mode);
+        if (mode == 0) {
+            bits += n / 3 * 10 + numericRemainderBits(n % 3);
+        } else if (mode == 1) {
+            bits += n / 2 * 11 + (n % 2) * 6;
+        } else {
+            bits += n * 8;
+        }
+        if (bits <= dataCapacity(v, l) * 8) {
+            version = v;
+            break;
+        }
+    }
+    if (version == 0) {
+        return null;
+    }
+    let codewords = encodeData(data, l, version);
+    var best: i64 = 0;
+    var bestScore: i64 = -1;
+    for (id in 0..8i64) {
+        let m = Matrix.build(codewords.view(), version, l, id);
+        let s = penalty(m);
+        if (bestScore < 0 || s < bestScore) {
+            bestScore = s;
+            best = id;
+        }
+    }
+    let m = Matrix.build(codewords.view(), version, l, best);
+    return QrCode { size: m.size, version: version, mask: best, modules: m.modules };
+}

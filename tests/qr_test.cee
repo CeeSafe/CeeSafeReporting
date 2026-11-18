@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT
+// The QR encoder against CosmoPdf's: each line of tests/data/qr.txt at level L, its version, mask and every module
+// (tests/expected/qr.txt, written by `dotnet RefDump.dll qr tests/data/qr.txt`).
+
+@test
+fn qrCodesAreCosmoPdfs() -> Result<void, TestFailure> {
+    let list = readFile("tests/data/qr.txt");
+    let want = readFile("tests/expected/qr.txt");
+    var got = String.create();
+    for (line in splitOn(StringView.fromUtf8(list.view()) ?? "", '\n').view()) {
+        if (line.length == 0) {
+            continue;
+        }
+        let q = match (encodeQr(line, QrLevel.L)) {
+            Some(q) => q,
+            null => { return Err(TestFailure.create("a text did not encode")); }
+        };
+        let _ = got.append(line);
+        let _ = got.append(" => version ");
+        appendInt(mut got, q.version);
+        let _ = got.append(" mask ");
+        appendInt(mut got, q.mask);
+        let _ = got.append("\n");
+        for (r in 0..q.size) {
+            for (c in 0..q.size) {
+                let _ = got.append(if (q.dark(r, c)) "1" else "0");
+            }
+            let _ = got.append("\n");
+        }
+    }
+    let wantText = StringView.fromUtf8(want.view()) ?? "";
+    if (got.view() != wantText) {
+        let g = splitOn(got.view(), '\n');
+        let w = splitOn(wantText, '\n');
+        for (k in 0..g.length.max(w.length)) {
+            let a = if (k < g.length) g[k] else "<none>";
+            let b = if (k < w.length) w[k] else "<none>";
+            if (a != b) {
+                Console.write("  line ");
+                Console.writeLine(truncate<i64>(k) + 1);
+                Console.write("  want ");
+                Console.writeLine(b);
+                Console.write("  got  ");
+                Console.writeLine(a);
+                break;
+            }
+        }
+        return Err(TestFailure.create("the QR codes are not CosmoPdf's"));
+    }
+    return Ok();
+}

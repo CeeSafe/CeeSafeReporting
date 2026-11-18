@@ -17,10 +17,51 @@ static class Prepared
     public static string Run(string frx, string jsonPath, string name)
     {
         var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
+        // No text measurer: a counter that never answers, so a growing text counts its newlines (and the bridge
+        // CosmoPdf.FastReport would install is not looked for).
+        TextMeasureBridge.LineCounter = (_, _, _, _, _, _) => null;
+        var report = new Report();
+        report.Load(frx);
+        report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
+        return DumpPages(report.Prepare());
+    }
+
+    /// The report prepared as production prepares it (the font line counter and QR encoder of CosmoPdf.FastReport
+    /// installed) and exported by ImageExport (monochrome, 203 dpi): `<out>.prepared.txt` and `<out>-<page>.png`.
+    public static string Image(string frx, string jsonPath, string name, string outPrefix, bool noText = false)
+    {
+        CosmoPdf.FastReport.CoreTextMeasureBridge.Install();
+        CosmoPdf.FastReport.CoreQrBridge.Install();
+        var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
         var report = new Report();
         report.Load(frx);
         report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
         var pages = report.Prepare();
+        File.WriteAllText(outPrefix + ".prepared.txt", DumpPages(pages));
+        if (noText)
+        {
+            // Every text and table cell emptied: the page without its text, to compare what is not text exactly.
+            var set = typeof(TextObject).GetMethod("SetProcessedText",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            for (int pi = 0; pi < pages.Count; pi++)
+                foreach (var band in pages[pi].Bands)
+                    foreach (var obj in band.Objects)
+                    {
+                        if (obj is TextObject t) set.Invoke(t, [""]);
+                        if (obj is TableObject table)
+                            foreach (var row in table.Rows)
+                                foreach (var cell in row.Cells) set.Invoke(cell, [""]);
+                    }
+        }
+        var export = new CosmoPdf.FastReport.ImageExport();
+        report.Export(export, new MemoryStream());
+        for (int i = 0; i < export.PageImages.Count; i++)
+            File.WriteAllBytes($"{outPrefix}-{i + 1}.png", export.PageImages[i]);
+        return $"{export.PageImages.Count} pages\n";
+    }
+
+    static string DumpPages(PreparedPages pages)
+    {
         var o = new StringBuilder();
         for (int i = 0; i < pages.Count; i++)
         {

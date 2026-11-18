@@ -6,3 +6,5 @@ ceesafec = ">=0.72.0"
 tests = ["tests"]
 
 [dependencies]
+# Fonts, shaping and bidi, and image decoding (PNG, BMP).
+claywind = { git = "https://github.com/CeeSafe/Clay.git", rev = "f9cccf27cee5882fb3e7caf1eee138bed8b2c50b", dir = "claywind" }

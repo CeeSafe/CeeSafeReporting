@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: MIT
+// An RGB canvas that draws as CosmoReport's RgbCanvas draws: hard pixels, no anti-aliasing, a rectangle's corners
+// rounded to whole pixels (half to even, as .NET's Math.Round), a line stamped as squares along its length, a
+// polygon filled where its edges cross each row's centre, an image scaled by nearest neighbour. So a page is the
+// same pixels CosmoReport's ImageExport makes, and thresholds to the same dots for a thermal printer.
+
+/// Math.Round(x) as an integer: half to even.
+public fn roundEven(x: f64) -> i64 {
+    let f = x.floor();
+    let d = x - f;
+    let n = truncate<i64>(f);
+    if (d > 0.5) {
+        return n + 1;
+    }
+    if (d < 0.5) {
+        return n;
+    }
+    return if (n % 2 == 0) n else n + 1;
+}
+
+/// A clip rectangle in canvas pixels (inclusive, before rounding).
+public struct Clip {
+    public minX: f64;
+    public minY: f64;
+    public maxX: f64;
+    public maxY: f64;
+}
+
+/// RGB pixels, white to start.
+public struct Canvas {
+    public width: i64;
+    public height: i64;
+    public rgb: Vector<u8>;
+
+    public fn create(width: i64, height: i64) -> Canvas {
+        let w = width.max(1);
+        let h = height.max(1);
+        var rgb = Vector<u8>.create();
+        for (k in 0..truncate<usize>(w * h * 3)) {
+            let _ = rgb.push(255);
+        }
+        return Canvas { width: w, height: h, rgb: rgb };
+    }
+
+    fn clampX(borrow this, x: f64) -> i64 => roundEven(x).max(0).min(this.width - 1);
+    fn clampY(borrow this, y: f64) -> i64 => roundEven(y).max(0).min(this.height - 1);
+
+    fn setPixel(borrow mut this, x: i64, y: i64, c: Color, opacity: f64) {
+        if (x < 0 || y < 0 || x >= this.width || y >= this.height || opacity <= 0.0) {
+            return;
+        }
+        let i = truncate<usize>((y * this.width + x) * 3);
+        if (opacity >= 0.999) {
+            this.rgb[i] = c.r;
+            this.rgb[i + 1] = c.g;
+            this.rgb[i + 2] = c.b;
+            return;
+        }
+        this.rgb[i] = blend(this.rgb[i], c.r, opacity);
+        this.rgb[i + 1] = blend(this.rgb[i + 1], c.g, opacity);
+        this.rgb[i + 2] = blend(this.rgb[i + 2], c.b, opacity);
+    }
+
+    /// FillRect: every pixel from the rounded corner (x1, y1) to (x2, y2), both included.
+    public fn fillRect(borrow mut this, x1: f64, y1: f64, x2: f64, y2: f64, c: Color, clip: Clip?, opacity: f64) {
+        let o = opacity.max(0.0).min(1.0);
+        if (o <= 0.0) {
+            return;
+        }
+        var minX = this.clampX(x1.min(x2));
+        var maxX = this.clampX(x1.max(x2));
+        var minY = this.clampY(y1.min(y2));
+        var maxY = this.clampY(y1.max(y2));
+        match (clip) {
+            Some(k) => {
+                minX = minX.max(this.clampX(k.minX));
+                maxX = maxX.min(this.clampX(k.maxX));
+                minY = minY.max(this.clampY(k.minY));
+                maxY = maxY.min(this.clampY(k.maxY));
+            }
+            null => {}
+        }
+        if (minX > maxX || minY > maxY) {
+            return;
+        }
+        for (y in minY..maxY + 1) {
+            for (x in minX..maxX + 1) {
+                this.setPixel(x, y, c, o);
+            }
+        }
+    }
+
+    /// StrokeLine: a square of the line's width (at least a pixel) stamped at each of its steps.
+    public fn strokeLine(borrow mut this, x1: f64, y1: f64, x2: f64, y2: f64, lineWidth: f64, c: Color, opacity: f64) {
+        var steps = abs(roundEven(x2 - x1)).max(abs(roundEven(y2 - y1)));
+        steps = steps.max(1);
+        let radius = (lineWidth / 2.0).max(0.5);
+        for (i in 0..steps + 1) {
+            let t = round<f64>(i) / round<f64>(steps);
+            let x = x1 + (x2 - x1) * t;
+            let y = y1 + (y2 - y1) * t;
+            this.fillRect(x - radius, y - radius, x + radius, y + radius, c, null, opacity);
+        }
+    }
+
+    /// CompositeImage: `pixels` (straight-alpha RGBA, 0xAABBGGRR) scaled to the box by nearest neighbour, each
+    /// flattened onto white first (ImageExport's FlattenToRgb).
+    public fn compositeImage(borrow mut this, x1: f64, y1: f64, x2: f64, y2: f64, pixels: Slice<u32>, srcW: i64, srcH: i64,
+        opacity: f64) {
+        let o = opacity.max(0.0).min(1.0);
+        if (o <= 0.0 || srcW <= 0 || srcH <= 0 || pixels.length < truncate<usize>(srcW * srcH)) {
+            return;
+        }
+        let minX = this.clampX(x1.min(x2));
+        let maxX = this.clampX(x1.max(x2));
+        let minY = this.clampY(y1.min(y2));
+        let maxY = this.clampY(y1.max(y2));
+        if (minX > maxX || minY > maxY) {
+            return;
+        }
+        let destW = (maxX - minX + 1).max(1);
+        let destH = (maxY - minY + 1).max(1);
+        for (y in 0..destH) {
+            let sy = (srcH - 1).min(y * srcH / destH);
+            for (x in 0..destW) {
+                let sx = (srcW - 1).min(x * srcW / destW);
+                let p = pixels[truncate<usize>(sy * srcW + sx)];
+                let a = (p >> 24) & 0xFF;
+                let r = p & 0xFF;
+                let g = (p >> 8) & 0xFF;
+                let b = (p >> 16) & 0xFF;
+                let c = if (a == 255) Color.rgb(truncate<u8>(r), truncate<u8>(g), truncate<u8>(b)) else {
+                    let af = round<f64>(a as i64) / 255.0;
+                    let inv = 1.0 - af;
+                    Color.rgb(flat(r, af, inv), flat(g, af, inv), flat(b, af, inv))
+                };
+                this.setPixel(minX + x, minY + y, c, o);
+            }
+        }
+    }
+
+    /// ThresholdToRgb: each pixel black or white by its luminance (Rec. 709) against `threshold`.
+    public fn threshold(borrow mut this, threshold: u8) {
+        var i: usize = 0;
+        while (i < this.rgb.length) {
+            let lum = roundEven(0.2126 * round<f64>(this.rgb[i] as i64) + 0.7152 * round<f64>(this.rgb[i + 1] as i64) +
+                0.0722 * round<f64>(this.rgb[i + 2] as i64));
+            let v: u8 = if (lum >= (threshold as i64)) 255 else 0;
+            this.rgb[i] = v;
+            this.rgb[i + 1] = v;
+            this.rgb[i + 2] = v;
+            i += 3;
+        }
+    }
+
+    /// The canvas as a PNG.
+    public fn png(borrow this) -> Vector<u8> =>
+        encodePngRgb(truncate<usize>(this.width), truncate<usize>(this.height), this.rgb.view());
+}
+
+fn abs(v: i64) -> i64 => if (v < 0) -v else v;
+
+fn flat(v: u32, af: f64, inv: f64) -> u8 =>
+    truncate<u8>(roundEven(round<f64>(v as i64) * af + 255.0 * inv));
+
+/// BlendChannel: dest·(1−o) + src·o, rounded half to even.
+fn blend(dest: u8, src: u8, o: f64) -> u8 =>
+    truncate<u8>(roundEven(round<f64>(dest as i64) * (1.0 - o) + round<f64>(src as i64) * o).max(0).min(255));

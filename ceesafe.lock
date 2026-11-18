@@ -1,0 +1,8 @@
+# Written by ceesafec fetch (spec/tooling.md §4.3). Commit it with ceesafe.toml.
+
+[[package]]
+name = "claywind"
+source = "git+https://github.com/CeeSafe/Clay.git"
+commit = "f9cccf27cee5882fb3e7caf1eee138bed8b2c50b"
+dir = "claywind"
+hash = "sha256:aff258e4420a0b53002ecdddfb92273c0c191c695e49487238575b0211b2b44a"

@@ -1,0 +1,413 @@
+// SPDX-License-Identifier: MIT
+import claywind;
+// Prepared pages drawn to pixels, as CosmoReport's ImageExport draws them (203 dpi and monochrome by default, for a
+// thermal printer): the bands packed one under another from the top (a receipt is as long as what it prints, not its
+// paper), each band's fill, then its objects: texts with their fill and border, lines, pictures, QR codes, tables
+// cell by cell. Every rectangle is rounded to pixels the way ImageExport rounds it, so the page is its pixels.
+
+/// How pages are drawn.
+public struct RenderOptions {
+    public dpi: i64;
+    /// Black and white by luminance (ThresholdToRgb), as a thermal printer prints.
+    public monochrome: bool;
+    public threshold: u8;
+
+    /// ImageExport's: 203 dpi, monochrome at 180.
+    public fn receipt() -> RenderOptions => RenderOptions { dpi: 203, monochrome: true, threshold: 180 };
+}
+
+/// Each prepared page of `report` drawn.
+public fn renderPages(report: borrow Report, pages: borrow Vector<PreparedPage>, fonts: borrow Fonts,
+    options: RenderOptions) -> Vector<Canvas> {
+    var out = Vector<Canvas>.create();
+    for (p in pages.view()) {
+        let _ = out.push(renderPage(report, p, fonts, options));
+    }
+    return out;
+}
+
+struct Painter<region r> {
+    canvas: Canvas;
+    page: borrow(r) ReportPage;
+    fonts: borrow(r) Fonts;
+    dpi: i64;
+    pxScale: f64;
+}
+
+/// One prepared page drawn.
+public fn renderPage(report: borrow Report, prepared: borrow PreparedPage, fonts: borrow Fonts, options: RenderOptions)
+    -> Canvas {
+    let page = borrow report.pages[prepared.source];
+    // The bands by their place (OrderBy keeps ties in order), each put right under the one before.
+    var order = Vector<usize>.create();
+    for (j in 0..prepared.bands.length) {
+        var at = order.length;
+        for (i in 0..order.length) {
+            if (prepared.bands[j].band.top < prepared.bands[order[i]].band.top) {
+                at = i;
+                break;
+            }
+        }
+        let _ = order.insert(at, j);
+    }
+    var tops = Vector<f32>.create();
+    for (j in 0..prepared.bands.length) {
+        let _ = tops.push(0.0);
+    }
+    var cursor: f32 = 0.0;
+    for (j in order.view()) {
+        tops[j] = cursor;
+        cursor += prepared.bands[j].band.height;
+    }
+    var contentMm: f32 = page.topMargin + cursor / MM + page.bottomMargin;
+    if (contentMm < 1.0) {
+        contentMm = page.topMargin + page.bottomMargin + 1.0;
+    }
+    let dpi = options.dpi;
+    let w = roundEven((page.paperWidth as f64) * round<f64>(dpi) / 25.4).max(1);
+    let h = roundEven((contentMm as f64) * round<f64>(dpi) / 25.4).max(1);
+    var p = Painter {
+        canvas: Canvas.create(w, h),
+        page: page,
+        fonts: fonts,
+        dpi: dpi,
+        pxScale: round<f64>(dpi) / 96.0,
+    };
+    p.watermark(false);
+    for (j in 0..prepared.bands.length) {
+        let band = borrow prepared.bands[j].band;
+        let top = tops[j];
+        if (band.fillKind == FillKind.Solid && !band.fill.isTransparent()) {
+            let r = p.rect(band.left, top, band.width, band.height);
+            p.fillRect(r, band.fill);
+        }
+        for (o in band.children.view()) {
+            p.object(o, band.left, top);
+        }
+    }
+    p.watermark(true);
+    if (options.monochrome) {
+        p.canvas.threshold(options.threshold);
+    }
+    return p.canvas;
+}
+
+/// A rectangle in canvas pixels.
+struct Px {
+    x: i64;
+    y: i64;
+    w: i64;
+    h: i64;
+}
+
+impl<region r> Painter<r> {
+    /// AbsRectPx: report units (1/96 inch) from the paper's left and top margins to pixels, each rounded.
+    fn rect(borrow this, left: f32, top: f32, width: f32, height: f32) -> Px {
+        let dpi = round<f32>(this.dpi);
+        let x = ((this.page.leftMargin * dpi) as f64) / 25.4 + (left as f64) * this.pxScale;
+        let y = ((this.page.topMargin * dpi) as f64) / 25.4 + (top as f64) * this.pxScale;
+        return Px {
+            x: roundEven(x),
+            y: roundEven(y),
+            w: roundEven((width as f64) * this.pxScale),
+            h: roundEven((height as f64) * this.pxScale),
+        };
+    }
+
+    fn fillRect(borrow mut this, r: Px, c: Color) {
+        if (r.w <= 0 || r.h <= 0 || c.isTransparent()) {
+            return;
+        }
+        this.canvas.fillRect(round<f64>(r.x), round<f64>(r.y), round<f64>(r.x + r.w - 1), round<f64>(r.y + r.h - 1), c,
+            null, round<f64>(c.a as i64) / 255.0);
+    }
+
+    fn strokeLine(borrow mut this, x1: f64, y1: f64, x2: f64, y2: f64, c: Color, width: f64) {
+        if (c.isTransparent()) {
+            return;
+        }
+        this.canvas.strokeLine(x1, y1, x2, y2, width.max(1.0), c, round<f64>(c.a as i64) / 255.0);
+    }
+
+    fn side(borrow mut this, b: borrow Border, flag: u32, line: BorderLine, x1: i64, y1: i64, x2: i64, y2: i64) {
+        if ((b.lines & flag) == 0) {
+            return;
+        }
+        this.strokeLine(round<f64>(x1), round<f64>(y1), round<f64>(x2), round<f64>(y2), line.color,
+            (line.width as f64) * this.pxScale);
+    }
+
+    /// RenderFillAndBorder: the fill, then the border's top, bottom, left and right.
+    fn fillAndBorder(borrow mut this, c: borrow Component, r: Px) {
+        if (c.fillKind == FillKind.Solid && !c.fill.isTransparent()) {
+            this.fillRect(r, c.fill);
+        }
+        let b = c.border;
+        if (b.lines != 0) {
+            this.side(b, LINE_TOP, b.top, r.x, r.y, r.x + r.w, r.y);
+            this.side(b, LINE_BOTTOM, b.bottom, r.x, r.y + r.h, r.x + r.w, r.y + r.h);
+            this.side(b, LINE_LEFT, b.left, r.x, r.y, r.x, r.y + r.h);
+            this.side(b, LINE_RIGHT, b.right, r.x + r.w, r.y, r.x + r.w, r.y + r.h);
+        }
+    }
+
+    fn object(borrow mut this, o: borrow Component, parentLeft: f32, parentTop: f32) {
+        if (!o.visible) {
+            return;
+        }
+        let r = this.rect(parentLeft + o.left, parentTop + o.top, o.width, o.height);
+        match (o.kind) {
+            Kind.TextObject | Kind.TableCell => { this.text(o, r); }
+            Kind.LineObject => { this.line(o, r); }
+            Kind.PictureObject => {
+                match (borrow o.picture) {
+                    Some(pic) => { this.picture(pic.image.view(), r); }
+                    null => {}
+                }
+            }
+            Kind.BarcodeObject => { this.barcode(o, r); }
+            Kind.TableObject => { this.table(o, r.x, r.y); }
+            _ => { this.fillAndBorder(o, r); }
+        }
+    }
+
+    /// RenderText: the fill and border, then the text.
+    fn text(borrow mut this, o: borrow Component, r: Px) {
+        this.fillAndBorder(o, r);
+        match (borrow o.text) {
+            Some(t) => {
+                if (t.processed.view().length > 0) {
+                    drawText(mut this.canvas, this.fonts, t, r.x, r.y, r.w, r.h, this.pxScale, this.dpi);
+                }
+            }
+            null => {}
+        }
+    }
+
+    /// RenderLine: diagonal corner to corner, else down the middle if taller than wide, else across it.
+    fn line(borrow mut this, o: borrow Component, r: Px) {
+        let has = o.border.lines != 0;
+        let c = if (has) o.border.left.color else Color.black();
+        let lw = if (has) (o.border.left.width as f64) * this.pxScale else 1.0;
+        let x = round<f64>(r.x);
+        let y = round<f64>(r.y);
+        let w = round<f64>(r.w);
+        let h = round<f64>(r.h);
+        if (o.diagonal) {
+            this.strokeLine(x, y, x + w, y + h, c, lw);
+        } else if (r.h > r.w) {
+            this.strokeLine(x + w / 2.0, y, x + w / 2.0, y + h, c, lw);
+        } else {
+            this.strokeLine(x, y + h / 2.0, x + w, y + h / 2.0, c, lw);
+        }
+    }
+
+    /// RenderPageWatermark: the page's watermark image, behind the bands (before them) or over them (after).
+    fn watermark(borrow mut this, top: bool) {
+        let wm = borrow this.page.watermark;
+        if (!wm.enabled || wm.image.length == 0 || wm.showImageOnTop != top) {
+            return;
+        }
+        let decoded = match (decodeAny(wm.image.view())) {
+            Some(d) => d,
+            null => { return; }
+        };
+        let opacity = (1.0 - (wm.imageTransparency as f64)).max(0.0).min(1.0);
+        if (opacity <= 0.0) {
+            return;
+        }
+        let cw = this.canvas.width;
+        let ch = this.canvas.height;
+        let sw = decoded.w;
+        let sh = decoded.h;
+        let px = decoded.pixels.view();
+        if (wm.imageSize == 0) {
+            this.canvas.compositeImage(0.0, 0.0, round<f64>(cw - 1), round<f64>(ch - 1), px, sw, sh, opacity);
+        } else if (wm.imageSize == 1) {
+            let scale = (round<f64>(cw) / round<f64>(sw)).min(round<f64>(ch) / round<f64>(sh));
+            let zw = roundEven(round<f64>(sw) * scale);
+            let zh = roundEven(round<f64>(sh) * scale);
+            let x0 = (cw - zw) / 2;
+            let y0 = (ch - zh) / 2;
+            this.canvas.compositeImage(round<f64>(x0), round<f64>(y0), round<f64>(x0 + zw - 1), round<f64>(y0 + zh - 1), px, sw,
+                sh, opacity);
+        } else if (wm.imageSize == 2) {
+            let w = cw.min(sw);
+            let h = ch.min(sh);
+            let x0 = (cw - w) / 2;
+            let y0 = (ch - h) / 2;
+            this.canvas.compositeImage(round<f64>(x0), round<f64>(y0), round<f64>(x0 + w - 1), round<f64>(y0 + h - 1), px, sw, sh,
+                opacity);
+        } else if (wm.imageSize == 4) {
+            this.canvas.compositeImage(0.0, 0.0, round<f64>(sw - 1), round<f64>(sh - 1), px, sw, sh, opacity);
+        } else {
+            let cols = ((cw + sw - 1) / sw).min(200);
+            let rows = ((ch + sh - 1) / sh).min(200);
+            for (r in 0..rows) {
+                for (c in 0..cols) {
+                    this.canvas.compositeImage(round<f64>(c * sw), round<f64>(r * sh), round<f64>(c * sw + sw - 1),
+                        round<f64>(r * sh + sh - 1), px, sw, sh, opacity);
+                }
+            }
+        }
+    }
+
+    /// RenderPicture: the image (PNG or BMP) scaled into the box; nothing if it does not decode.
+    fn picture(borrow mut this, data: Slice<u8>, r: Px) {
+        if (data.length == 0 || r.w <= 0 || r.h <= 0) {
+            return;
+        }
+        let d = match (decodeAny(data)) {
+            Some(d) => d,
+            null => { return; }
+        };
+        this.canvas.compositeImage(round<f64>(r.x), round<f64>(r.y), round<f64>(r.x + r.w - 1), round<f64>(r.y + r.h - 1),
+            d.pixels.view(), d.w, d.h, 1.0);
+    }
+
+    /// RenderBarcode: the barcode's image (the engine's QR code at 10 pixels a module, with its quiet zone) scaled to
+    /// fit the box keeping its shape, centred.
+    fn barcode(borrow mut this, o: borrow Component, r: Px) {
+        let b = match (borrow o.barcode) {
+            Some(b) => b,
+            null => { return; }
+        };
+        let q = match (encodeQr(b.processed.view(), QrLevel.L)) {
+            Some(q) => q,
+            null => { return; }
+        };
+        let side = (q.size + 8) * 10;
+        let scale = (round<f64>(r.w) / round<f64>(side)).min(round<f64>(r.h) / round<f64>(side));
+        let drawW = roundEven(round<f64>(side) * scale);
+        let drawH = roundEven(round<f64>(side) * scale);
+        let dx = r.x + (r.w - drawW) / 2;
+        let dy = r.y + (r.h - drawH) / 2;
+        if (drawW <= 0 || drawH <= 0) {
+            return;
+        }
+        let pixels = q.pixels(10);
+        this.canvas.compositeImage(round<f64>(dx), round<f64>(dy), round<f64>(dx + drawW - 1), round<f64>(dy + drawH - 1),
+            pixels.view(), side, side, 1.0);
+    }
+
+    /// RenderTable: each cell that a span does not cover, as a text across its columns and down its rows, then the
+    /// table's own border.
+    fn table(borrow mut this, t: borrow Component, tableX: i64, tableY: i64) {
+        let rows = t.tableRows.length;
+        let cols = t.tableColumns.length;
+        if (rows == 0 || cols == 0) {
+            return;
+        }
+        var covered = Vector<bool>.create();
+        for (k in 0..rows * cols) {
+            let _ = covered.push(false);
+        }
+        for (ri in 0..rows) {
+            let cells = borrow t.tableRows[ri].cells;
+            for (ci in 0..cells.length.min(cols)) {
+                let sp = spans(cells[ci]);
+                let colSpan = sp.cols;
+                let rowSpan = sp.rows;
+                if (colSpan > 1 || rowSpan > 1) {
+                    for (rr in ri..(ri + rowSpan).min(rows)) {
+                        for (cc in ci..(ci + colSpan).min(cols)) {
+                            if (rr != ri || cc != ci) {
+                                covered[rr * cols + cc] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        var curY: f64 = 0.0;
+        for (ri in 0..rows) {
+            let cells = borrow t.tableRows[ri].cells;
+            var curX: f64 = 0.0;
+            for (ci in 0..cells.length.min(cols)) {
+                let colW = (t.tableColumns[ci].width as f64) * this.pxScale;
+                if (covered[ri * cols + ci]) {
+                    curX += colW;
+                    continue;
+                }
+                let cell = borrow cells[ci];
+                let sp = spans(cell);
+                let colSpan = sp.cols;
+                let rowSpan = sp.rows;
+                var cellW: f64 = 0.0;
+                for (c in ci..(ci + colSpan).min(cols)) {
+                    cellW += (t.tableColumns[c].width as f64) * this.pxScale;
+                }
+                var cellH: f64 = 0.0;
+                for (rr in ri..(ri + rowSpan).min(rows)) {
+                    cellH += (t.tableRows[rr].height as f64) * this.pxScale;
+                }
+                let r = Px {
+                    x: roundEven(round<f64>(tableX) + curX),
+                    y: roundEven(round<f64>(tableY) + curY),
+                    w: roundEven(cellW),
+                    h: roundEven(cellH),
+                };
+                this.text(cell, r);
+                curX += colW;
+            }
+            curY += (t.tableRows[ri].height as f64) * this.pxScale;
+        }
+        let b = t.border;
+        if (b.lines != 0) {
+            // Enumerable.Sum of floats: added up in a double, the total a float.
+            var sumW: f64 = 0.0;
+            for (c in t.tableColumns.view()) {
+                sumW += c.width as f64;
+            }
+            var sumH: f64 = 0.0;
+            for (row in t.tableRows.view()) {
+                sumH += row.height as f64;
+            }
+            let tw = roundEven((round<f32>(sumW) as f64) * this.pxScale);
+            let th = roundEven((round<f32>(sumH) as f64) * this.pxScale);
+            this.side(b, LINE_TOP, b.top, tableX, tableY, tableX + tw, tableY);
+            this.side(b, LINE_BOTTOM, b.bottom, tableX, tableY + th, tableX + tw, tableY + th);
+            this.side(b, LINE_LEFT, b.left, tableX, tableY, tableX, tableY + th);
+            this.side(b, LINE_RIGHT, b.right, tableX + tw, tableY, tableX + tw, tableY + th);
+        }
+    }
+}
+
+/// A decoded image: its straight-alpha RGBA pixels (0xAABBGGRR) and size.
+struct Decoded {
+    pixels: Vector<u32>;
+    w: i64;
+    h: i64;
+}
+
+/// `data` (PNG or BMP) decoded by claywind; null when it does not decode.
+fn decodeAny(data: Slice<u8>) -> Decoded? {
+    let info = match (imageInfo(data)) {
+        Ok(i) => i,
+        Err(_) => { return null; }
+    };
+    var pixels = Vector<u32>.create();
+    for (k in 0..info.w * info.h) {
+        let _ = pixels.push(0);
+    }
+    var scratch = Vector<u8>.create();
+    for (k in 0..info.scratchBytes) {
+        let _ = scratch.push(0);
+    }
+    match (decodeImage(data, pixels.viewMut(), scratch.viewMut())) {
+        Ok(_) => {}
+        Err(_) => { return null; }
+    }
+    return Decoded { pixels: pixels, w: truncate<i64>(info.w), h: truncate<i64>(info.h) };
+}
+
+struct Spans {
+    cols: usize;
+    rows: usize;
+}
+
+/// A cell's column and row span (1 and 1 when it has none).
+fn spans(cell: borrow Component) -> Spans => match (borrow cell.text) {
+    Some(t) => Spans { cols: truncate<usize>(t.colSpan.max(1)), rows: truncate<usize>(t.rowSpan.max(1)) },
+    null => Spans { cols: 1, rows: 1 },
+};

@@ -374,7 +374,40 @@ public struct ReportPage {
     public unlimitedHeight: bool;
     public unlimitedWidth: bool;
     public border: Border;
+    public watermark: Watermark;
     public bands: Vector<Component>;
+}
+
+/// A page's watermark image (Watermark; its text is kept out, as the image export does not draw it): shown when
+/// enabled, behind the bands or over them, stretched, zoomed, centred, tiled or at its own size.
+public struct Watermark {
+    public enabled: bool;
+    public image: Vector<u8>;
+    /// WatermarkImageSize: 0 Stretch, 1 Zoom, 2 Center, 3 Tile, 4 Normal.
+    public imageSize: i64;
+    /// 0 opaque to 1 invisible.
+    public imageTransparency: f32;
+    public showImageOnTop: bool;
+}
+
+/// Watermark.ReadFromAttributes' image part.
+fn readWatermark(a: borrow Attrs) -> Watermark {
+    let sizes: [StringView; 5] = ["Stretch", "Zoom", "Center", "Tile", "Normal"];
+    var size: i64 = 0;
+    let given = a.str("Watermark.ImageSize");
+    for (k in 0..5usize) {
+        if (given == sizes[k]) {
+            size = truncate<i64>(k);
+        }
+    }
+    let transparency = a.float("Watermark.ImageTransparency", 0.0);
+    return Watermark {
+        enabled: a.bool("Watermark.Enabled", false),
+        image: base64(a.str("Watermark.Image")) ?? Vector<u8>.create(),
+        imageSize: size,
+        imageTransparency: if (transparency >= 0.0 && transparency <= 1.0) transparency else 0.0,
+        showImageOnTop: a.bool("Watermark.ShowImageOnTop", false),
+    };
 }
 
 /// A report (Report): its totals, its script (kept, never run), and its pages.
@@ -544,6 +577,7 @@ fn readPage(node: borrow XmlNode) -> ReportPage {
         unlimitedHeight: a.bool("UnlimitedHeight", false),
         unlimitedWidth: a.bool("UnlimitedWidth", false),
         border: uniformBorder(a),
+        watermark: readWatermark(a),
         bands: Vector<Component>.create(),
     };
     if (page.landscape && page.paperWidth < page.paperHeight) {

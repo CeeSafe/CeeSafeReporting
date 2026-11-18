@@ -1,0 +1,223 @@
+// SPDX-License-Identifier: MIT
+// A PNG writer: 8-bit RGB rows, filter 0, zlib-deflated with the fixed Huffman codes and LZ77 matches over a 32 KB
+// window (a receipt's long white runs and repeated rows compress well with them). Images are read with claywind's
+// decoder; only writing is needed here.
+
+/// CRC-32 (IEEE, as PNG and zlib use it) of `bytes`, continuing from `crc` (0 to start).
+public fn crc32(crc: u32, bytes: Slice<u8>) -> u32 {
+    var c = crc ^ 0xFFFFFFFF;
+    for (b in bytes) {
+        c ^= b as u32;
+        for (k in 0..8) {
+            c = if ((c & 1) != 0) 0xEDB88320 ^ (c >> 1) else c >> 1;
+        }
+    }
+    return c ^ 0xFFFFFFFF;
+}
+
+fn adler32(bytes: Slice<u8>) -> u32 {
+    var a: u32 = 1;
+    var b: u32 = 0;
+    for (x in bytes) {
+        a = (a + (x as u32)) % 65521;
+        b = (b + a) % 65521;
+    }
+    return (b << 16) | a;
+}
+
+/// Bits written least significant first, as deflate packs them.
+struct BitWriter {
+    out: Vector<u8>;
+    acc: u32;
+    count: u32;
+}
+
+impl BitWriter {
+    fn bits(borrow mut this, value: u32, n: u32) {
+        this.acc |= value << this.count;
+        this.count += n;
+        while (this.count >= 8) {
+            let _ = this.out.push(truncate<u8>(this.acc));
+            this.acc >>= 8;
+            this.count -= 8;
+        }
+    }
+
+    /// A Huffman code, written most significant bit first.
+    fn code(borrow mut this, code: u32, n: u32) {
+        var reversed: u32 = 0;
+        for (k in 0..n) {
+            reversed = (reversed << 1) | ((code >> k) & 1);
+        }
+        this.bits(reversed, n);
+    }
+
+    fn flush(borrow mut this) {
+        if (this.count > 0) {
+            let _ = this.out.push(truncate<u8>(this.acc));
+            this.acc = 0;
+            this.count = 0;
+        }
+    }
+
+    /// A literal or length symbol (0..287) in the fixed code.
+    fn symbol(borrow mut this, s: u32) {
+        if (s < 144) {
+            this.code(0x30 + s, 8);
+        } else if (s < 256) {
+            this.code(0x190 + s - 144, 9);
+        } else if (s < 280) {
+            this.code(s - 256, 7);
+        } else {
+            this.code(0xC0 + s - 280, 8);
+        }
+    }
+}
+
+const LENGTH_BASE: [u32; 29] = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115,
+    131, 163, 195, 227, 258];
+const LENGTH_EXTRA: [u32; 29] = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+const DIST_BASE: [u32; 30] = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537,
+    2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+const DIST_EXTRA: [u32; 30] = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13,
+    13];
+
+const HASH_SIZE: usize = 32768;
+const WINDOW: usize = 32768;
+
+/// `data` deflated into one fixed-code block, in a zlib stream.
+public fn zlibCompress(data: Slice<u8>) -> Vector<u8> {
+    var w = BitWriter { out: Vector<u8>.create(), acc: 0, count: 0 };
+    let _ = w.out.push(0x78);
+    let _ = w.out.push(0x01);
+    w.bits(1, 1); // the last block
+    w.bits(1, 2); // fixed codes
+    var head = Vector<i64>.create();
+    for (k in 0..HASH_SIZE) {
+        let _ = head.push(-1);
+    }
+    var prev = Vector<i64>.create();
+    for (k in 0..WINDOW) {
+        let _ = prev.push(-1);
+    }
+    var i: usize = 0;
+    let n = data.length;
+    while (i < n) {
+        var bestLen: usize = 0;
+        var bestDist: usize = 0;
+        if (i + 3 <= n) {
+            let h = hash3(data, i);
+            var candidate = head[h];
+            var tries = 0;
+            while (candidate >= 0 && tries < 64) {
+                let c = truncate<usize>(candidate);
+                if (i - c > WINDOW) {
+                    break;
+                }
+                var len: usize = 0;
+                while (len < 258 && i + len < n && data[c + len] == data[i + len]) {
+                    len += 1;
+                }
+                if (len > bestLen) {
+                    bestLen = len;
+                    bestDist = i - c;
+                    if (len == 258) {
+                        break;
+                    }
+                }
+                candidate = prev[c % WINDOW];
+                tries += 1;
+            }
+        }
+        if (bestLen >= 3) {
+            var li: usize = 0;
+            while (li + 1 < 29 && LENGTH_BASE[li + 1] <= truncate<u32>(bestLen)) {
+                li += 1;
+            }
+            w.symbol(257 + truncate<u32>(li));
+            w.bits(truncate<u32>(bestLen) - LENGTH_BASE[li], LENGTH_EXTRA[li]);
+            var di: usize = 0;
+            while (di + 1 < 30 && DIST_BASE[di + 1] <= truncate<u32>(bestDist)) {
+                di += 1;
+            }
+            w.code(truncate<u32>(di), 5);
+            w.bits(truncate<u32>(bestDist) - DIST_BASE[di], DIST_EXTRA[di]);
+            for (k in 0..bestLen) {
+                insertHash(data, i + k, mut head, mut prev);
+            }
+            i += bestLen;
+        } else {
+            w.symbol(data[i] as u32);
+            insertHash(data, i, mut head, mut prev);
+            i += 1;
+        }
+    }
+    w.symbol(256);
+    w.flush();
+    let a = adler32(data);
+    let _ = w.out.push(truncate<u8>(a >> 24));
+    let _ = w.out.push(truncate<u8>(a >> 16));
+    let _ = w.out.push(truncate<u8>(a >> 8));
+    let _ = w.out.push(truncate<u8>(a));
+    return w.out;
+}
+
+fn hash3(d: Slice<u8>, i: usize) -> usize =>
+    (((d[i] as usize) << 10) ^ ((d[i + 1] as usize) << 5) ^ (d[i + 2] as usize)) % HASH_SIZE;
+
+fn insertHash(d: Slice<u8>, i: usize, head: borrow mut Vector<i64>, prev: borrow mut Vector<i64>) {
+    if (i + 3 > d.length) {
+        return;
+    }
+    let h = hash3(d, i);
+    prev[i % WINDOW] = head[h];
+    head[h] = truncate<i64>(i);
+}
+
+fn be32(out: borrow mut Vector<u8>, v: u32) {
+    let _ = out.push(truncate<u8>(v >> 24));
+    let _ = out.push(truncate<u8>(v >> 16));
+    let _ = out.push(truncate<u8>(v >> 8));
+    let _ = out.push(truncate<u8>(v));
+}
+
+fn chunk(out: borrow mut Vector<u8>, kind: StringView, body: Slice<u8>) {
+    be32(mut out, truncate<u32>(body.length));
+    var crcInput = Vector<u8>.create();
+    for (b in kind.bytes()) {
+        let _ = out.push(b);
+        let _ = crcInput.push(b);
+    }
+    for (b in body) {
+        let _ = out.push(b);
+        let _ = crcInput.push(b);
+    }
+    be32(mut out, crc32(0, crcInput.view()));
+}
+
+/// A PNG of `width` × `height` RGB pixels (`rgb`, rows top to bottom, 3 bytes a pixel).
+public fn encodePngRgb(width: usize, height: usize, rgb: Slice<u8>) -> Vector<u8> {
+    var out = Vector<u8>.create();
+    for (b in [0x89u8, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        let _ = out.push(b);
+    }
+    var header = Vector<u8>.create();
+    be32(mut header, truncate<u32>(width));
+    be32(mut header, truncate<u32>(height));
+    for (b in [8u8, 2, 0, 0, 0]) {
+        let _ = header.push(b);
+    }
+    chunk(mut out, "IHDR", header.view());
+    var raw = Vector<u8>.create();
+    for (y in 0..height) {
+        let _ = raw.push(0);
+        for (k in 0..width * 3) {
+            let _ = raw.push(rgb[y * width * 3 + k]);
+        }
+    }
+    let compressed = zlibCompress(raw.view());
+    chunk(mut out, "IDAT", compressed.view());
+    let none = Vector<u8>.create();
+    chunk(mut out, "IEND", none.view());
+    return out;
+}

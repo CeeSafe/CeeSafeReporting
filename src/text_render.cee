@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT
+// Text on the canvas, as ImageExport draws it through CosmoFonts.
+
+/// The fonts a report's texts are drawn with, by family and style; the program gives their files.
+public struct Fonts {
+    families: Vector<String>;
+
+    public fn none() -> Fonts => Fonts { families: Vector<String>.create() };
+}
+
+/// A text's lines drawn in its box (x, y, w, h in canvas pixels).
+fn drawText(canvas: borrow mut Canvas, fonts: borrow Fonts, t: borrow TextProps, x: i64, y: i64, w: i64, h: i64,
+    pxScale: f64, dpi: i64) {
+}

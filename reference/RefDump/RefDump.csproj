@@ -10,9 +10,12 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- The sample invoice's classes, as the server's (FastReport.ZatcaTest). -->
-    <Compile Include="../../../../CosmoDesign/CosmoPdf/FastReport/samples/FastReport.ZatcaTest/Models.cs" Link="Models.cs" />
+    <Compile Include="../../../../CosmoDesign/CosmoPdf-wt-image-text/FastReport/samples/FastReport.ZatcaTest/Models.cs" Link="Models.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../../CosmoDesign/CosmoPdf/FastReport/src/FastReport.Core/FastReport.Core.csproj" />
+    <ProjectReference Include="../../../../CosmoDesign/CosmoPdf-wt-image-text/FastReport/src/FastReport.Core/FastReport.Core.csproj" />
+    <!-- The exporters (ImageExport, EscPosExport) and the bridges production installs: the font line counter and the QR
+         encoder. -->
+    <ProjectReference Include="../../../../CosmoDesign/CosmoPdf-wt-image-text/src/CosmoPdf.FastReport/CosmoPdf.FastReport.csproj" />
   </ItemGroup>
 </Project>
