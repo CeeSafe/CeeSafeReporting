@@ -1,0 +1,464 @@
+// SPDX-License-Identifier: MIT
+// A report's model as text, line for line as the reference harness writes CosmoReport's
+// (reference/RefDump/Program.cs), so a test compares the two. Lengths are thousandths, rounded half away from zero
+// from the float as a double; text is quoted with \\ \n \r \t \" escaped; colours are #AARRGGBB.
+
+/// The model of `report` as text.
+public fn dumpModel(report: borrow Report) -> String {
+    var o = String.create();
+    // The totals by name, as the harness sorts them (ordinal).
+    var order = Vector<usize>.create();
+    for (k in 0..report.totals.length) {
+        var at = order.length;
+        for (j in 0..order.length) {
+            if (ordinalLess(report.totals[k].name.view(), report.totals[order[j]].name.view())) {
+                at = j;
+                break;
+            }
+        }
+        let _ = order.insert(at, k);
+    }
+    for (k in order.view()) {
+        let t = borrow report.totals[k];
+        text(mut o, "Total ");
+        quoted(mut o, t.name.view());
+        text(mut o, " expr=");
+        quoted(mut o, t.expression.view());
+        text(mut o, " evaluator=");
+        quoted(mut o, t.evaluator.view());
+        text(mut o, " printOn=");
+        quoted(mut o, t.printOn.view());
+        text(mut o, " type=");
+        text(mut o, totalTypeName(t.totalType));
+        text(mut o, " resetAfterPrint=");
+        flag(mut o, t.resetAfterPrint);
+        text(mut o, " resetOnReprint=");
+        flag(mut o, t.resetOnReprint);
+        text(mut o, "\n");
+    }
+    text(mut o, "Script ");
+    flag(mut o, report.scriptText.view().length > 0);
+    text(mut o, "\n");
+    for (page in report.pages.view()) {
+        text(mut o, "ReportPage ");
+        quoted(mut o, page.name.view());
+        text(mut o, " paper=");
+        milli(mut o, page.paperWidth);
+        text(mut o, ",");
+        milli(mut o, page.paperHeight);
+        text(mut o, " margins=");
+        milli(mut o, page.leftMargin);
+        text(mut o, ",");
+        milli(mut o, page.topMargin);
+        text(mut o, ",");
+        milli(mut o, page.rightMargin);
+        text(mut o, ",");
+        milli(mut o, page.bottomMargin);
+        text(mut o, " border=");
+        border(mut o, page.border);
+        text(mut o, "\n");
+        for (band in page.bands.view()) {
+            component(mut o, band, 1, "");
+        }
+    }
+    return o;
+}
+
+fn ordinalLess(a: StringView, b: StringView) -> bool {
+    let x = a.bytes();
+    let y = b.bytes();
+    for (k in 0..x.length.min(y.length)) {
+        if (x[k] != y[k]) {
+            return x[k] < y[k];
+        }
+    }
+    return x.length < y.length;
+}
+
+fn text(o: borrow mut String, s: StringView) {
+    let _ = o.append(s);
+}
+
+fn flag(o: borrow mut String, v: bool) {
+    text(mut o, if (v) "1" else "0");
+}
+
+fn number(o: borrow mut String, v: i64) {
+    if (v < 0) {
+        text(mut o, "-");
+        let _ = o.appendNumber(truncate<u64>(-v));
+    } else {
+        let _ = o.appendNumber(truncate<u64>(v));
+    }
+}
+
+/// `v` in thousandths, rounded half away from zero (Math.Round(v * 1000.0, AwayFromZero) on the double).
+fn milli(o: borrow mut String, v: f32) {
+    let x = (v as f64) * 1000.0;
+    let magnitude = if (x < 0.0) -x else x;
+    let whole = magnitude.floor();
+    let rounded = if (magnitude - whole >= 0.5) whole + 1.0 else whole;
+    number(mut o, if (x < 0.0) -truncate<i64>(rounded) else truncate<i64>(rounded));
+}
+
+fn quoted(o: borrow mut String, s: StringView) {
+    text(mut o, "\"");
+    // Runs between the characters escaped are copied whole: those are ASCII, so a run is whole UTF-8.
+    let b = s.bytes();
+    var run: usize = 0;
+    for (k in 0..b.length) {
+        let c = b[k];
+        let escaped: StringView = if (c == '\\') "\\\\" else if (c == '\n') "\\n" else if (c == '\r') "\\r"
+            else if (c == '\t') "\\t" else if (c == '"') "\\\"" else "";
+        if (escaped.length > 0) {
+            text(mut o, StringView.fromUtf8(b[run..k]) ?? "");
+            text(mut o, escaped);
+            run = k + 1;
+        }
+    }
+    text(mut o, StringView.fromUtf8(b[run..]) ?? "");
+    text(mut o, "\"");
+}
+
+fn hex2(o: borrow mut String, v: u8) {
+    let digits = "0123456789ABCDEF".bytes();
+    let pair = [digits[(v >> 4) as usize], digits[(v & 15) as usize]];
+    text(mut o, StringView.fromUtf8(pair[..]) ?? "");
+}
+
+fn color(o: borrow mut String, c: Color) {
+    text(mut o, "#");
+    hex2(mut o, c.a);
+    hex2(mut o, c.r);
+    hex2(mut o, c.g);
+    hex2(mut o, c.b);
+}
+
+fn line(o: borrow mut String, l: BorderLine) {
+    color(mut o, l.color);
+    text(mut o, "/");
+    text(mut o, lineStyleName(l.style));
+    text(mut o, "/");
+    milli(mut o, l.width);
+}
+
+fn border(o: borrow mut String, b: Border) {
+    if (b.lines == 0) {
+        text(mut o, "none");
+        return;
+    }
+    number(mut o, b.lines as i64);
+    text(mut o, ":");
+    line(mut o, b.left);
+    text(mut o, ":");
+    line(mut o, b.right);
+    text(mut o, ":");
+    line(mut o, b.top);
+    text(mut o, ":");
+    line(mut o, b.bottom);
+}
+
+fn kindName(c: borrow Component) -> StringView => match (c.kind) {
+    Kind.ReportTitleBand => "ReportTitleBand",
+    Kind.ReportSummaryBand => "ReportSummaryBand",
+    Kind.PageHeaderBand => "PageHeaderBand",
+    Kind.PageFooterBand => "PageFooterBand",
+    Kind.DataBand => "DataBand",
+    Kind.DataHeaderBand => "DataHeaderBand",
+    Kind.DataFooterBand => "DataFooterBand",
+    Kind.GroupHeaderBand => "GroupHeaderBand",
+    Kind.GroupFooterBand => "GroupFooterBand",
+    Kind.ChildBand => "ChildBand",
+    Kind.ColumnHeaderBand => "ColumnHeaderBand",
+    Kind.ColumnFooterBand => "ColumnFooterBand",
+    Kind.OverlayBand => "OverlayBand",
+    Kind.TextObject => "TextObject",
+    Kind.TableCell => "TableCell",
+    Kind.PictureObject => "PictureObject",
+    Kind.LineObject => "LineObject",
+    Kind.BarcodeObject => "BarcodeObject",
+    Kind.SubreportObject => "SubreportObject",
+    Kind.TableObject => "TableObject",
+    Kind.Other => c.typeName.view(),
+};
+
+fn horzName(h: HorzAlign) -> StringView => match (h) {
+    HorzAlign.Left => "Left",
+    HorzAlign.Center => "Center",
+    HorzAlign.Right => "Right",
+    HorzAlign.Justify => "Justify",
+};
+
+fn vertName(v: VertAlign) -> StringView => match (v) {
+    VertAlign.Top => "Top",
+    VertAlign.Center => "Center",
+    VertAlign.Bottom => "Bottom",
+};
+
+fn slantName(s: FontSlant) -> StringView => match (s) {
+    FontSlant.Upright => "Upright",
+    FontSlant.Italic => "Italic",
+    FontSlant.Oblique => "Oblique",
+};
+
+fn format(o: borrow mut String, f: borrow Format) {
+    match (f.kind) {
+        FormatKind.None => { text(mut o, "none"); }
+        FormatKind.Number => {
+            text(mut o, "Number(");
+            number(mut o, f.decimalDigits);
+            text(mut o, ",");
+            quoted(mut o, f.decimalSeparator.view());
+            text(mut o, ",");
+            quoted(mut o, f.groupSeparator.view());
+            text(mut o, ",");
+            number(mut o, f.negativePattern);
+            text(mut o, ",");
+            flag(mut o, f.useLocale);
+            text(mut o, ")");
+        }
+        FormatKind.Currency => {
+            text(mut o, "Currency(");
+            number(mut o, f.decimalDigits);
+            text(mut o, ",");
+            quoted(mut o, f.decimalSeparator.view());
+            text(mut o, ",");
+            quoted(mut o, f.groupSeparator.view());
+            text(mut o, ",");
+            quoted(mut o, f.currencySymbol.view());
+            text(mut o, ",");
+            number(mut o, f.positivePattern);
+            text(mut o, ",");
+            number(mut o, f.negativePattern);
+            text(mut o, ",");
+            flag(mut o, f.useLocale);
+            text(mut o, ")");
+        }
+        FormatKind.Percent => {
+            text(mut o, "Percent(");
+            number(mut o, f.decimalDigits);
+            text(mut o, ")");
+        }
+        FormatKind.Date => {
+            text(mut o, "Date(");
+            quoted(mut o, f.formatString.view());
+            text(mut o, ")");
+        }
+        FormatKind.Time => {
+            text(mut o, "Time(");
+            quoted(mut o, f.formatString.view());
+            text(mut o, ")");
+        }
+        FormatKind.Custom => {
+            text(mut o, "Custom(");
+            quoted(mut o, f.formatString.view());
+            text(mut o, ")");
+        }
+        FormatKind.Boolean => {
+            text(mut o, "Boolean(");
+            quoted(mut o, f.trueText.view());
+            text(mut o, ",");
+            quoted(mut o, f.falseText.view());
+            text(mut o, ")");
+        }
+    }
+}
+
+fn indent(o: borrow mut String, depth: u32) {
+    for (k in 0..depth * 2) {
+        text(mut o, " ");
+    }
+}
+
+fn component(o: borrow mut String, c: borrow Component, depth: u32, role: StringView) {
+    indent(mut o, depth);
+    if (role.length > 0) {
+        text(mut o, role);
+        text(mut o, ":");
+    }
+    text(mut o, kindName(c));
+    text(mut o, " ");
+    quoted(mut o, c.name.view());
+    text(mut o, " box=");
+    milli(mut o, c.left);
+    text(mut o, ",");
+    milli(mut o, c.top);
+    text(mut o, ",");
+    milli(mut o, c.width);
+    text(mut o, ",");
+    milli(mut o, c.height);
+    text(mut o, " visible=");
+    flag(mut o, c.visible);
+    text(mut o, " grow=");
+    flag(mut o, c.canGrow);
+    text(mut o, " shrink=");
+    flag(mut o, c.canShrink);
+    text(mut o, " printOn=");
+    number(mut o, c.printOn as i64);
+    text(mut o, " border=");
+    border(mut o, c.border);
+    text(mut o, " fill=");
+    match (c.fillKind) {
+        FillKind.Solid => { color(mut o, c.fill); }
+        FillKind.Gradient => { text(mut o, "GradientFill"); }
+        FillKind.Hatch => { text(mut o, "HatchFill"); }
+    }
+    text(mut o, " beforePrint=");
+    quoted(mut o, c.beforePrintEvent.view());
+    match (borrow c.band) {
+        Some(b) => {
+            text(mut o, " startNewPage=");
+            flag(mut o, b.startNewPage);
+            text(mut o, " printOnBottom=");
+            flag(mut o, b.printOnBottom);
+            let headerFooter = c.kind == Kind.DataHeaderBand || c.kind == Kind.DataFooterBand ||
+                c.kind == Kind.GroupFooterBand || c.kind == Kind.GroupHeaderBand;
+            if (headerFooter) {
+                text(mut o, " repeat=");
+                flag(mut o, b.repeatOnEveryPage);
+                text(mut o, " keepWithData=");
+                flag(mut o, b.keepWithData);
+            }
+            if (c.kind == Kind.DataBand) {
+                text(mut o, " dataSource=");
+                quoted(mut o, b.dataSource.view());
+                text(mut o, " filter=");
+                quoted(mut o, b.filter.view());
+                text(mut o, " maxRows=");
+                number(mut o, b.maxRows);
+                text(mut o, " rowCount=");
+                number(mut o, b.rowCount);
+            }
+            if (c.kind == Kind.GroupHeaderBand) {
+                text(mut o, " condition=");
+                quoted(mut o, b.condition.view());
+                text(mut o, " keepTogether=");
+                flag(mut o, b.keepTogether);
+            }
+        }
+        null => {}
+    }
+    match (borrow c.text) {
+        Some(t) => {
+            text(mut o, " text=");
+            quoted(mut o, t.text.view());
+            text(mut o, " font=");
+            quoted(mut o, t.font.family.view());
+            text(mut o, ",");
+            milli(mut o, t.font.size);
+            text(mut o, ",");
+            number(mut o, t.font.weight as i64);
+            text(mut o, ",");
+            text(mut o, slantName(t.font.slant));
+            text(mut o, " color=");
+            color(mut o, t.color);
+            text(mut o, " align=");
+            text(mut o, horzName(t.horzAlign));
+            text(mut o, ",");
+            text(mut o, vertName(t.vertAlign));
+            text(mut o, " wrap=");
+            flag(mut o, t.wordWrap);
+            text(mut o, " expr=");
+            flag(mut o, t.allowExpressions);
+            text(mut o, " shrinkText=");
+            flag(mut o, t.autoShrink);
+            text(mut o, " angle=");
+            milli(mut o, t.angle);
+            text(mut o, " rtl=");
+            flag(mut o, t.rightToLeft);
+            text(mut o, " trimming=");
+            quoted(mut o, t.trimming.view());
+            text(mut o, " pad=");
+            milli(mut o, t.padLeft);
+            text(mut o, ",");
+            milli(mut o, t.padTop);
+            text(mut o, ",");
+            milli(mut o, t.padRight);
+            text(mut o, ",");
+            milli(mut o, t.padBottom);
+            text(mut o, " format=");
+            format(mut o, t.format);
+            if (c.kind == Kind.TableCell) {
+                text(mut o, " span=");
+                number(mut o, t.colSpan);
+                text(mut o, ",");
+                number(mut o, t.rowSpan);
+            }
+        }
+        null => {}
+    }
+    match (borrow c.picture) {
+        Some(p) => {
+            let modes: [StringView; 5] = ["Normal", "StretchImage", "AutoSize", "Zoom", "CenterImage"];
+            text(mut o, " sizeMode=");
+            text(mut o, if (p.sizeMode >= 0 && p.sizeMode < 5) modes[truncate<usize>(p.sizeMode)] else "Zoom");
+            text(mut o, " image=");
+            number(mut o, truncate<i64>(p.image.length));
+            text(mut o, " location=");
+            quoted(mut o, p.location.view());
+            text(mut o, " dataColumn=");
+            quoted(mut o, p.dataColumn.view());
+        }
+        null => {}
+    }
+    if (c.kind == Kind.LineObject) {
+        text(mut o, " diagonal=");
+        flag(mut o, c.diagonal);
+    }
+    match (borrow c.barcode) {
+        Some(b) => {
+            text(mut o, " barcode=");
+            quoted(mut o, b.barcode.view());
+            text(mut o, " text=");
+            quoted(mut o, b.text.view());
+            text(mut o, " ecc=");
+            quoted(mut o, b.errorCorrection.view());
+            text(mut o, " showText=");
+            flag(mut o, b.showText);
+            text(mut o, " autoSize=");
+            flag(mut o, b.autoSize);
+        }
+        null => {}
+    }
+    if (c.kind == Kind.SubreportObject) {
+        text(mut o, " page=");
+        quoted(mut o, c.reportPage.view());
+        text(mut o, " printOnParent=");
+        flag(mut o, c.printOnParent);
+    }
+    text(mut o, "\n");
+    if (c.kind == Kind.TableObject) {
+        for (col in c.tableColumns.view()) {
+            indent(mut o, depth + 1);
+            text(mut o, "TableColumn ");
+            quoted(mut o, col.name.view());
+            text(mut o, " width=");
+            milli(mut o, col.width);
+            text(mut o, "\n");
+        }
+        for (row in c.tableRows.view()) {
+            indent(mut o, depth + 1);
+            text(mut o, "TableRow ");
+            quoted(mut o, row.name.view());
+            text(mut o, " height=");
+            milli(mut o, row.height);
+            text(mut o, "\n");
+            for (cell in row.cells.view()) {
+                component(mut o, cell, depth + 2, "");
+            }
+        }
+    }
+    // The children in the harness's order: objects; a data band's header, details and footer; a group's nested
+    // group, data and footer; the child band.
+    let roles: [Role; 8] = [
+        Role.Object, Role.Header, Role.Detail, Role.Footer, Role.Nested, Role.Data, Role.GroupFooter, Role.Child,
+    ];
+    let names: [StringView; 8] = ["", "header", "detail", "footer", "nested", "data", "groupFooter", "child"];
+    for (k in 0..8usize) {
+        for (child in c.children.view()) {
+            if (child.role == roles[k]) {
+                component(mut o, child, depth + 1, names[k]);
+            }
+        }
+    }
+}

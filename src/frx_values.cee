@@ -1,0 +1,478 @@
+// SPDX-License-Identifier: MIT
+// The values in a report file's attributes, read as CosmoReport reads them: colours, fonts, border lines and styles,
+// alignments (Utils/FrxFormatParser.cs), and FRReader's typed reads of an attribute (Serialization/FRReader.cs),
+// .NET's parsing included: Enum.TryParse takes a name in any case, a number, or a list of flag names; float and int
+// parse the invariant way. A number that does not parse is the default here, where .NET would throw.
+
+/// A colour (FrColor): red, green, blue and alpha, each 0 to 255.
+public struct Color {
+    public r: u8;
+    public g: u8;
+    public b: u8;
+    public a: u8;
+
+    public fn rgb(r: u8, g: u8, b: u8) -> Color => Color { r: r, g: g, b: b, a: 255 };
+    public fn black() -> Color => Color.rgb(0, 0, 0);
+    /// default(FrColor): all zero.
+    public fn transparent() -> Color => Color { r: 0, g: 0, b: 0, a: 0 };
+    public fn isTransparent(borrow this) -> bool => this.a == 0;
+    fn ofRgb(v: u32) -> Color => Color.rgb(truncate<u8>(v >> 16), truncate<u8>(v >> 8), truncate<u8>(v));
+}
+
+/// Which sides a border draws (BorderLines), as flags.
+public const LINE_LEFT: u32 = 1;
+public const LINE_RIGHT: u32 = 2;
+public const LINE_TOP: u32 = 4;
+public const LINE_BOTTOM: u32 = 8;
+public const LINES_ALL: u32 = 15;
+
+/// LineStyle.
+public enum LineStyle {
+    Solid,
+    Dash,
+    Dot,
+    DashDot,
+    DashDotDot,
+    Double,
+}
+
+const LINE_STYLE_NAMES: [StringView; 6] = ["Solid", "Dash", "Dot", "DashDot", "DashDotDot", "Double"];
+
+fn lineStyleAt(k: i64) -> LineStyle => match (k) {
+    1 => LineStyle.Dash,
+    2 => LineStyle.Dot,
+    3 => LineStyle.DashDot,
+    4 => LineStyle.DashDotDot,
+    5 => LineStyle.Double,
+    _ => LineStyle.Solid,
+};
+
+public fn lineStyleName(s: LineStyle) -> StringView => match (s) {
+    LineStyle.Solid => "Solid",
+    LineStyle.Dash => "Dash",
+    LineStyle.Dot => "Dot",
+    LineStyle.DashDot => "DashDot",
+    LineStyle.DashDotDot => "DashDotDot",
+    LineStyle.Double => "Double",
+};
+
+/// One side of a border (BorderLine).
+public struct BorderLine {
+    public color: Color;
+    public style: LineStyle;
+    public width: f32;
+
+    /// BorderLine.Default: black, solid, 1.
+    public fn plain() -> BorderLine => BorderLine { color: Color.black(), style: LineStyle.Solid, width: 1.0 };
+}
+
+/// A border (Border): its sides and the line of each.
+public struct Border {
+    public lines: u32;
+    public left: BorderLine;
+    public right: BorderLine;
+    public top: BorderLine;
+    public bottom: BorderLine;
+    public shadow: bool;
+    public shadowWidth: f32;
+
+    /// Border.None.
+    public fn none() -> Border => Border {
+        lines: 0,
+        left: BorderLine.plain(),
+        right: BorderLine.plain(),
+        top: BorderLine.plain(),
+        bottom: BorderLine.plain(),
+        shadow: false,
+        shadowWidth: 4.0,
+    };
+
+    /// The same line on every side, as the bands' and the page's own readers make it.
+    public fn uniform(lines: u32, line: BorderLine) -> Border => Border {
+        lines: lines,
+        left: line,
+        right: line,
+        top: line,
+        bottom: line,
+        shadow: false,
+        shadowWidth: 4.0,
+    };
+}
+
+/// HorzAlign.
+public enum HorzAlign {
+    Left,
+    Center,
+    Right,
+    Justify,
+}
+
+/// VertAlign.
+public enum VertAlign {
+    Top,
+    Center,
+    Bottom,
+}
+
+/// FrFontSlant.
+public enum FontSlant {
+    Upright,
+    Italic,
+    Oblique,
+}
+
+/// A font as FrxFormatParser.ParseFont reads "Arial, 12pt, style=Bold": family, size in points, weight, slant.
+public struct FontSpec {
+    public family: String;
+    public size: f32;
+    /// 400 normal, 700 bold (FrFontWeight).
+    public weight: u32;
+    public slant: FontSlant;
+}
+
+/// ASCII letters compared without case.
+public fn sameIgnoringCase(a: StringView, b: StringView) -> bool {
+    let x = a.bytes();
+    let y = b.bytes();
+    if (x.length != y.length) {
+        return false;
+    }
+    for (k in 0..x.length) {
+        let p = if (x[k] >= 'A' && x[k] <= 'Z') x[k] + 32 else x[k];
+        let q = if (y[k] >= 'A' && y[k] <= 'Z') y[k] + 32 else y[k];
+        if (p != q) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Whether `s` holds `needle`, ASCII letters compared without case.
+fn containsIgnoringCase(s: StringView, needle: StringView) -> bool {
+    let x = s.bytes();
+    let n = needle.bytes();
+    if (n.length == 0) {
+        return true;
+    }
+    if (n.length > x.length) {
+        return false;
+    }
+    for (start in 0..x.length - n.length + 1) {
+        if (sameIgnoringCase(StringView.fromUtf8(x[start..start + n.length]) ?? "", needle)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// `s` without white space at its ends (.NET's Trim, for ASCII white space).
+public fn trimmed(s: StringView) -> StringView {
+    let b = s.bytes();
+    var start: usize = 0;
+    var end = b.length;
+    while (start < end && (b[start] == ' ' || b[start] == '\t' || b[start] == '\n' || b[start] == '\r')) {
+        start += 1;
+    }
+    while (end > start && (b[end - 1] == ' ' || b[end - 1] == '\t' || b[end - 1] == '\n' || b[end - 1] == '\r')) {
+        end -= 1;
+    }
+    return StringView.fromUtf8(b[start..end]) ?? "";
+}
+
+/// `s` split at each `sep`, as String.Split(sep).
+public fn splitOn(s: StringView, sep: u8) -> Vector<StringView> {
+    var parts = Vector<StringView>.create();
+    let b = s.bytes();
+    var start: usize = 0;
+    for (k in 0..b.length) {
+        if (b[k] == sep) {
+            let _ = parts.push(StringView.fromUtf8(b[start..k]) ?? "");
+            start = k + 1;
+        }
+    }
+    let _ = parts.push(StringView.fromUtf8(b[start..]) ?? "");
+    return parts;
+}
+
+/// "Arial, 12pt, style=Bold, Italic" (FrxFormatParser.ParseFont); Arial, 10 points, normal and upright when empty.
+public fn parseFont(text: StringView) -> FontSpec {
+    var family = String.create();
+    if (text.length == 0) {
+        let _ = family.append("Arial");
+        return FontSpec { family: family, size: 10.0, weight: 400, slant: FontSlant.Upright };
+    }
+    let parts = splitOn(text, ',');
+    let _ = family.append(trimmed(parts[0]));
+    var size: f32 = 10.0;
+    var weight: u32 = 400;
+    var slant = FontSlant.Upright;
+    for (i in 1..parts.length) {
+        let part = trimmed(parts[i]);
+        let b = part.bytes();
+        if (b.length >= 2 && sameIgnoringCase(StringView.fromUtf8(b[b.length - 2..]) ?? "", "pt")) {
+            match (parseFloat(StringView.fromUtf8(b[0..b.length - 2]) ?? "")) {
+                Some(s) => { size = s; }
+                null => {}
+            }
+        } else if (b.length >= 6 && sameIgnoringCase(StringView.fromUtf8(b[0..6]) ?? "", "style=")) {
+            if (containsIgnoringCase(part, "Bold")) {
+                weight = 700;
+            }
+        } else if (sameIgnoringCase(part, "Bold")) {
+            weight = 700;
+        } else if (sameIgnoringCase(part, "Italic")) {
+            slant = FontSlant.Italic;
+        }
+    }
+    if (containsIgnoringCase(text, "Italic")) {
+        slant = FontSlant.Italic;
+    }
+    return FontSpec { family: family, size: size, weight: weight, slant: slant };
+}
+
+/// FrxFormatParser's own names, checked before .NET's.
+const OWN_COLOR_NAMES: [StringView; 58] = [
+    "White", "Black", "Red", "Green", "Blue", "Yellow", "Gray", "Silver", "Transparent", "WhiteSmoke", "LemonChiffon",
+    "LightGray", "DarkGray", "DimGray", "Gainsboro", "AliceBlue", "Azure", "Beige", "Bisque", "BlanchedAlmond", "Coral",
+    "Cornsilk", "Cyan", "DarkBlue", "DarkCyan", "DarkGreen", "DarkRed", "Gold", "Ivory", "Khaki", "Lavender",
+    "LightBlue", "LightCyan", "LightGreen", "LightPink", "LightYellow", "Lime", "Linen", "Magenta", "Maroon",
+    "MintCream", "Moccasin", "Navy", "OldLace", "Orange", "OrangeRed", "Pink", "Plum", "Purple", "Salmon", "SeaGreen",
+    "SkyBlue", "Snow", "Tan", "Teal", "Tomato", "Wheat", "",
+];
+/// Their values; "Transparent" is all zero (alpha too), told apart below.
+const OWN_COLOR_VALUES: [u32; 58] = [
+    0xFFFFFF, 0x000000, 0xFF0000, 0x008000, 0x0000FF, 0xFFFF00, 0x808080, 0xC0C0C0, 0x000000, 0xF5F5F5, 0xFFFACD,
+    0xD3D3D3, 0xA9A9A9, 0x696969, 0xDCDCDC, 0xF0F8FF, 0xF0FFFF, 0xF5F5DC, 0xFFE4C4, 0xFFEBCD, 0xFF7F50,
+    0xFFF8DC, 0x00FFFF, 0x00008B, 0x008B8B, 0x006400, 0x8B0000, 0xFFD700, 0xFFFFF0, 0xF0E68C, 0xE6E6FA,
+    0xADD8E6, 0xE0FFFF, 0x90EE90, 0xFFB6C1, 0xFFFFE0, 0x00FF00, 0xFAF0E6, 0xFF00FF, 0x800000,
+    0xF5FFFA, 0xFFE4B5, 0x000080, 0xFDF5E6, 0xFFA500, 0xFF4500, 0xFFC0CB, 0xDDA0DD, 0x800080, 0xFA8072, 0x2E8B57,
+    0x87CEEB, 0xFFFAFA, 0xD2B48C, 0x008080, 0xFF6347, 0xF5DEB3, 0,
+];
+
+const WEB_COLOR_COUNT: usize = 141;
+const WEB_COLOR_NAMES: [StringView; 141] = [
+    "AliceBlue", "AntiqueWhite", "Aqua", "Aquamarine", "Azure", "Beige", "Bisque", "Black", "BlanchedAlmond", "Blue",
+    "BlueViolet", "Brown", "BurlyWood", "CadetBlue", "Chartreuse", "Chocolate", "Coral", "CornflowerBlue", "Cornsilk",
+    "Crimson", "Cyan", "DarkBlue", "DarkCyan", "DarkGoldenrod", "DarkGray", "DarkGreen", "DarkKhaki", "DarkMagenta",
+    "DarkOliveGreen", "DarkOrange", "DarkOrchid", "DarkRed", "DarkSalmon", "DarkSeaGreen", "DarkSlateBlue",
+    "DarkSlateGray", "DarkTurquoise", "DarkViolet", "DeepPink", "DeepSkyBlue", "DimGray", "DodgerBlue", "Firebrick",
+    "FloralWhite", "ForestGreen", "Fuchsia", "Gainsboro", "GhostWhite", "Gold", "Goldenrod", "Gray", "Green",
+    "GreenYellow", "Honeydew", "HotPink", "IndianRed", "Indigo", "Ivory", "Khaki", "Lavender", "LavenderBlush",
+    "LawnGreen", "LemonChiffon", "LightBlue", "LightCoral", "LightCyan", "LightGoldenrodYellow", "LightGray",
+    "LightGreen", "LightPink", "LightSalmon", "LightSeaGreen", "LightSkyBlue", "LightSlateGray", "LightSteelBlue",
+    "LightYellow", "Lime", "LimeGreen", "Linen", "Magenta", "Maroon", "MediumAquamarine", "MediumBlue",
+    "MediumOrchid", "MediumPurple", "MediumSeaGreen", "MediumSlateBlue", "MediumSpringGreen", "MediumTurquoise",
+    "MediumVioletRed", "MidnightBlue", "MintCream", "MistyRose", "Moccasin", "NavajoWhite", "Navy", "OldLace",
+    "Olive", "OliveDrab", "Orange", "OrangeRed", "Orchid", "PaleGoldenrod", "PaleGreen", "PaleTurquoise",
+    "PaleVioletRed", "PapayaWhip", "PeachPuff", "Peru", "Pink", "Plum", "PowderBlue", "Purple", "RebeccaPurple",
+    "Red", "RosyBrown", "RoyalBlue", "SaddleBrown", "Salmon", "SandyBrown", "SeaGreen", "SeaShell", "Sienna",
+    "Silver", "SkyBlue", "SlateBlue", "SlateGray", "Snow", "SpringGreen", "SteelBlue", "Tan", "Teal", "Thistle",
+    "Tomato", "Turquoise", "Violet", "Wheat", "White", "WhiteSmoke", "Yellow", "YellowGreen",
+];
+const WEB_COLOR_VALUES: [u32; 141] = [
+    0xF0F8FF, 0xFAEBD7, 0x00FFFF, 0x7FFFD4, 0xF0FFFF, 0xF5F5DC, 0xFFE4C4, 0x000000, 0xFFEBCD, 0x0000FF, 0x8A2BE2,
+    0xA52A2A, 0xDEB887, 0x5F9EA0, 0x7FFF00, 0xD2691E, 0xFF7F50, 0x6495ED, 0xFFF8DC, 0xDC143C, 0x00FFFF, 0x00008B,
+    0x008B8B, 0xB8860B, 0xA9A9A9, 0x006400, 0xBDB76B, 0x8B008B, 0x556B2F, 0xFF8C00, 0x9932CC, 0x8B0000, 0xE9967A,
+    0x8FBC8F, 0x483D8B, 0x2F4F4F, 0x00CED1, 0x9400D3, 0xFF1493, 0x00BFFF, 0x696969, 0x1E90FF, 0xB22222, 0xFFFAF0,
+    0x228B22, 0xFF00FF, 0xDCDCDC, 0xF8F8FF, 0xFFD700, 0xDAA520, 0x808080, 0x008000, 0xADFF2F, 0xF0FFF0, 0xFF69B4,
+    0xCD5C5C, 0x4B0082, 0xFFFFF0, 0xF0E68C, 0xE6E6FA, 0xFFF0F5, 0x7CFC00, 0xFFFACD, 0xADD8E6, 0xF08080, 0xE0FFFF,
+    0xFAFAD2, 0xD3D3D3, 0x90EE90, 0xFFB6C1, 0xFFA07A, 0x20B2AA, 0x87CEFA, 0x778899, 0xB0C4DE, 0xFFFFE0, 0x00FF00,
+    0x32CD32, 0xFAF0E6, 0xFF00FF, 0x800000, 0x66CDAA, 0x0000CD, 0xBA55D3, 0x9370DB, 0x3CB371, 0x7B68EE, 0x00FA9A,
+    0x48D1CC, 0xC71585, 0x191970, 0xF5FFFA, 0xFFE4E1, 0xFFE4B5, 0xFFDEAD, 0x000080, 0xFDF5E6, 0x808000, 0x6B8E23,
+    0xFFA500, 0xFF4500, 0xDA70D6, 0xEEE8AA, 0x98FB98, 0xAFEEEE, 0xDB7093, 0xFFEFD5, 0xFFDAB9, 0xCD853F, 0xFFC0CB,
+    0xDDA0DD, 0xB0E0E6, 0x800080, 0x663399, 0xFF0000, 0xBC8F8F, 0x4169E1, 0x8B4513, 0xFA8072, 0xF4A460, 0x2E8B57,
+    0xFFF5EE, 0xA0522D, 0xC0C0C0, 0x87CEEB, 0x6A5ACD, 0x708090, 0xFFFAFA, 0x00FF7F, 0x4682B4, 0xD2B48C, 0x008080,
+    0xD8BFD8, 0xFF6347, 0x40E0D0, 0xEE82EE, 0xF5DEB3, 0xFFFFFF, 0xF5F5F5, 0xFFFF00, 0x9ACD32,
+];
+
+/// "231, 194, 98", "128, 231, 194, 98" (alpha first) or a name (FrxFormatParser.ParseColor); `otherwise` when it is
+/// none of them.
+public fn parseColor(text: StringView, otherwise: Color) -> Color {
+    if (text.length == 0) {
+        return otherwise;
+    }
+    let s = trimmed(text);
+    for (k in 0..57usize) {
+        if (sameIgnoringCase(s, OWN_COLOR_NAMES[k])) {
+            return if (k == 8) Color.transparent() else Color.ofRgb(OWN_COLOR_VALUES[k]);
+        }
+    }
+    let parts = splitOn(s, ',');
+    if (parts.length == 3 || parts.length == 4) {
+        var v = [0u8; 4];
+        var ok = true;
+        for (k in 0..parts.length) {
+            match (parseByte(trimmed(parts[k]))) {
+                Some(x) => { v[k] = x; }
+                null => { ok = false; }
+            }
+        }
+        if (ok) {
+            return if (parts.length == 3) Color.rgb(v[0], v[1], v[2]) else Color { r: v[1], g: v[2], b: v[3], a: v[0] };
+        }
+    }
+    // .NET's named colours (System.Drawing.Color.FromName).
+    for (k in 0..WEB_COLOR_COUNT) {
+        if (sameIgnoringCase(s, WEB_COLOR_NAMES[k])) {
+            return Color.ofRgb(WEB_COLOR_VALUES[k]);
+        }
+    }
+    return otherwise;
+}
+
+/// "Left, Top" or "All" (FrxFormatParser.ParseBorderLines): names it does not know add nothing.
+public fn parseBorderLines(text: StringView) -> u32 {
+    var lines: u32 = 0;
+    if (text.length == 0) {
+        return lines;
+    }
+    for (part in splitOn(text, ',').view()) {
+        let p = trimmed(part);
+        lines = lines | (if (p == "All") LINES_ALL else if (p == "Left") LINE_LEFT else if (p == "Right") LINE_RIGHT
+            else if (p == "Top") LINE_TOP else if (p == "Bottom") LINE_BOTTOM else 0);
+    }
+    return lines;
+}
+
+public fn parseHorzAlign(text: StringView) -> HorzAlign =>
+    if (text == "Center") HorzAlign.Center else if (text == "Right") HorzAlign.Right
+        else if (text == "Justify") HorzAlign.Justify else HorzAlign.Left;
+
+public fn parseVertAlign(text: StringView) -> VertAlign =>
+    if (text == "Center") VertAlign.Center else if (text == "Bottom") VertAlign.Bottom else VertAlign.Top;
+
+/// A float the invariant way (float.Parse): white space at its ends allowed.
+public fn parseFloat(text: StringView) -> f32? => NumberParsing.parseF32(trimmed(text).bytes());
+
+/// An int the invariant way (int.Parse): white space at its ends and a sign allowed.
+public fn parseInt(text: StringView) -> i64? {
+    let t = trimmed(text).bytes();
+    if (t.length > 0 && t[0] == '+') {
+        return NumberParsing.parseI64(t[1..]);
+    }
+    return NumberParsing.parseI64(t);
+}
+
+/// A byte (byte.Parse): 0 to 255, white space at its ends allowed.
+fn parseByte(text: StringView) -> u8? {
+    let t = trimmed(text).bytes();
+    return NumberParsing.parseU8(if (t.length > 0 && t[0] == '+') t[1..] else t);
+}
+
+/// What .NET's Enum.TryParse gives for `text` against the enum whose members are `names` with the values `values`:
+/// a member's name (in any case when `ignoreCase`), a number (any, defined or not), or, for a flags enum, names
+/// separated by commas, their values or-ed. Null when it is none of them.
+public fn parseEnum(text: StringView, names: Slice<StringView>, values: Slice<i64>, ignoreCase: bool) -> i64? {
+    let t = trimmed(text);
+    if (t.length == 0) {
+        return null;
+    }
+    let first = t.bytes()[0];
+    if ((first >= '0' && first <= '9') || first == '-' || first == '+') {
+        return parseInt(t);
+    }
+    var result: i64 = 0;
+    for (part in splitOn(t, ',').view()) {
+        let p = trimmed(part);
+        var found = false;
+        for (k in 0..names.length) {
+            if (if (ignoreCase) sameIgnoringCase(p, names[k]) else p == names[k]) {
+                result = truncate<i64>(truncate<u64>(result) | truncate<u64>(values[k]));
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return null;
+        }
+    }
+    return result;
+}
+
+/// LineStyle by Enum.TryParse (exact case), or `otherwise`.
+public fn parseLineStyle(text: StringView, otherwise: LineStyle) -> LineStyle {
+    let values: [i64; 6] = [0, 1, 2, 3, 4, 5];
+    return match (parseEnum(text, LINE_STYLE_NAMES[..], values[..], false)) {
+        Some(k) => lineStyleAt(k),
+        null => otherwise,
+    };
+}
+
+/// PrintOn's flags: first page, last page, odd pages, even pages, a repeated band, a single page.
+public const PRINT_ON_ALL: u32 = 63;
+const PRINT_ON_NAMES: [StringView; 6] = ["FirstPage", "LastPage", "OddPages", "EvenPages", "RepeatedBand", "SinglePage"];
+
+/// FRReader's typed reads of an element's attributes. An empty or missing attribute is the default.
+public struct Attrs<region r> {
+    node: borrow(r) XmlNode;
+
+    public fn of(node: borrow(r) XmlNode) -> Attrs<r> => Attrs { node: node };
+
+    public fn has(borrow this, name: StringView) -> bool => this.node.has(name);
+
+    /// ReadStr.
+    public fn str(borrow this, name: StringView) -> StringView => this.node.attr(name);
+
+    public fn string(borrow this, name: StringView, otherwise: StringView) -> String {
+        var s = String.create();
+        let v = this.node.attr(name);
+        let _ = s.append(if (v.length == 0) otherwise else v);
+        return s;
+    }
+
+    /// ReadInt.
+    public fn int(borrow this, name: StringView, otherwise: i64) -> i64 {
+        let v = this.node.attr(name);
+        return if (v.length == 0) otherwise else parseInt(v) ?? otherwise;
+    }
+
+    /// ReadFloat.
+    public fn float(borrow this, name: StringView, otherwise: f32) -> f32 {
+        let v = this.node.attr(name);
+        return if (v.length == 0) otherwise else parseFloat(v) ?? otherwise;
+    }
+
+    /// ReadBool: "true" only is true.
+    public fn bool(borrow this, name: StringView, otherwise: bool) -> bool {
+        let v = this.node.attr(name);
+        return if (v.length == 0) otherwise else v == "true";
+    }
+
+    /// ReadColor: "R,G,B" or "A,R,G,B" numbers only.
+    public fn color(borrow this, name: StringView, otherwise: Color) -> Color {
+        let v = this.node.attr(name);
+        if (v.length == 0) {
+            return otherwise;
+        }
+        let parts = splitOn(v, ',');
+        if (parts.length != 3 && parts.length != 4) {
+            return otherwise;
+        }
+        var x = [0u8; 4];
+        for (k in 0..parts.length) {
+            match (parseByte(parts[k])) {
+                Some(b) => { x[k] = b; }
+                null => { return otherwise; }
+            }
+        }
+        return if (parts.length == 3) Color.rgb(x[0], x[1], x[2]) else Color { r: x[1], g: x[2], b: x[3], a: x[0] };
+    }
+
+    /// ReadEnum (ignoring case) against `names`, whose values are their places.
+    public fn choice(borrow this, name: StringView, names: Slice<StringView>, otherwise: i64) -> i64 {
+        var values = Vector<i64>.create();
+        for (k in 0..names.length) {
+            let _ = values.push(truncate<i64>(k));
+        }
+        return parseEnum(this.node.attr(name), names, values.view(), true) ?? otherwise;
+    }
+
+    /// ReadEnum of PrintOn, its default every page.
+    public fn printOn(borrow this) -> u32 {
+        let values: [i64; 6] = [1, 2, 4, 8, 16, 32];
+        return match (parseEnum(this.node.attr("PrintOn"), PRINT_ON_NAMES[..], values[..], true)) {
+            Some(v) => truncate<u32>(v),
+            null => PRINT_ON_ALL,
+        };
+    }
+}

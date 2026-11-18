@@ -1,0 +1,978 @@
+// SPDX-License-Identifier: MIT
+// A report's object model, read from its .frx as CosmoReport reads it (each class's Deserialize). C#'s class tree
+// (Base, ComponentBase, ReportComponentBase, BandBase, TextObject...) is one struct here, Component: the fields every
+// component has, its kind, the parts of the kinds that have them (a band's, a text's, a table's...), and its children,
+// each with the role it has in its parent (an object of a band, a data band's header, a group's footer...).
+//
+// What CosmoReport reads differently from class to class is kept, so the model is the one its engine works on: a
+// DataBand and a GroupHeaderBand read a subset of the attributes by themselves (not Visible, say, and a group header
+// not PrintOn or BeforePrintEvent); a band's Fill.Color is read again over its Fill; a band's header, footer, child
+// band and nested group are each the last of its kind among the band's children.
+
+/// What a component is: the classes CosmoReport makes from a report file's elements.
+public enum Kind {
+    ReportTitleBand,
+    ReportSummaryBand,
+    PageHeaderBand,
+    PageFooterBand,
+    DataBand,
+    DataHeaderBand,
+    DataFooterBand,
+    GroupHeaderBand,
+    GroupFooterBand,
+    ChildBand,
+    ColumnHeaderBand,
+    ColumnFooterBand,
+    OverlayBand,
+    TextObject,
+    TableCell,
+    PictureObject,
+    LineObject,
+    BarcodeObject,
+    SubreportObject,
+    TableObject,
+    /// One CosmoReport has and this port has not yet (HtmlObject, ShapeObject, ChartObject...): its common fields.
+    Other,
+}
+
+/// The place a child has in its parent.
+public enum Role {
+    /// An object of a band or a table cell.
+    Object,
+    /// A data band's DataHeaderBand.
+    Header,
+    /// A data band's nested DataBand.
+    Detail,
+    /// A data band's DataFooterBand.
+    Footer,
+    /// A group's nested GroupHeaderBand.
+    Nested,
+    /// A group's DataBand.
+    Data,
+    /// A group's GroupFooterBand.
+    GroupFooter,
+    /// A band's ChildBand.
+    Child,
+}
+
+/// The kinds of fill (FillBase).
+public enum FillKind {
+    Solid,
+    Gradient,
+    Hatch,
+}
+
+/// The kinds of format (FormatBase).
+public enum FormatKind {
+    None,
+    Number,
+    Currency,
+    Percent,
+    Date,
+    Time,
+    Custom,
+    Boolean,
+}
+
+/// A text's format, the fields of its kind set (NumberFormat, CurrencyFormat...).
+public struct Format {
+    public kind: FormatKind;
+    public decimalDigits: i64;
+    public decimalSeparator: String;
+    public groupSeparator: String;
+    public currencySymbol: String;
+    public positivePattern: i64;
+    public negativePattern: i64;
+    public useLocale: bool;
+    /// Date, Time and Custom's format string.
+    public formatString: String;
+    public trueText: String;
+    public falseText: String;
+
+    public fn none() -> Format => Format {
+        kind: FormatKind.None,
+        decimalDigits: 0,
+        decimalSeparator: String.create(),
+        groupSeparator: String.create(),
+        currencySymbol: String.create(),
+        positivePattern: 0,
+        negativePattern: 0,
+        useLocale: false,
+        formatString: String.create(),
+        trueText: String.create(),
+        falseText: String.create(),
+    };
+}
+
+/// A text's parts (TextObject; a TableCell is one too).
+public struct TextProps {
+    public text: String;
+    public font: FontSpec;
+    public color: Color;
+    public horzAlign: HorzAlign;
+    public vertAlign: VertAlign;
+    public wordWrap: bool;
+    public allowExpressions: bool;
+    public autoShrink: bool;
+    public autoShrinkMinSize: f32;
+    public angle: f32;
+    public lineHeight: f32;
+    public rightToLeft: bool;
+    public trimming: String;
+    public padLeft: f32;
+    public padRight: f32;
+    public padTop: f32;
+    public padBottom: f32;
+    public format: Format;
+    /// A table cell's span; 1 and 1 otherwise.
+    public colSpan: i64;
+    public rowSpan: i64;
+}
+
+/// A band's parts (BandBase and its kinds).
+public struct BandProps {
+    public startNewPage: bool;
+    public firstRowStartsNewPage: bool;
+    public printOnBottom: bool;
+    public keepChild: bool;
+    public repeatBandNTimes: i64;
+    public canBreak: bool;
+    /// HeaderFooterBandBase's (and a group header's).
+    public repeatOnEveryPage: bool;
+    public keepWithData: bool;
+    /// DataBand's.
+    public dataSource: String;
+    public filter: String;
+    public relation: String;
+    public maxRows: i64;
+    public rowCount: i64;
+    public keepDetail: bool;
+    public keepSummary: bool;
+    public columns: i64;
+    public printIfDatasourceEmpty: bool;
+    public printIfDetailEmpty: bool;
+    /// GroupHeaderBand's.
+    public condition: String;
+    public sortOrder: i64;
+    public keepTogether: bool;
+    public resetPageNumber: bool;
+    /// ChildBand's.
+    public fillUnusedSpace: bool;
+    public completeToNRows: i64;
+    public printIfDatabandEmpty: bool;
+}
+
+/// A table's column (TableColumn).
+public struct TableColumn {
+    public name: String;
+    public width: f32;
+}
+
+/// A table's row (TableRow) and its cells.
+public struct TableRow {
+    public name: String;
+    public height: f32;
+    public cells: Vector<Component>;
+}
+
+/// A picture's parts (PictureObject).
+public struct PictureProps {
+    /// PictureSizeMode: Normal, StretchImage, AutoSize, Zoom, CenterImage.
+    public sizeMode: i64;
+    /// The image's bytes, from the report file (its base64 Image attribute).
+    public image: Vector<u8>;
+    public location: String;
+    public dataColumn: String;
+    public maxWidth: f32;
+    public maxHeight: f32;
+    public padLeft: f32;
+    public padRight: f32;
+    public padTop: f32;
+    public padBottom: f32;
+    public transparency: i64;
+}
+
+/// A barcode's parts (BarcodeObject).
+public struct BarcodeProps {
+    public barcode: String;
+    public text: String;
+    public encoding: String;
+    public errorCorrection: String;
+    public showText: bool;
+    public autoSize: bool;
+    public quietZone: bool;
+    public showMarker: bool;
+    public allowExpressions: bool;
+}
+
+/// A component of a report page: a band or an object.
+public struct Component {
+    public kind: Kind;
+    public role: Role;
+    /// The element's name for a Kind.Other.
+    public typeName: String;
+    public name: String;
+    /// Position and size in pixels at 96 dpi.
+    public left: f32;
+    public top: f32;
+    public width: f32;
+    public height: f32;
+    public visible: bool;
+    public canGrow: bool;
+    public canShrink: bool;
+    public growToBottom: bool;
+    /// PRINT_ON_ALL and the others' flags.
+    public printOn: u32;
+    public border: Border;
+    public fillKind: FillKind;
+    public fill: Color;
+    public beforePrintEvent: String;
+    public afterPrintEvent: String;
+    public band: BandProps?;
+    public text: TextProps?;
+    public picture: PictureProps?;
+    public barcode: BarcodeProps?;
+    /// A line's (LineObject): whether it goes corner to corner.
+    public diagonal: bool;
+    /// A subreport's (SubreportObject): the page it prints, and whether on its parent.
+    public reportPage: String;
+    public printOnParent: bool;
+    public tableColumns: Vector<TableColumn>;
+    public tableRows: Vector<TableRow>;
+    public children: Vector<Component>;
+
+    fn of(kind: Kind) -> Component => Component {
+        kind: kind,
+        role: Role.Object,
+        typeName: String.create(),
+        name: String.create(),
+        left: 0.0,
+        top: 0.0,
+        width: 0.0,
+        height: 0.0,
+        visible: true,
+        canGrow: false,
+        canShrink: false,
+        growToBottom: false,
+        printOn: PRINT_ON_ALL,
+        border: Border.none(),
+        fillKind: FillKind.Solid,
+        fill: Color.transparent(),
+        beforePrintEvent: String.create(),
+        afterPrintEvent: String.create(),
+        band: null,
+        text: null,
+        picture: null,
+        barcode: null,
+        diagonal: false,
+        reportPage: String.create(),
+        printOnParent: false,
+        tableColumns: Vector<TableColumn>.create(),
+        tableRows: Vector<TableRow>.create(),
+        children: Vector<Component>.create(),
+    };
+
+    public fn isBand(borrow this) -> bool => match (this.kind) {
+        Kind.ReportTitleBand => true,
+        Kind.ReportSummaryBand => true,
+        Kind.PageHeaderBand => true,
+        Kind.PageFooterBand => true,
+        Kind.DataBand => true,
+        Kind.DataHeaderBand => true,
+        Kind.DataFooterBand => true,
+        Kind.GroupHeaderBand => true,
+        Kind.GroupFooterBand => true,
+        Kind.ChildBand => true,
+        Kind.ColumnHeaderBand => true,
+        Kind.ColumnFooterBand => true,
+        Kind.OverlayBand => true,
+        _ => false,
+    };
+
+    /// The child in `role`, the first (a data band's details are many).
+    public fn childIn(borrow this, role: Role) -> borrow(this) Component? {
+        for (c in this.children.view()) {
+            if (c.role == role) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /// Puts `c` in `role`, in place of one that was there (a band has one header, one footer, one child band...).
+    fn setRole(borrow mut this, role: Role, c: Component) {
+        var item = c;
+        item.role = role;
+        for (k in 0..this.children.length) {
+            if (this.children[k].role == role) {
+                this.children[k] = item;
+                return;
+            }
+        }
+        let _ = this.children.push(item);
+    }
+
+    fn addRole(borrow mut this, role: Role, c: Component) {
+        var item = c;
+        item.role = role;
+        let _ = this.children.push(item);
+    }
+}
+
+/// A total (ReportTotal) as the Dictionary declares it.
+public struct Total {
+    public name: String;
+    public expression: String;
+    public evaluator: String;
+    public printOn: String;
+    /// TotalType: Sum, Avg, Min, Max, Count, CountDistinct, MinDate, MaxDate.
+    public totalType: i64;
+    public resetAfterPrint: bool;
+    public resetOnReprint: bool;
+    public evaluateCondition: String;
+    public includeInvisibleRows: bool;
+    public nullSubstitute: String;
+}
+
+const TOTAL_TYPE_NAMES: [StringView; 8] = ["Sum", "Avg", "Min", "Max", "Count", "CountDistinct", "MinDate", "MaxDate"];
+
+public fn totalTypeName(t: i64) -> StringView => if (t >= 0 && t < 8) TOTAL_TYPE_NAMES[truncate<usize>(t)] else "Sum";
+
+/// A page of the report (ReportPage): its paper in millimetres, its margins, border and bands.
+public struct ReportPage {
+    public name: String;
+    public paperWidth: f32;
+    public paperHeight: f32;
+    public landscape: bool;
+    public leftMargin: f32;
+    public topMargin: f32;
+    public rightMargin: f32;
+    public bottomMargin: f32;
+    public columns: i64;
+    public unlimitedHeight: bool;
+    public unlimitedWidth: bool;
+    public border: Border;
+    public bands: Vector<Component>;
+}
+
+/// A report (Report): its totals, its script (kept, never run), and its pages.
+public struct Report {
+    public doublePass: bool;
+    public totals: Vector<Total>;
+    public scriptText: String;
+    public pages: Vector<ReportPage>;
+}
+
+/// Why a report file could not be read.
+public struct LoadError {
+    public message: String;
+    public offset: usize;
+}
+
+/// Reads a report file (Report.Load).
+public fn loadReport(bytes: Slice<u8>) -> Result<Report, LoadError> {
+    let root = match (parseXml(bytes)) {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(LoadError { message: e.message, offset: e.offset });
+        }
+    };
+    let a = Attrs.of(root);
+    var report = Report {
+        doublePass: a.bool("DoublePass", false),
+        totals: Vector<Total>.create(),
+        scriptText: String.create(),
+        pages: Vector<ReportPage>.create(),
+    };
+    // ParseDictionary: the totals (the data sources' schema, parameters and relations come with the data).
+    for (child in root.children.view()) {
+        if (child.name.view() == "Dictionary") {
+            for (d in child.children.view()) {
+                if (d.name.view() == "Total") {
+                    let t = readTotal(d);
+                    if (t.name.view().length > 0) {
+                        var replaced = false;
+                        for (k in 0..report.totals.length) {
+                            if (report.totals[k].name.view() == t.name.view()) {
+                                report.totals[k] = readTotal(d);
+                                replaced = true;
+                            }
+                        }
+                        if (!replaced) {
+                            let _ = report.totals.push(t);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for (child in root.children.view()) {
+        if (child.name.view() == "ScriptText" && child.text.view().length > 0) {
+            report.scriptText = copyOf(child.text.view());
+            break;
+        }
+    }
+    for (child in root.children.view()) {
+        if (child.name.view() == "ReportPage") {
+            let _ = report.pages.push(readPage(child));
+        }
+    }
+    return Ok(report);
+}
+
+fn readTotal(t: borrow XmlNode) -> Total {
+    let values: [i64; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+    let typeText = t.attr("TotalType");
+    return Total {
+        name: copyOf(t.attr("Name")),
+        expression: copyOf(t.attr("Expression")),
+        evaluator: copyOf(t.attr("Evaluator")),
+        printOn: copyOf(t.attr("PrintOn")),
+        totalType: if (typeText.length == 0) 0 else parseEnum(typeText, TOTAL_TYPE_NAMES[..], values[..], true) ?? 0,
+        resetAfterPrint: !sameIgnoringCase(t.attr("ResetAfterPrint"), "false"),
+        resetOnReprint: !sameIgnoringCase(t.attr("ResetOnReprint"), "false"),
+        evaluateCondition: copyOf(t.attr("EvaluateCondition")),
+        includeInvisibleRows: sameIgnoringCase(t.attr("IncludeInvisibleRows"), "true"),
+        nullSubstitute: copyOf(t.attr("NullSubstitute")),
+    };
+}
+
+fn readPage(node: borrow XmlNode) -> ReportPage {
+    let a = Attrs.of(node);
+    let raw = a.int("RawPaperSize", 0);
+    let defaultWidth: f32 = if (raw == 1 || raw == 5) 215.9 else if (raw == 8) 297.0 else 210.0;
+    let defaultHeight: f32 = if (raw == 1) 279.4 else if (raw == 5) 355.6 else if (raw == 8) 420.0 else 297.0;
+    var page = ReportPage {
+        name: copyOf(a.str("Name")),
+        paperWidth: a.float("PaperWidth", defaultWidth),
+        paperHeight: a.float("PaperHeight", defaultHeight),
+        landscape: a.bool("Landscape", false),
+        leftMargin: a.float("LeftMargin", 10.0),
+        topMargin: a.float("TopMargin", 10.0),
+        rightMargin: a.float("RightMargin", 10.0),
+        bottomMargin: a.float("BottomMargin", 10.0),
+        columns: a.int("Columns", 1),
+        unlimitedHeight: a.bool("UnlimitedHeight", false),
+        unlimitedWidth: a.bool("UnlimitedWidth", false),
+        border: uniformBorder(a),
+        bands: Vector<Component>.create(),
+    };
+    if (page.landscape && page.paperWidth < page.paperHeight) {
+        let w = page.paperWidth;
+        page.paperWidth = page.paperHeight;
+        page.paperHeight = w;
+    }
+    for (child in node.children.view()) {
+        match (readComponent(child)) {
+            Some(c) => { let _ = page.bands.push(c); }
+            null => {}
+        }
+    }
+    return page;
+}
+
+/// The border the bands' and the page's own readers make: Border.Lines, with one colour and width on every side.
+fn uniformBorder(a: borrow Attrs) -> Border {
+    let linesText = a.str("Border.Lines");
+    if (linesText.length == 0) {
+        return Border.none();
+    }
+    let colorText = a.str("Border.Color");
+    let color = if (colorText.length > 0) parseColor(colorText, Color.black()) else Color.black();
+    let line = BorderLine { color: color, style: LineStyle.Solid, width: a.float("Border.Width", 1.0) };
+    return Border.uniform(parseBorderLines(linesText), line);
+}
+
+/// The kind an element's name makes (Report.RegisterDefaultTypes), or null for one CosmoReport skips.
+fn kindOf(name: StringView) -> Kind? {
+    let names: [StringView; 20] = [
+        "ReportTitleBand", "ReportSummaryBand", "PageHeaderBand", "PageFooterBand", "DataBand", "DataHeaderBand",
+        "DataFooterBand", "GroupHeaderBand", "GroupFooterBand", "ChildBand", "ColumnHeaderBand", "ColumnFooterBand",
+        "OverlayBand", "TextObject", "TableCell", "PictureObject", "LineObject", "BarcodeObject", "SubreportObject",
+        "TableObject",
+    ];
+    let kinds: [Kind; 20] = [
+        Kind.ReportTitleBand, Kind.ReportSummaryBand, Kind.PageHeaderBand, Kind.PageFooterBand, Kind.DataBand,
+        Kind.DataHeaderBand, Kind.DataFooterBand, Kind.GroupHeaderBand, Kind.GroupFooterBand, Kind.ChildBand,
+        Kind.ColumnHeaderBand, Kind.ColumnFooterBand, Kind.OverlayBand, Kind.TextObject, Kind.TableCell,
+        Kind.PictureObject, Kind.LineObject, Kind.BarcodeObject, Kind.SubreportObject, Kind.TableObject,
+    ];
+    for (k in 0..20usize) {
+        if (name == names[k]) {
+            return kinds[k];
+        }
+    }
+    // Registered with CosmoReport, not modelled here yet.
+    let others: [StringView; 12] = [
+        "HtmlObject", "ShapeObject", "CheckBoxObject", "ContainerObject", "PolyLineObject", "PolygonObject",
+        "GaugeObject", "RichObject", "ChartObject", "SparklineObject", "HeatmapObject", "MatrixObject",
+    ];
+    for (k in 0..12usize) {
+        if (name == others[k]) {
+            return Kind.Other;
+        }
+    }
+    return null;
+}
+
+/// The component an element makes, read as its class reads itself; null for an element CosmoReport skips.
+fn readComponent(node: borrow XmlNode) -> Component? {
+    let kind = kindOf(node.name.view())?;
+    var c = Component.of(kind);
+    let a = Attrs.of(node);
+    match (kind) {
+        Kind.DataBand => { readDataBand(mut c, a, node); }
+        Kind.GroupHeaderBand => { readGroupHeader(mut c, a, node); }
+        Kind.TextObject => {
+            readReportComponent(mut c, a);
+            c.text = readText(a);
+        }
+        Kind.TableCell => {
+            readReportComponent(mut c, a);
+            var t = readText(a);
+            t.colSpan = a.int("ColSpan", 1);
+            t.rowSpan = a.int("RowSpan", 1);
+            c.text = t;
+            for (child in node.children.view()) {
+                match (readComponent(child)) {
+                    Some(inner) => { c.addRole(Role.Object, inner); }
+                    null => {}
+                }
+            }
+        }
+        Kind.TableObject => {
+            readReportComponent(mut c, a);
+            readTable(mut c, node);
+        }
+        Kind.PictureObject => {
+            readReportComponent(mut c, a);
+            c.picture = readPicture(a);
+        }
+        Kind.LineObject => {
+            readReportComponent(mut c, a);
+            c.diagonal = a.bool("Diagonal", false);
+        }
+        Kind.BarcodeObject => {
+            readReportComponent(mut c, a);
+            c.barcode = BarcodeProps {
+                barcode: a.string("Barcode", "QR Code"),
+                text: copyOf(a.str("Text")),
+                encoding: a.string("Barcode.Encoding", "UTF8"),
+                errorCorrection: a.string("Barcode.ErrorCorrection", "L"),
+                showText: a.bool("ShowText", false),
+                autoSize: a.bool("AutoSize", false),
+                quietZone: a.bool("Barcode.QuietZone", true),
+                showMarker: a.bool("Barcode.ShowMarker", true),
+                allowExpressions: a.bool("AllowExpressions", true),
+            };
+        }
+        Kind.SubreportObject => {
+            readReportComponent(mut c, a);
+            c.reportPage = copyOf(a.str("ReportPage"));
+            c.printOnParent = a.bool("PrintOnParent", false);
+        }
+        Kind.Other => {
+            readReportComponent(mut c, a);
+            c.typeName = copyOf(node.name.view());
+        }
+        _ => { readBand(mut c, a, node); }
+    }
+    return c;
+}
+
+/// ComponentBase and ReportComponentBase's reads.
+fn readReportComponent(c: borrow mut Component, a: borrow Attrs) {
+    c.name = copyOf(a.str("Name"));
+    c.left = a.float("Left", 0.0);
+    c.top = a.float("Top", 0.0);
+    c.width = a.float("Width", 0.0);
+    c.height = a.float("Height", 0.0);
+    c.visible = a.bool("Visible", true);
+    let linesText = a.str("Border.Lines");
+    let lines = parseBorderLines(linesText);
+    if (lines != 0) {
+        let sharedColorText = a.str("Border.Color");
+        let sharedColor = if (sharedColorText.length > 0) parseColor(sharedColorText, Color.black()) else Color.black();
+        let sharedWidth = a.float("Border.Width", 1.0);
+        let sharedStyleText = a.str("Border.Style");
+        let sharedStyle = if (sharedStyleText.length > 0) parseLineStyle(sharedStyleText, LineStyle.Solid)
+            else LineStyle.Solid;
+        var border = Border.none();
+        border.lines = lines;
+        border.left = sideLine(a, "Left", sharedColor, sharedStyle, sharedWidth);
+        border.right = sideLine(a, "Right", sharedColor, sharedStyle, sharedWidth);
+        border.top = sideLine(a, "Top", sharedColor, sharedStyle, sharedWidth);
+        border.bottom = sideLine(a, "Bottom", sharedColor, sharedStyle, sharedWidth);
+        border.shadow = a.bool("Border.Shadow", false);
+        border.shadowWidth = a.float("Border.ShadowWidth", 4.0);
+        c.border = border;
+    }
+    let fillText = a.str("Fill.Color");
+    let fillType = a.str("Fill.Type");
+    if (fillText.length > 0 && fillType.length == 0) {
+        c.fillKind = FillKind.Solid;
+        c.fill = parseColor(fillText, Color.transparent());
+    } else if (fillType == "Solid") {
+        c.fillKind = FillKind.Solid;
+        c.fill = a.color("Fill.Color", Color.transparent());
+    } else if (fillType == "Gradient") {
+        c.fillKind = FillKind.Gradient;
+        c.fill = a.color("Fill.StartColor", Color.transparent());
+    } else if (fillType == "Hatch") {
+        c.fillKind = FillKind.Hatch;
+        c.fill = a.color("Fill.ForeColor", Color.transparent());
+    } else {
+        c.fillKind = FillKind.Solid;
+        c.fill = Color.transparent();
+    }
+    c.canGrow = a.bool("CanGrow", false);
+    c.canShrink = a.bool("CanShrink", false);
+    c.growToBottom = a.bool("GrowToBottom", false);
+    c.printOn = a.printOn();
+    c.beforePrintEvent = copyOf(a.str("BeforePrintEvent"));
+    c.afterPrintEvent = copyOf(a.str("AfterPrintEvent"));
+}
+
+/// Border.{side}Line's colour, style and width, each the shared one when the side has none.
+fn sideLine(a: borrow Attrs, side: StringView, color: Color, style: LineStyle, width: f32) -> BorderLine {
+    let colorKey = sideKey(side, "Color");
+    let styleKey = sideKey(side, "Style");
+    let widthKey = sideKey(side, "Width");
+    let colorText = a.str(colorKey.view());
+    let styleText = a.str(styleKey.view());
+    return BorderLine {
+        color: if (colorText.length > 0) parseColor(colorText, color) else color,
+        style: if (styleText.length > 0) parseLineStyle(styleText, style) else style,
+        width: a.float(widthKey.view(), width),
+    };
+}
+
+/// "Border.{side}Line.{what}".
+fn sideKey(side: StringView, what: StringView) -> String {
+    var key = String.create();
+    let _ = key.append("Border.");
+    let _ = key.append(side);
+    let _ = key.append("Line.");
+    let _ = key.append(what);
+    return key;
+}
+
+fn emptyBand() -> BandProps => BandProps {
+    startNewPage: false,
+    firstRowStartsNewPage: false,
+    printOnBottom: false,
+    keepChild: false,
+    repeatBandNTimes: 0,
+    canBreak: false,
+    repeatOnEveryPage: false,
+    keepWithData: false,
+    dataSource: String.create(),
+    filter: String.create(),
+    relation: String.create(),
+    maxRows: 0,
+    rowCount: 0,
+    keepDetail: false,
+    keepSummary: false,
+    columns: 0,
+    printIfDatasourceEmpty: false,
+    printIfDetailEmpty: false,
+    condition: String.create(),
+    sortOrder: 0,
+    keepTogether: false,
+    resetPageNumber: false,
+    fillUnusedSpace: false,
+    completeToNRows: 0,
+    printIfDatabandEmpty: false,
+};
+
+/// BandBase's reads (and HeaderFooterBandBase's, ChildBand's): ReportComponentBase's, then the band's.
+fn readBand(c: borrow mut Component, a: borrow Attrs, node: borrow XmlNode) {
+    readReportComponent(mut c, a);
+    var band = emptyBand();
+    band.canBreak = a.bool("CanBreak", false);
+    band.startNewPage = a.bool("StartNewPage", false);
+    band.firstRowStartsNewPage = a.bool("FirstRowStartsNewPage", false);
+    band.printOnBottom = a.bool("PrintOnBottom", false);
+    band.keepChild = a.bool("KeepChild", false);
+    band.repeatBandNTimes = a.int("RepeatBandNTimes", 0);
+    let fillText = a.str("Fill.Color");
+    if (fillText.length > 0) {
+        c.fillKind = FillKind.Solid;
+        c.fill = parseColor(fillText, Color.transparent());
+    }
+    match (c.kind) {
+        Kind.DataHeaderBand => { headerFooter(mut band, a); }
+        Kind.DataFooterBand => { headerFooter(mut band, a); }
+        Kind.GroupFooterBand => { headerFooter(mut band, a); }
+        Kind.ChildBand => {
+            band.fillUnusedSpace = a.bool("FillUnusedSpace", false);
+            band.completeToNRows = a.int("CompleteToNRows", 0);
+            band.printIfDatabandEmpty = a.bool("PrintIfDatabandEmpty", false);
+        }
+        _ => {}
+    }
+    c.band = band;
+    for (child in node.children.view()) {
+        match (readComponent(child)) {
+            Some(inner) => {
+                if (inner.kind == Kind.ChildBand) {
+                    c.setRole(Role.Child, inner);
+                } else {
+                    c.addRole(Role.Object, inner);
+                }
+            }
+            null => {}
+        }
+    }
+}
+
+fn headerFooter(band: borrow mut BandProps, a: borrow Attrs) {
+    band.repeatOnEveryPage = a.bool("RepeatOnEveryPage", false);
+    band.keepWithData = a.bool("KeepWithData", false);
+}
+
+/// DataBand's own reads.
+fn readDataBand(c: borrow mut Component, a: borrow Attrs, node: borrow XmlNode) {
+    c.name = copyOf(a.str("Name"));
+    c.left = a.float("Left", 0.0);
+    c.top = a.float("Top", 0.0);
+    c.width = a.float("Width", 0.0);
+    c.height = a.float("Height", 0.0);
+    c.border = uniformBorder(a);
+    let fillText = a.str("Fill.Color");
+    if (fillText.length > 0) {
+        c.fill = parseColor(fillText, Color.transparent());
+    }
+    var band = emptyBand();
+    band.startNewPage = a.bool("StartNewPage", false);
+    band.printOnBottom = a.bool("PrintOnBottom", false);
+    c.canGrow = a.bool("CanGrow", false);
+    c.canShrink = a.bool("CanShrink", false);
+    c.beforePrintEvent = copyOf(a.str("BeforePrintEvent"));
+    c.afterPrintEvent = copyOf(a.str("AfterPrintEvent"));
+    c.printOn = a.printOn();
+    band.dataSource = copyOf(a.str("DataSource"));
+    band.filter = copyOf(a.str("Filter"));
+    band.maxRows = a.int("MaxRows", 0);
+    band.rowCount = a.int("RowCount", 0);
+    band.keepDetail = a.bool("KeepDetail", false);
+    band.keepSummary = a.bool("KeepSummary", false);
+    band.resetPageNumber = a.bool("ResetPageNumber", false);
+    band.relation = copyOf(a.str("Relation"));
+    band.columns = a.int("Columns", 0);
+    band.printIfDatasourceEmpty = a.bool("PrintIfDatasourceEmpty", false);
+    band.printIfDetailEmpty = a.bool("PrintIfDetailEmpty", false);
+    c.band = band;
+    for (child in node.children.view()) {
+        match (readComponent(child)) {
+            Some(inner) => {
+                match (inner.kind) {
+                    Kind.DataHeaderBand => { c.setRole(Role.Header, inner); }
+                    Kind.DataFooterBand => { c.setRole(Role.Footer, inner); }
+                    Kind.DataBand => { c.addRole(Role.Detail, inner); }
+                    Kind.ChildBand => { c.setRole(Role.Child, inner); }
+                    _ => { c.addRole(Role.Object, inner); }
+                }
+            }
+            null => {}
+        }
+    }
+}
+
+/// GroupHeaderBand's own reads.
+fn readGroupHeader(c: borrow mut Component, a: borrow Attrs, node: borrow XmlNode) {
+    c.name = copyOf(a.str("Name"));
+    c.left = a.float("Left", 0.0);
+    c.top = a.float("Top", 0.0);
+    c.width = a.float("Width", 0.0);
+    c.height = a.float("Height", 0.0);
+    var band = emptyBand();
+    band.condition = copyOf(a.str("Condition"));
+    let orders: [StringView; 3] = ["None", "Ascending", "Descending"];
+    band.sortOrder = a.choice("SortOrder", orders[..], 0);
+    band.keepTogether = a.bool("KeepTogether", false);
+    band.resetPageNumber = a.bool("ResetPageNumber", false);
+    band.repeatOnEveryPage = a.bool("RepeatOnEveryPage", false);
+    band.keepWithData = a.bool("KeepWithData", false);
+    band.startNewPage = a.bool("StartNewPage", false);
+    c.canGrow = a.bool("CanGrow", false);
+    c.canShrink = a.bool("CanShrink", false);
+    c.border = uniformBorder(a);
+    let fillText = a.str("Fill.Color");
+    if (fillText.length > 0) {
+        c.fill = parseColor(fillText, Color.transparent());
+    }
+    c.band = band;
+    for (child in node.children.view()) {
+        match (readComponent(child)) {
+            Some(inner) => {
+                match (inner.kind) {
+                    Kind.DataBand => { c.setRole(Role.Data, inner); }
+                    Kind.GroupFooterBand => { c.setRole(Role.GroupFooter, inner); }
+                    Kind.GroupHeaderBand => { c.setRole(Role.Nested, inner); }
+                    Kind.ChildBand => { c.setRole(Role.Child, inner); }
+                    _ => { c.addRole(Role.Object, inner); }
+                }
+            }
+            null => {}
+        }
+    }
+}
+
+/// TextObject's reads (a TableCell's too).
+fn readText(a: borrow Attrs) -> TextProps {
+    let fontText = a.str("Font");
+    var font = parseFont(fontText);
+    if (fontText.length == 0) {
+        font.family = a.string("Font.Family", "Arial");
+        font.size = a.float("Font.Size", 10.0);
+        font.weight = truncate<u32>(a.int("Font.Weight", 400));
+        let slants: [StringView; 3] = ["Upright", "Italic", "Oblique"];
+        let s = a.int("Font.Slant", 0);
+        font.slant = if (s == 1) FontSlant.Italic else if (s == 2) FontSlant.Oblique else FontSlant.Upright;
+    }
+    let textFill = a.str("TextFill.Color");
+    let horz = a.str("HorzAlign");
+    let vert = a.str("VertAlign");
+    let shrink = a.str("AutoShrink");
+    return TextProps {
+        text: copyOf(a.str("Text")),
+        font: font,
+        color: if (textFill.length > 0) parseColor(textFill, Color.black()) else a.color("TextColor", Color.black()),
+        horzAlign: if (horz.length > 0) parseHorzAlign(horz)
+            else if (a.bool("RightToLeft", false)) HorzAlign.Right else HorzAlign.Left,
+        vertAlign: if (vert.length > 0) parseVertAlign(vert) else VertAlign.Top,
+        wordWrap: a.bool("WordWrap", true),
+        allowExpressions: a.bool("AllowExpressions", true),
+        autoShrink: shrink.length > 0 && shrink != "false" && shrink != "False",
+        autoShrinkMinSize: a.float("AutoShrinkMinSize", 1.0),
+        angle: a.float("Angle", 0.0),
+        lineHeight: a.float("LineHeight", 0.0),
+        rightToLeft: a.bool("RightToLeft", false),
+        trimming: copyOf(a.str("Trimming")),
+        padLeft: a.float("PadLeft", 2.0),
+        padRight: a.float("PadRight", 2.0),
+        padTop: a.float("PadTop", 0.0),
+        padBottom: a.float("PadBottom", 0.0),
+        format: readFormat(a),
+        colSpan: 1,
+        rowSpan: 1,
+    };
+}
+
+/// TextObject's Format and its Format.* attributes.
+fn readFormat(a: borrow Attrs) -> Format {
+    let kind = a.str("Format");
+    var f = Format.none();
+    if (kind == "Number" || kind == "Currency") {
+        f.kind = if (kind == "Number") FormatKind.Number else FormatKind.Currency;
+        f.decimalDigits = a.int("Format.DecimalDigits", 2);
+        f.decimalSeparator = a.string("Format.DecimalSeparator", ".");
+        f.groupSeparator = a.string("Format.GroupSeparator", ",");
+        f.useLocale = a.bool("Format.UseLocale", true);
+        if (kind == "Number") {
+            f.negativePattern = a.int("Format.NegativePattern", 1);
+        } else {
+            f.currencySymbol = a.string("Format.CurrencySymbol", "$");
+            f.positivePattern = a.int("Format.PositivePattern", 0);
+            f.negativePattern = a.int("Format.NegativePattern", 0);
+        }
+    } else if (kind == "Percent") {
+        f.kind = FormatKind.Percent;
+        f.decimalDigits = a.int("Format.DecimalDigits", 0);
+    } else if (kind == "Date") {
+        f.kind = FormatKind.Date;
+        f.formatString = a.string("Format.Format", "d");
+    } else if (kind == "Time") {
+        f.kind = FormatKind.Time;
+        f.formatString = a.string("Format.Format", "T");
+    } else if (kind == "Custom") {
+        f.kind = FormatKind.Custom;
+        f.formatString = a.string("Format.Format", "");
+    } else if (kind == "Boolean") {
+        f.kind = FormatKind.Boolean;
+        f.trueText = a.string("Format.TrueText", "True");
+        f.falseText = a.string("Format.FalseText", "False");
+    }
+    return f;
+}
+
+/// TableObject's columns and rows: a column's width (100 when none), a row's height (20 when none) and its cells.
+fn readTable(c: borrow mut Component, node: borrow XmlNode) {
+    for (child in node.children.view()) {
+        let a = Attrs.of(child);
+        if (child.name.view() == "TableColumn") {
+            let _ = c.tableColumns.push(TableColumn { name: copyOf(a.str("Name")), width: a.float("Width", 100.0) });
+        } else if (child.name.view() == "TableRow") {
+            var row = TableRow {
+                name: copyOf(a.str("Name")),
+                height: a.float("Height", 20.0),
+                cells: Vector<Component>.create(),
+            };
+            for (cellNode in child.children.view()) {
+                if (cellNode.name.view() == "TableCell") {
+                    match (readComponent(cellNode)) {
+                        Some(cell) => { let _ = row.cells.push(cell); }
+                        null => {}
+                    }
+                }
+            }
+            let _ = c.tableRows.push(row);
+        }
+    }
+}
+
+/// PictureObject's reads.
+fn readPicture(a: borrow Attrs) -> PictureProps {
+    let modes: [StringView; 5] = ["Normal", "StretchImage", "AutoSize", "Zoom", "CenterImage"];
+    return PictureProps {
+        sizeMode: a.choice("SizeMode", modes[..], 3),
+        image: base64(a.str("Image")) ?? Vector<u8>.create(),
+        location: copyOf(a.str("ImageLocation")),
+        dataColumn: copyOf(a.str("DataColumn")),
+        maxWidth: a.float("MaxWidth", 0.0),
+        maxHeight: a.float("MaxHeight", 0.0),
+        padLeft: a.float("PadLeft", 0.0),
+        padRight: a.float("PadRight", 0.0),
+        padTop: a.float("PadTop", 0.0),
+        padBottom: a.float("PadBottom", 0.0),
+        transparency: a.int("Transparency", 0),
+    };
+}
+
+/// Base64 text's bytes (Convert.FromBase64String: white space skipped, '=' padding), or null when it is not base64.
+public fn base64(text: StringView) -> Vector<u8>? {
+    var out = Vector<u8>.create();
+    var bits: u32 = 0;
+    var count: u32 = 0;
+    var padding = 0;
+    var digits = 0;
+    for (c in text.bytes()) {
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+            continue;
+        }
+        if (c == '=') {
+            padding += 1;
+            digits += 1;
+            continue;
+        }
+        if (padding > 0) {
+            return null; // a digit after padding
+        }
+        let v: u32 = if (c >= 'A' && c <= 'Z') (c - 'A') as u32 else if (c >= 'a' && c <= 'z') (c - 'a') as u32 + 26
+            else if (c >= '0' && c <= '9') (c - '0') as u32 + 52 else if (c == '+') 62 else if (c == '/') 63
+            else { return null; };
+        digits += 1;
+        bits = (bits << 6) | v;
+        count += 6;
+        if (count >= 8) {
+            count -= 8;
+            let _ = out.push(truncate<u8>(bits >> count));
+            bits = bits & ((1u32 << count) - 1);
+        }
+    }
+    if (digits % 4 != 0 || padding > 2) {
+        return null;
+    }
+    return out;
+}

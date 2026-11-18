@@ -1,1 +1,3 @@
 out/
+reference/*/bin/
+reference/*/obj/

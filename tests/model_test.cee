@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT
+// The model of each fixture against CosmoReport's for the same file (tests/expected/*.model.txt, written by the
+// reference harness: `dotnet RefDump.dll model tests/fixtures/X.frx`).
+
+fn readFile(path: StringView) -> Vector<u8> {
+    var bytes = Vector<u8>.create();
+    var file = match (File.open(path)) {
+        Ok(f) => f,
+        Err(_) => { return bytes; }
+    };
+    var buffer = [0u8; 65536];
+    loop {
+        let n = match (file.read(mut buffer[..])) {
+            Ok(n) => n,
+            Err(_) => { break; }
+        };
+        if (n == 0) {
+            break;
+        }
+        for (i in 0..n) {
+            let _ = bytes.push(buffer[i]);
+        }
+    }
+    return bytes;
+}
+
+/// `name`'s model, dumped, against the harness's dump of it: the first lines that differ are printed.
+fn sameModel(name: StringView) -> Result<void, TestFailure> {
+    var frx = String.create();
+    let _ = frx.append("tests/fixtures/");
+    let _ = frx.append(name);
+    let _ = frx.append(".frx");
+    var expectedPath = String.create();
+    let _ = expectedPath.append("tests/expected/");
+    let _ = expectedPath.append(name);
+    let _ = expectedPath.append(".model.txt");
+    let report = match (loadReport(readFile(frx.view()).view())) {
+        Ok(r) => r,
+        Err(e) => {
+            Console.writeLine(e.message.view());
+            return Err(TestFailure.create("the report did not load"));
+        }
+    };
+    let got = dumpModel(report);
+    let expectedBytes = readFile(expectedPath.view());
+    let expected = StringView.fromUtf8(expectedBytes.view()) ?? "";
+    Check.isTrue(expected.length > 0, "the expected dump is there")?;
+    let gotLines = splitOn(got.view(), '\n');
+    let wantLines = splitOn(expected, '\n');
+    var shown = 0;
+    for (k in 0..gotLines.length.max(wantLines.length)) {
+        let g = if (k < gotLines.length) gotLines[k] else "<none>";
+        let w = if (k < wantLines.length) wantLines[k] else "<none>";
+        if (g != w && shown < 3) {
+            Console.write("  line ");
+            Console.write(k + 1);
+            Console.writeLine(":");
+            Console.write("    want ");
+            Console.writeLine(w);
+            Console.write("    got  ");
+            Console.writeLine(g);
+            shown += 1;
+        }
+    }
+    return Check.isTrue(shown == 0, "the model is CosmoReport's");
+}
+
+@test
+fn thePosInvoiceModelIsCosmoReports() -> Result<void, TestFailure> => sameModel("PosInvoice");
+
+@test
+fn theMyInvoiceModelIsCosmoReports() -> Result<void, TestFailure> => sameModel("MyInvoice");
+
+@test
+fn theServersMyInvoiceModelIsCosmoReports() -> Result<void, TestFailure> => sameModel("MyInvoice.server");
