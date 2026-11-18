@@ -1,0 +1,206 @@
+// SPDX-License-Identifier: MIT
+// Every text of a report evaluated over the sample invoice, against CosmoReport's evaluation of the same
+// (tests/expected/*.texts.txt, written by `dotnet RefDump.dll texts tests/fixtures/X.frx tests/data/invoice.json Name`):
+// the data registered under the server's name, on its first row, page 1 of 1, row 1.
+
+fn escaped(o: borrow mut String, s: StringView) {
+    let b = s.bytes();
+    var start: usize = 0;
+    for (k in 0..b.length) {
+        let c = b[k];
+        let piece = if (c == '\\') "\\\\" else if (c == '\n') "\\n" else if (c == '\r') "\\r" else "";
+        if (piece.length > 0) {
+            let _ = o.append(StringView.fromUtf8(b[start..k]) ?? "?");
+            let _ = o.append(piece);
+            start = k + 1;
+        }
+    }
+    let _ = o.append(StringView.fromUtf8(b[start..]) ?? "?");
+}
+
+fn walkTexts(c: borrow Component, e: borrow Evaluator, o: borrow mut String) {
+    match (borrow c.text) {
+        Some(t) => {
+            if (t.allowExpressions) {
+                let _ = o.append(c.name.view());
+                let _ = o.append(" | ");
+                escaped(mut o, e.processText(t.text.view(), t.format).view());
+                let _ = o.append("\n");
+            }
+        }
+        null => {}
+    }
+    match (borrow c.barcode) {
+        Some(b) => {
+            if (b.allowExpressions) {
+                let _ = o.append(c.name.view());
+                let _ = o.append(" | ");
+                escaped(mut o, e.processText(b.text.view(), Format.none()).view());
+                let _ = o.append("\n");
+            }
+        }
+        null => {}
+    }
+    for (row in c.tableRows.view()) {
+        for (cell in row.cells.view()) {
+            walkTexts(cell, e, mut o);
+        }
+    }
+    let roles: [Role; 8] = [
+        Role.Object, Role.Header, Role.Detail, Role.Footer, Role.Nested, Role.Data, Role.GroupFooter, Role.Child,
+    ];
+    for (k in 0..8usize) {
+        for (child in c.children.view()) {
+            if (child.role == roles[k]) {
+                walkTexts(child, e, mut o);
+            }
+        }
+    }
+}
+
+fn allTexts(report: borrow Report, data: borrow DataSet, state: borrow EvalState, o: borrow mut String) {
+    let e = Evaluator.of(report, data, state);
+    for (page in report.pages.view()) {
+        for (band in page.bands.view()) {
+            walkTexts(band, e, mut o);
+        }
+    }
+}
+
+fn sameTexts(file: StringView, sourceName: StringView) -> Result<void, TestFailure> {
+    var path = String.create();
+    let _ = path.append("tests/fixtures/");
+    let _ = path.append(file);
+    let _ = path.append(".frx");
+    let report = match (loadReport(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    let root = match (parseXml(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report is not XML")); }
+    };
+    var data = DataSet.create(Schema.read(root));
+    match (data.register(sourceName, readFile("tests/data/invoice.json").view())) {
+        Ok() => {}
+        Err(_) => { return Err(TestFailure.create("the data did not read")); }
+    }
+    data.sources[0].first();
+    var state = EvalState.create(report);
+    state.pageNo = 1;
+    state.totalPages = 1;
+    state.rowNo = 1;
+    var got = String.create();
+    allTexts(report, data, state, mut got);
+    // Each line item current, as the engine makes the list a data source (and an item's details, when it has some).
+    let header = data.find(sourceName) ?? 0;
+    let itemCount = match (data.childSource(header, "LineItems", "LineItems")) {
+        Some(k) => data.sources[k].rowCount(),
+        null => 0,
+    };
+    for (k in 0..itemCount) {
+        let items = data.childSource(header, "LineItems", "LineItems") ?? 0;
+        data.sources[items].current = k;
+        let _ = got.append("# LineItems ");
+        appendInt(mut got, k);
+        let _ = got.append("\n");
+        let _ = data.childSource(items, "ItemDetails", "ItemDetails");
+        allTexts(report, data, state, mut got);
+    }
+    var expectedPath = String.create();
+    let _ = expectedPath.append("tests/expected/");
+    let _ = expectedPath.append(file);
+    let _ = expectedPath.append(".texts.txt");
+    let want = readFile(expectedPath.view());
+    let wantText = StringView.fromUtf8(want.view()) ?? "";
+    if (got.view() == wantText) {
+        return Ok();
+    }
+    // The first lines that differ.
+    let gotLines = splitOn(got.view(), '\n');
+    let wantLines = splitOn(wantText, '\n');
+    var shown = 0;
+    for (k in 0..gotLines.length.max(wantLines.length)) {
+        let g = if (k < gotLines.length) gotLines[k] else "<none>";
+        let w = if (k < wantLines.length) wantLines[k] else "<none>";
+        if (g != w && shown < 12) {
+            Console.write("  want ");
+            Console.writeLine(w);
+            Console.write("  got  ");
+            Console.writeLine(g);
+            shown += 1;
+        }
+    }
+    return Err(TestFailure.create("the texts are not CosmoReport's"));
+}
+
+@test
+fn thePosInvoiceTextsAreCosmoReports() -> Result<void, TestFailure> => sameTexts("PosInvoice", "Header");
+
+@test
+fn theServersMyInvoiceTextsAreCosmoReports() -> Result<void, TestFailure> => sameTexts("MyInvoice.server", "Invoice");
+
+/// Each line of tests/data/expressions.txt evaluated over PosInvoice's data with line item 3 current, page 2 of 3, row
+/// 4; "fmt <f> | <text>" with a custom format <f>: against CosmoReport's (tests/expected/expressions.txt).
+@test
+fn expressionsFunctionsAndPicturesAreCosmoReports() -> Result<void, TestFailure> {
+    let report = match (loadReport(readFile("tests/fixtures/PosInvoice.frx").view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    let root = match (parseXml(readFile("tests/fixtures/PosInvoice.frx").view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report is not XML")); }
+    };
+    var data = DataSet.create(Schema.read(root));
+    match (data.register("Header", readFile("tests/data/invoice.json").view())) {
+        Ok() => {}
+        Err(_) => { return Err(TestFailure.create("the data did not read")); }
+    }
+    data.sources[0].first();
+    let items = data.childSource(0, "LineItems", "LineItems") ?? 0;
+    data.sources[items].current = 3;
+    var state = EvalState.create(report);
+    state.pageNo = 2;
+    state.totalPages = 3;
+    state.rowNo = 4;
+    let e = Evaluator.of(report, data, state);
+    let list = readFile("tests/data/expressions.txt");
+    let want = readFile("tests/expected/expressions.txt");
+    let wantLines = splitOn(StringView.fromUtf8(want.view()) ?? "", '\n');
+    var k: usize = 0;
+    var failed = 0;
+    for (line in splitOn(StringView.fromUtf8(list.view()) ?? "", '\n').view()) {
+        if (line.length == 0) {
+            continue;
+        }
+        var got = copyOf(line);
+        let _ = got.append(" => ");
+        let b = line.bytes();
+        if (line.startsWith("fmt ")) {
+            var bar: usize = 4;
+            while (bar + 3 <= b.length && !(b[bar] == ' ' && b[bar + 1] == '|' && b[bar + 2] == ' ')) {
+                bar += 1;
+            }
+            var format = Format.none();
+            format.kind = FormatKind.Custom;
+            format.formatString = stringOf(b[4..bar]);
+            escaped(mut got, e.processText(StringView.fromUtf8(b[bar + 3..]) ?? "", format).view());
+        } else {
+            escaped(mut got, e.processText(line, Format.none()).view());
+        }
+        let w = if (k < wantLines.length) wantLines[k] else "<none>";
+        if (got.view() != w) {
+            Console.write("  want ");
+            Console.writeLine(w);
+            Console.write("  got  ");
+            Console.writeLine(got.view());
+            failed += 1;
+        }
+        k += 1;
+    }
+    if (failed > 0) {
+        return Err(TestFailure.create("expressions are not CosmoReport's"));
+    }
+    return Ok();
+}

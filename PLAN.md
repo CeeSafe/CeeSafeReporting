@@ -48,6 +48,12 @@ dumps (bands, positions, texts) and as pixels.
 2. **Data, expressions and formats.** A data source over a JSON value (dotted paths, child arrays, the current row);
    the expression evaluator's resolution order and functions; Totals; the Number, Percent, Currency, Custom, Date and
    Time formats as .NET writes them. Tests against values CosmoReport gives.
+   *Done.* The data is the server's object as JSON, typed by the report's Dictionary (a number it does not type is a
+   decimal with a point, an integer without). Every text of PosInvoice and the server's MyInvoice, at the header and at
+   each line item, and a list of functions, comparisons and custom formats, are CosmoReport's. Known differences: a
+   whole object printed ("[Header.CompanyInfo]") is the C# class name there and empty here; a custom numeric format
+   with sections (";") or an exponent is written as the value's ToString. Totals and aggregates accumulate as
+   CosmoReport's do; they are compared with it in step 3, where the engine feeds them rows.
 3. **The engine.** Pages, page header and footer, groups, data bands with header and footer, child bands, subreports,
    CanGrow and CanShrink (text measured with ClayWind), page breaks, TotalPages, and the host's event handlers. Test:
    PosInvoice.frx's prepared pages match CosmoReport's.

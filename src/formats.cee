@@ -1,0 +1,338 @@
+// SPDX-License-Identifier: MIT
+// A text's format applied to a value, as CosmoReport's FormatBase.FormatValue applies it. "The current culture" is the
+// invariant one: the harness runs CosmoReport with it, and the port has no other.
+
+/// TryToDouble: a string read as NumberStyles.Any (none when blank); a value IConvertible.ToDouble takes.
+fn tryToDouble(v: borrow Value) -> f64? {
+    if (v.kind == ValueKind.Str) {
+        if (trimmed(v.s.view()).length == 0) {
+            return null;
+        }
+        return parseNumberAny(v.s.view());
+    }
+    return v.toDouble();
+}
+
+/// FormatValue of `format` on `v`.
+public fn formatValue(format: borrow Format, v: borrow Value) -> String {
+    match (format.kind) {
+        FormatKind.None => { return v.text(); }
+        FormatKind.Number => {
+            if (v.isNull()) {
+                return String.create();
+            }
+            let n = match (tryToDouble(v)) {
+                Some(n) => n,
+                null => { return v.text(); }
+            };
+            if (format.useLocale) {
+                return formatN(n, format.decimalDigits, NumberStyle.invariant());
+            }
+            let style = NumberStyle {
+                decimalSeparator: copyOf(if (format.decimalSeparator.view().length == 0) "." else format.decimalSeparator.view()),
+                groupSeparator: copyOf(format.groupSeparator.view()),
+                negativePattern: format.negativePattern.max(0).min(4),
+            };
+            return formatN(n, format.decimalDigits, style);
+        }
+        FormatKind.Currency => {
+            if (v.isNull()) {
+                return String.create();
+            }
+            let n = match (tryToDouble(v)) {
+                Some(n) => n,
+                null => { return v.text(); }
+            };
+            if (format.useLocale) {
+                return formatC(n, format.decimalDigits, CurrencyStyle.invariant());
+            }
+            let style = CurrencyStyle {
+                symbol: copyOf(format.currencySymbol.view()),
+                decimalSeparator: copyOf(if (format.decimalSeparator.view().length == 0) "." else format.decimalSeparator.view()),
+                groupSeparator: copyOf(format.groupSeparator.view()),
+                positivePattern: format.positivePattern.max(0).min(3),
+                negativePattern: format.negativePattern.max(0).min(16),
+            };
+            return formatC(n, format.decimalDigits, style);
+        }
+        FormatKind.Percent => {
+            if (v.isNull()) {
+                return String.create();
+            }
+            let n = match (tryToDouble(v)) {
+                Some(n) => n,
+                null => { return v.text(); }
+            };
+            var out = formatN(n * 100.0, format.decimalDigits, NumberStyle.invariant());
+            let _ = out.append("%");
+            return out;
+        }
+        FormatKind.Date | FormatKind.Time => {
+            if (v.kind == ValueKind.Date) {
+                return formatDateTime(v.date, format.formatString.view());
+            }
+            return v.text();
+        }
+        FormatKind.Boolean => {
+            if (v.kind == ValueKind.Bool) {
+                return copyOf(if (v.b) format.trueText.view() else format.falseText.view());
+            }
+            return v.text();
+        }
+        FormatKind.Custom => {
+            let f = format.formatString.view();
+            if (f.length == 0) {
+                return v.text();
+            }
+            if (v.kind == ValueKind.Date) {
+                return formatDateTime(v.date, f);
+            }
+            return formatComposite(v, f);
+        }
+    }
+}
+
+/// string.Format("{0:<f>}", v): a number by a standard numeric format (G, N, F, D, C, P, R and their precision); any
+/// other value as its ToString, the format not minded (a string or a bool is not IFormattable).
+public fn formatComposite(v: borrow Value, f: StringView) -> String {
+    let numeric = v.kind == ValueKind.Int || v.kind == ValueKind.Double || v.kind == ValueKind.Decimal;
+    if (!numeric) {
+        return v.text();
+    }
+    let b = f.bytes();
+    let letter = b[0];
+    var precision: i64 = -1;
+    if (b.length > 1) {
+        match (parseInt(StringView.fromUtf8(b[1..]) ?? "")) {
+            Some(p) => {
+                if (p >= 0 && p <= 999999999 && b[1] >= '0' && b[1] <= '9') {
+                    precision = p;
+                }
+            }
+            null => {}
+        }
+        if (precision < 0) {
+            return formatPicture(v, f);
+        }
+    }
+    let upper = if (letter >= 'a' && letter <= 'z') letter - 32 else letter;
+    // An integer's value as a decimal, so N, F and G on it write it as .NET writes a long.
+    let dec: Decimal? = match (v.kind) {
+        ValueKind.Decimal => v.dec,
+        ValueKind.Int => parseDecimal(v.text().view()),
+        _ => null,
+    };
+    let invariant = NumberStyle.invariant();
+    if (upper == 'G' || upper == 'R') {
+        return match (dec) {
+            Some(d) => formatGDecimal(d, if (upper == 'R') 0 else precision.max(0)),
+            null => formatGDouble(v.d, if (upper == 'R') 0 else precision.max(0)),
+        };
+    }
+    if (upper == 'N' || upper == 'F') {
+        let style = if (upper == 'N') invariant
+            else NumberStyle { decimalSeparator: copyOf("."), groupSeparator: String.create(), negativePattern: 1 };
+        let digits = if (precision < 0) 2 else precision;
+        return match (dec) {
+            Some(d) => formatNDecimal(d, digits, style),
+            null => formatN(v.d, digits, style),
+        };
+    }
+    if (upper == 'D' && v.kind == ValueKind.Int) {
+        let negative = v.i < 0;
+        var digits = String.create();
+        appendInt(mut digits, if (negative) 0i64.wrappingSub(v.i) else v.i);
+        var out = String.create();
+        if (negative) {
+            let _ = out.append("-");
+        }
+        var pad = precision - truncate<i64>(digits.view().length);
+        while (pad > 0) {
+            let _ = out.append("0");
+            pad -= 1;
+        }
+        let _ = out.append(digits.view());
+        return out;
+    }
+    if (upper == 'C') {
+        return formatC(v.toDouble() ?? 0.0, if (precision < 0) 2 else precision, CurrencyStyle.invariant());
+    }
+    if (upper == 'P') {
+        // The invariant culture's percent: "n %", "-n %".
+        var out = formatN((v.toDouble() ?? 0.0) * 100.0, if (precision < 0) 2 else precision, invariant);
+        let _ = out.append(" %");
+        return out;
+    }
+    if (b.length == 1 && ((letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z'))) {
+        return v.text(); // a standard letter the port does not have
+    }
+    return formatPicture(v, f);
+}
+
+/// A custom numeric format ("#,##0.00", "0.###"): one section, digits '0' and '#', a point, group commas, '%',
+/// literals in quotes or after '\'. More sections and exponents are not read: the value's ToString then.
+fn formatPicture(v: borrow Value, f: StringView) -> String {
+    let b = f.bytes();
+    var hasSection = false;
+    var hasExponent = false;
+    for (c in b) {
+        if (c == ';') {
+            hasSection = true;
+        }
+        if (c == 'E' || c == 'e') {
+            hasExponent = true;
+        }
+    }
+    if (hasSection || hasExponent) {
+        return v.text();
+    }
+    // The picture's parts: digit places before and after the point, grouping, percent.
+    var before = 0i64;
+    var zerosBefore = 0i64;
+    var after = 0i64;
+    var zerosAfter = 0i64;
+    var seenPoint = false;
+    var grouping = false;
+    var percent = false;
+    var lastDigit: usize = 0;
+    var firstDigit: usize? = null;
+    var quote: u8 = 0;
+    for (k in 0..b.length) {
+        let c = b[k];
+        if (quote != 0) {
+            if (c == quote) {
+                quote = 0;
+            }
+            continue;
+        }
+        if (c == '"' || c == 0x27) {
+            quote = c;
+        } else if (c == '0' || c == '#') {
+            if (firstDigit == null) {
+                firstDigit = k;
+            }
+            lastDigit = k;
+            if (seenPoint) {
+                after += 1;
+                if (c == '0') {
+                    zerosAfter = after;
+                }
+            } else {
+                before += 1;
+                if (c == '0' || zerosBefore > 0) {
+                    zerosBefore += 1;
+                }
+            }
+        } else if (c == '.') {
+            seenPoint = true;
+        } else if (c == ',' && !seenPoint) {
+            grouping = true;
+        } else if (c == '%') {
+            percent = true;
+        }
+    }
+    let first = match (firstDigit) {
+        Some(i) => i,
+        null => { return copyOf(f); }
+    };
+    var number: f64 = v.toDouble() ?? 0.0;
+    if (percent) {
+        number *= 100.0;
+    }
+    let dec: Decimal? = if (percent) null else match (v.kind) {
+        ValueKind.Decimal => v.dec,
+        ValueKind.Int => parseDecimal(v.text().view()),
+        _ => null,
+    };
+    // The digits, rounded to the places after the point; then the optional ones dropped.
+    let style = NumberStyle {
+        decimalSeparator: copyOf("."),
+        groupSeparator: copyOf(if (grouping) "," else ""),
+        negativePattern: 1,
+    };
+    let fixed = match (dec) {
+        Some(d) => formatNDecimal(d, after, style),
+        null => formatN(number, after, style),
+    };
+    var body = Vector<u8>.create();
+    let fb = fixed.bytes();
+    var start: usize = 0;
+    let negative = fb.length > 0 && fb[0] == '-';
+    if (negative) {
+        start = 1;
+    }
+    for (k in start..fb.length) {
+        let _ = body.push(fb[k]);
+    }
+    // Optional places after the point.
+    if (after > 0) {
+        var dropped = after - zerosAfter;
+        while (dropped > 0 && body.length > 0 && body[body.length - 1] == '0') {
+            let _ = body.pop();
+            dropped -= 1;
+        }
+        if (body.length > 0 && body[body.length - 1] == '.') {
+            let _ = body.pop();
+        }
+    }
+    // An integer part of 0 with no '0' place before the point is not written.
+    if (zerosBefore == 0 && body.length > 0 && body[0] == '0' && (body.length == 1 || body[1] == '.')) {
+        let _ = body.remove(0);
+    }
+    // Zero places before the point: pad.
+    var intLength: i64 = 0;
+    for (c in body.view()) {
+        if (c == '.') {
+            break;
+        }
+        if (c >= '0' && c <= '9') {
+            intLength += 1;
+        }
+    }
+    while (intLength < zerosBefore) {
+        let _ = body.insert(0, '0');
+        intLength += 1;
+    }
+    var allZero = true;
+    for (c in body.view()) {
+        if (c >= '1' && c <= '9') {
+            allZero = false;
+        }
+    }
+    var out = String.create();
+    // The sign first, then the literals before the first place, the number, and those after the last.
+    if (negative && !allZero) {
+        let _ = out.append("-");
+    }
+    appendLiterals(mut out, b[0..first]);
+    let _ = out.append(StringView.fromUtf8(body.view()) ?? "");
+    appendLiterals(mut out, b[lastDigit + 1..]);
+    return out;
+}
+
+/// The literal characters of a picture's part: quoted text, '\'-escaped characters, '%', and any that is not a place,
+/// point or comma.
+fn appendLiterals(out: borrow mut String, b: Slice<u8>) {
+    var run = Vector<u8>.create();
+    var quote: u8 = 0;
+    var k: usize = 0;
+    while (k < b.length) {
+        let c = b[k];
+        if (quote != 0) {
+            if (c == quote) {
+                quote = 0;
+            } else {
+                let _ = run.push(c);
+            }
+        } else if (c == '"' || c == 0x27) {
+            quote = c;
+        } else if (c == '\\' && k + 1 < b.length) {
+            k += 1;
+            let _ = run.push(b[k]);
+        } else if (c != '0' && c != '#' && c != '.' && c != ',') {
+            let _ = run.push(c);
+        }
+        k += 1;
+    }
+    let _ = out.append(StringView.fromUtf8(run.view()) ?? "");
+}

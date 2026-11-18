@@ -13,6 +13,9 @@ using FastReport.Format;
 using FastReport.Model;
 using FastReport.Objects;
 
+// The port has the invariant culture only; CosmoReport's "current culture" formats are run in it.
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 if (args.Length == 1 && args[0] == "values")
 {
     Console.Out.Write(Values.Table());
@@ -28,9 +31,14 @@ if (args.Length == 4 && args[0] == "texts")
     Console.Out.Write(Texts.Evaluate(args[1], args[2], args[3]));
     return 0;
 }
+if (args.Length == 5 && args[0] == "exprs")
+{
+    Console.Out.Write(Texts.Expressions(args[1], args[2], args[3], args[4]));
+    return 0;
+}
 if (args.Length != 2 || args[0] != "model")
 {
-    Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample | texts <file.frx> <data.json> <name>");
+    Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample | texts <file.frx> <data.json> <name> | exprs <file.frx> <data.json> <name> <list>");
     return 2;
 }
 var report = new Report();

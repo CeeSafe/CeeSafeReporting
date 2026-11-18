@@ -950,3 +950,172 @@ fn pow10(k: u32) -> f64 {
     let _ = text.appendNumber(k as u64);
     return NumberParsing.parseF64(text.bytes()) ?? 1.0;
 }
+
+// ---- "G", "F" and "N" on doubles and decimals --------------------------------------------------------------------------
+
+/// Appends "E+05"/"E-06": the sign always, at least two digits ("G"'s exponent).
+fn appendExponent(out: borrow mut String, exponent: i64) {
+    let _ = out.append(if (exponent < 0) "E-" else "E+");
+    let magnitude = if (exponent < 0) -exponent else exponent;
+    if (magnitude < 10) {
+        let _ = out.append("0");
+    }
+    appendInt(mut out, magnitude);
+}
+
+/// Appends rounded digits `x` as "G" writes them: fixed when the exponent is from -5 to below `precision`, else
+/// d.dddE+xx; no trailing zeros.
+fn appendGeneral(out: borrow mut String, x: borrow ExactDigits, precision: i64) {
+    if (x.digits.length == 0) {
+        let _ = out.append("0");
+        return;
+    }
+    if (x.negative) {
+        let _ = out.append("-");
+    }
+    let exponent = x.point - 1;
+    if (exponent >= precision || exponent < -5) {
+        appendDigit(mut out, x.digits[0]);
+        if (x.digits.length > 1) {
+            let _ = out.append(".");
+            for (k in 1..x.digits.length) {
+                appendDigit(mut out, x.digits[k]);
+            }
+        }
+        appendExponent(mut out, exponent);
+        return;
+    }
+    if (x.point <= 0) {
+        let _ = out.append("0.");
+        for (k in 0..-x.point) {
+            let _ = out.append("0");
+        }
+        for (d in x.digits.view()) {
+            appendDigit(mut out, d);
+        }
+        return;
+    }
+    for (k in 0..truncate<usize>(x.point).max(x.digits.length)) {
+        if (k == truncate<usize>(x.point)) {
+            let _ = out.append(".");
+        }
+        appendDigit(mut out, if (k < x.digits.length) x.digits[k] else 0);
+    }
+}
+
+/// double.ToString("G{precision}"); precision 0 is ToString().
+public fn formatGDouble(value: f64, precision: i64) -> String {
+    if (precision <= 0) {
+        return formatDouble(value);
+    }
+    var out = String.create();
+    if (special(mut out, value)) {
+        return out;
+    }
+    var x = exactDigits(value);
+    roundAt(mut x, precision);
+    if (x.digits.length == 0) {
+        let _ = out.append(if (x.negative) "-0" else "0");
+        return out;
+    }
+    appendGeneral(mut out, x, precision);
+    return out;
+}
+
+/// A decimal's digits, the point after `point` of them; trailing zeros dropped.
+fn decimalDigits(d: Decimal) -> ExactDigits {
+    var l = limbsOf(d);
+    var reversed = Vector<u8>.create();
+    loop {
+        let _ = reversed.push(truncate<u8>(divLimbs(mut l, 10)));
+        if (l[0] == 0 && l[1] == 0 && l[2] == 0) {
+            break;
+        }
+    }
+    var x = ExactDigits { negative: d.negative, digits: Vector<u8>.create(), point: 0 };
+    var k = reversed.length;
+    while (k > 0 && reversed[k - 1] == 0) {
+        k -= 1;
+    }
+    x.point = truncate<i64>(k) - (d.scale as i64);
+    while (k > 0) {
+        k -= 1;
+        let _ = x.digits.push(reversed[k]);
+    }
+    while (x.digits.length > 0 && x.digits[x.digits.length - 1] == 0) {
+        let _ = x.digits.pop();
+    }
+    if (x.digits.length == 0) {
+        x.point = 0;
+    }
+    return x;
+}
+
+/// Rounds half away from zero to `keep` digits (how .NET rounds a decimal's digits when it formats one).
+fn roundAway(x: borrow mut ExactDigits, keep: i64) {
+    if (keep < 0) {
+        x.digits.clear();
+        x.point = 0;
+        return;
+    }
+    if (keep >= truncate<i64>(x.digits.length)) {
+        return;
+    }
+    let k = truncate<usize>(keep);
+    let up = x.digits[k] >= 5;
+    while (x.digits.length > k) {
+        let _ = x.digits.pop();
+    }
+    if (up) {
+        var j = k;
+        var carried = true;
+        while (j > 0 && carried) {
+            j -= 1;
+            if (x.digits[j] == 9) {
+                x.digits[j] = 0;
+            } else {
+                x.digits[j] += 1;
+                carried = false;
+            }
+        }
+        if (carried) {
+            let _ = x.digits.insert(0, 1);
+            x.point += 1;
+        }
+    }
+    while (x.digits.length > 0 && x.digits[x.digits.length - 1] == 0) {
+        let _ = x.digits.pop();
+    }
+    if (x.digits.length == 0) {
+        x.point = 0;
+    }
+}
+
+/// decimal.ToString("G{precision}"); precision 0 is ToString() (the scale kept).
+public fn formatGDecimal(d: Decimal, precision: i64) -> String {
+    if (precision <= 0) {
+        return formatDecimal(d);
+    }
+    var x = decimalDigits(d);
+    roundAway(mut x, precision);
+    var out = String.create();
+    appendGeneral(mut out, x, precision);
+    return out;
+}
+
+/// decimal.ToString("N{decimals}") or, with no group separator, "F{decimals}".
+public fn formatNDecimal(d: Decimal, decimals: i64, style: borrow NumberStyle) -> String {
+    var x = decimalDigits(d);
+    roundAway(mut x, x.point + decimals);
+    var body = String.create();
+    appendFixed(mut body, x, decimals, style);
+    var out = String.create();
+    if (!d.negative || x.digits.length == 0) {
+        return body;
+    }
+    let pattern = style.negativePattern;
+    let _ = out.append(if (pattern == 0) "(" else if (pattern == 1) "-" else if (pattern == 2) "- " else "");
+    let _ = out.append(body.view());
+    let _ = out.append(if (pattern == 0) ")" else if (pattern == 3) "-" else if (pattern == 4) " -" else "");
+    return out;
+}

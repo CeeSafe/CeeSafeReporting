@@ -1,0 +1,863 @@
+// SPDX-License-Identifier: MIT
+// A report's expressions, evaluated as CosmoReport's ExpressionEvaluator evaluates them. There is no arithmetic: a
+// text is literal parts and [..] parts (ExpressionParser), and an expression is resolved in this order: a system
+// variable (Page, TotalPages, Row#...), a parameter, a total, an aggregate (Sum(x)...), a function (FormatNumber,
+// FormatPercent, FormatCurrency, FormatDateTime, IIf, Choose), a data path ("Invoice.LineItems.Quantity", tried as
+// source "Invoice" and then as the longer and shorter sources the engine registers), and last any data source.
+// A function's arguments are quoted strings, numbers, true, false, null, comparisons (<= >= <> != == = < >) and
+// expressions.
+
+// ---- text segments ----------------------------------------------------------------------------------------------------
+
+/// A part of a text: literal, or an expression (what is between its brackets).
+public struct Segment {
+    public text: String;
+    public expression: bool;
+}
+
+/// Whether `text` has an expression: a '[' not followed by another (ExpressionParser.HasExpressions).
+public fn hasExpressions(text: StringView) -> bool {
+    let b = text.bytes();
+    if (b.length < 2) {
+        return false;
+    }
+    for (k in 0..b.length - 1) {
+        if (b[k] == '[' && b[k + 1] != '[') {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn segmentOf(b: Slice<u8>, expression: bool) -> Segment => Segment { text: stringOf(b), expression: expression };
+
+/// `text` split into its parts (ExpressionParser.Parse): "[[" and "]]" are literal brackets, brackets nest, and an
+/// unclosed '[' makes the rest literal.
+public fn parseSegments(text: StringView) -> Vector<Segment> {
+    var segments = Vector<Segment>.create();
+    let b = text.bytes();
+    var pos: usize = 0;
+    var start: usize = 0;
+    while (pos < b.length) {
+        if (b[pos] == '[') {
+            if (pos + 1 < b.length && b[pos + 1] == '[') {
+                if (pos > start) {
+                    let _ = segments.push(segmentOf(b[start..pos], false));
+                }
+                let _ = segments.push(segmentOf("[".bytes(), false));
+                pos += 2;
+                start = pos;
+                continue;
+            }
+            if (pos > start) {
+                let _ = segments.push(segmentOf(b[start..pos], false));
+            }
+            var depth = 1;
+            let exprStart = pos + 1;
+            pos += 1;
+            while (pos < b.length && depth > 0) {
+                if (b[pos] == '[') {
+                    depth += 1;
+                } else if (b[pos] == ']') {
+                    depth -= 1;
+                }
+                if (depth > 0) {
+                    pos += 1;
+                }
+            }
+            if (depth == 0) {
+                let _ = segments.push(segmentOf(b[exprStart..pos], true));
+                pos += 1;
+            } else {
+                let _ = segments.push(segmentOf(b[exprStart - 1..], false));
+                pos = b.length;
+            }
+            start = pos;
+        } else if (b[pos] == ']' && pos + 1 < b.length && b[pos + 1] == ']') {
+            if (pos > start) {
+                let _ = segments.push(segmentOf(b[start..pos], false));
+            }
+            let _ = segments.push(segmentOf("]".bytes(), false));
+            pos += 2;
+            start = pos;
+        } else {
+            pos += 1;
+        }
+    }
+    if (start < b.length) {
+        let _ = segments.push(segmentOf(b[start..], false));
+    }
+    return segments;
+}
+
+/// Whether `s` is one bracketed token: "[...]" whose first '[' closes at its end.
+fn isSingleBracketedToken(s: StringView) -> bool {
+    let b = s.bytes();
+    if (b.length < 2 || b[0] != '[' || b[b.length - 1] != ']') {
+        return false;
+    }
+    var depth = 0;
+    for (k in 0..b.length) {
+        if (b[k] == '[') {
+            depth += 1;
+        } else if (b[k] == ']') {
+            depth -= 1;
+            if (depth == 0 && k < b.length - 1) {
+                return false;
+            }
+        }
+    }
+    return depth == 0;
+}
+
+fn inner(s: StringView) -> StringView => StringView.fromUtf8(s.bytes()[1..s.bytes().length - 1]) ?? "";
+
+// ---- totals and aggregates --------------------------------------------------------------------------------------------
+
+/// A total's running state (ReportTotal's): what it has summed, counted, the least and greatest.
+public struct TotalState {
+    public hasValue: bool;
+    public sum: Decimal;
+    public count: i64;
+    public min: Decimal;
+    public max: Decimal;
+    public minDate: DateTime;
+    public maxDate: DateTime;
+    /// CountDistinct's values, as kind and text.
+    public distinct: Vector<String>;
+
+    public fn create() -> TotalState => TotalState {
+        hasValue: false,
+        sum: Decimal.zero(),
+        count: 0,
+        min: Decimal.zero(),
+        max: Decimal.zero(),
+        minDate: DateTime { year: 9999, month: 12, day: 31, hour: 23, minute: 59, second: 59, ticks: 9999999 },
+        maxDate: DateTime { year: 1, month: 1, day: 1, hour: 0, minute: 0, second: 0, ticks: 0 },
+        distinct: Vector<String>.create(),
+    };
+}
+
+fn dateKey(d: borrow DateTime) -> i64 =>
+    ((((d.year * 13 + d.month) * 32 + d.day) * 24 + d.hour) * 60 + d.minute) * 60 + d.second;
+
+/// ReportTotal.Add: a value of the total's rows, by its type (0 Sum, 1 Avg, 2 Min, 3 Max, 4 Count, 5 CountDistinct,
+/// 6 MinDate, 7 MaxDate).
+public fn addToTotal(state: borrow mut TotalState, totalType: i64, v: borrow Value) {
+    if (v.isNull()) {
+        return;
+    }
+    if (totalType == 6 || totalType == 7) {
+        if (v.kind == ValueKind.Date) {
+            if (totalType == 6 && dateKey(v.date) < dateKey(state.minDate)) {
+                state.minDate = v.date;
+            }
+            if (totalType == 7 && dateKey(v.date) > dateKey(state.maxDate)) {
+                state.maxDate = v.date;
+            }
+            state.hasValue = true;
+        }
+        return;
+    }
+    if (totalType == 4) {
+        state.count += 1;
+        state.hasValue = true;
+        return;
+    }
+    if (totalType == 5) {
+        var key = String.create();
+        appendInt(mut key, kindNumber(v.kind));
+        let _ = key.append(":");
+        let _ = key.append(v.text().view());
+        for (d in state.distinct.view()) {
+            if (d.view() == key.view()) {
+                state.hasValue = true;
+                return;
+            }
+        }
+        let _ = state.distinct.push(key);
+        state.hasValue = true;
+        return;
+    }
+    // TryToDecimal.
+    let d: Decimal? = match (v.kind) {
+        ValueKind.Decimal => v.dec,
+        ValueKind.Int => parseDecimal(v.text().view()),
+        ValueKind.Double => decimalFromDouble(v.d),
+        ValueKind.Bool => Decimal { lo: if (v.b) 1 else 0, hi: 0, scale: 0, negative: false },
+        ValueKind.Str => parseDecimal(v.s.view()),
+        _ => null,
+    };
+    match (d) {
+        Some(x) => {
+            if (totalType == 0 || totalType == 1) {
+                state.sum = addDecimal(state.sum, x) ?? state.sum;
+            } else if (totalType == 2) {
+                if (!state.hasValue || compareDecimal(x, state.min) < 0) {
+                    state.min = x;
+                }
+            } else if (totalType == 3) {
+                if (!state.hasValue || compareDecimal(x, state.max) > 0) {
+                    state.max = x;
+                }
+            }
+            state.count += 1;
+            state.hasValue = true;
+        }
+        null => {}
+    }
+}
+
+fn kindNumber(k: ValueKind) -> i64 => match (k) {
+    ValueKind.Null => 0,
+    ValueKind.Bool => 1,
+    ValueKind.Int => 2,
+    ValueKind.Double => 3,
+    ValueKind.Decimal => 4,
+    ValueKind.Str => 5,
+    ValueKind.Date => 6,
+    ValueKind.Bytes => 7,
+    ValueKind.Collection => 8,
+    ValueKind.Object => 9,
+};
+
+/// ReportTotal.Value.
+public fn totalValue(state: borrow TotalState, totalType: i64) -> Value {
+    if (totalType == 1) {
+        return Value.ofDecimal(if (state.count > 0) divideDecimal(state.sum, truncate<u64>(state.count)) else Decimal.zero());
+    }
+    if (totalType == 2) {
+        return Value.ofDecimal(if (state.hasValue) state.min else Decimal.zero());
+    }
+    if (totalType == 3) {
+        return Value.ofDecimal(if (state.hasValue) state.max else Decimal.zero());
+    }
+    if (totalType == 4) {
+        return Value.ofInt(state.count);
+    }
+    if (totalType == 5) {
+        return Value.ofInt(truncate<i64>(state.distinct.length));
+    }
+    if (totalType == 6) {
+        return Value.ofDate(state.minDate); // DateTime.MaxValue when it has none
+    }
+    if (totalType == 7) {
+        return Value.ofDate(state.maxDate); // DateTime.MinValue when it has none
+    }
+    return Value.ofDecimal(state.sum);
+}
+
+/// An aggregate's running state (AggregateTracker's), for one band and expression.
+public struct AggregateState {
+    public key: String;
+    public count: i64;
+    public sum: f64;
+    public sumOfSquares: f64;
+    public min: f64;
+    public max: f64;
+    public first: Value;
+    public last: Value;
+}
+
+// ---- the evaluator ----------------------------------------------------------------------------------------------------
+
+/// What an evaluation reads besides the data: the page and row numbers, the totals' and aggregates' states.
+public struct EvalState {
+    public pageNo: i64;
+    public totalPages: i64;
+    public rowNo: i64;
+    public level: i64;
+    /// What [Date] and [Time] are (DateTime.Now when the report runs).
+    public now: DateTime;
+    public reportName: String;
+    /// One per total of the report, in its order.
+    public totals: Vector<TotalState>;
+    public aggregates: Vector<AggregateState>;
+
+    public fn create(report: borrow Report) -> EvalState {
+        var totals = Vector<TotalState>.create();
+        for (t in report.totals.view()) {
+            let _ = totals.push(TotalState.create());
+        }
+        return EvalState {
+            pageNo: 0,
+            totalPages: 0,
+            rowNo: 0,
+            level: 0,
+            now: DateTime { year: 1, month: 1, day: 1, hour: 0, minute: 0, second: 0, ticks: 0 },
+            reportName: String.create(),
+            totals: totals,
+            aggregates: Vector<AggregateState>.create(),
+        };
+    }
+}
+
+const AGGREGATES: [StringView; 11] = ["Sum", "Count", "Avg", "Min", "Max", "First", "Last", "StDevP", "StDev", "VarP", "Var"];
+
+/// An expression's evaluator over a report, its data and the running state.
+public struct Evaluator<region r> {
+    report: borrow(r) Report;
+    data: borrow(r) DataSet;
+    state: borrow(r) EvalState;
+
+    public fn of(report: borrow(r) Report, data: borrow(r) DataSet, state: borrow(r) EvalState) -> Evaluator<r> =>
+        Evaluator { report: report, data: data, state: state };
+
+    /// ExpressionEvaluator.Evaluate.
+    public fn evaluate(borrow this, expression: StringView) -> Value {
+        var e = trimmed(expression);
+        if (e.length == 0) {
+            return Value.none();
+        }
+        if (isSingleBracketedToken(e)) {
+            e = inner(e);
+        }
+        // System variables, their case not minded.
+        let s = this.state;
+        if (sameIgnoringCase(e, "Page") || sameIgnoringCase(e, "Page#") || sameIgnoringCase(e, "PageN")) {
+            return Value.ofInt(s.pageNo);
+        }
+        if (sameIgnoringCase(e, "TotalPages") || sameIgnoringCase(e, "TotalPages#")) {
+            return Value.ofInt(s.totalPages);
+        }
+        if (sameIgnoringCase(e, "PageNofM")) {
+            var t = String.create();
+            let _ = t.append("Page ");
+            appendInt(mut t, s.pageNo);
+            let _ = t.append(" of ");
+            appendInt(mut t, s.totalPages);
+            return Value.ofStr(t.view());
+        }
+        if (sameIgnoringCase(e, "Date") || sameIgnoringCase(e, "Time")) {
+            return Value.ofDate(s.now);
+        }
+        if (sameIgnoringCase(e, "ReportName")) {
+            return Value.ofStr(s.reportName.view());
+        }
+        if (sameIgnoringCase(e, "Row#")) {
+            return Value.ofInt(s.rowNo);
+        }
+        if (sameIgnoringCase(e, "Level")) {
+            return Value.ofInt(s.level);
+        }
+        // Parameters.
+        for (k in 0..this.report.parameterNames.length) {
+            if (this.report.parameterNames[k].view() == e && !this.report.parameterValues[k].isNull()) {
+                return this.report.parameterValues[k].clone();
+            }
+        }
+        // Totals.
+        for (k in 0..this.report.totals.length) {
+            let t = borrow this.report.totals[k];
+            if (t.name.view() == e) {
+                let st = borrow this.state.totals[k];
+                if (!st.hasValue && t.nullSubstitute.view().length > 0) {
+                    return Value.ofStr(t.nullSubstitute.view());
+                }
+                return totalValue(st, t.totalType);
+            }
+        }
+        // Aggregates: Name(expr).
+        match (this.aggregate(e)) {
+            Some(v) => { return v; }
+            null => {}
+        }
+        match (this.function(e)) {
+            Some(v) => { return v; }
+            null => {}
+        }
+        // Data paths.
+        let b = e.bytes();
+        var dot: usize? = null;
+        for (k in 0..b.length) {
+            if (b[k] == '.') {
+                dot = k;
+                break;
+            }
+        }
+        match (dot) {
+            Some(d) => {
+                if (d > 0) {
+                    let sourceName = StringView.fromUtf8(b[0..d]) ?? "";
+                    let column = StringView.fromUtf8(b[d + 1..]) ?? "";
+                    match (this.data.find(sourceName)) {
+                        Some(src) => {
+                            let v = this.data.value(src, column);
+                            if (!v.isNull() && v.kind != ValueKind.Collection) {
+                                return v;
+                            }
+                        }
+                        null => {}
+                    }
+                    // Longer prefixes as sources: the whole prefix, it without its root, its last part.
+                    var previous = d;
+                    for (i in d + 1..b.length) {
+                        if (b[i] == '.') {
+                            let shorter = StringView.fromUtf8(b[i + 1..]) ?? "";
+                            let candidates: [StringView; 3] = [
+                                StringView.fromUtf8(b[0..i]) ?? "",
+                                StringView.fromUtf8(b[d + 1..i]) ?? "",
+                                StringView.fromUtf8(b[previous + 1..i]) ?? "",
+                            ];
+                            for (c in candidates) {
+                                match (this.data.find(c)) {
+                                    Some(src) => {
+                                        let v = this.data.value(src, shorter);
+                                        if (!v.isNull()) {
+                                            return v;
+                                        }
+                                    }
+                                    null => {}
+                                }
+                            }
+                            previous = i;
+                        }
+                    }
+                }
+            }
+            null => {}
+        }
+        // Any data source, the expression a column of it.
+        for (k in 0..this.data.sources.length) {
+            let v = this.data.value(k, e);
+            if (!v.isNull()) {
+                return v;
+            }
+        }
+        return Value.none();
+    }
+
+    /// Sum(x), Count(x)... (AggregateFunctionRegex, its case not minded), as FindAggregateValue finds a band's.
+    fn aggregate(borrow this, e: StringView) -> Value? {
+        let b = e.bytes();
+        if (b.length == 0 || b[b.length - 1] != ')') {
+            return null;
+        }
+        for (name in AGGREGATES) {
+            let n = name.bytes().length;
+            if (b.length > n + 2 && b[n] == '(' && sameIgnoringCase(StringView.fromUtf8(b[0..n]) ?? "", name)) {
+                let innerExpression = StringView.fromUtf8(b[n + 1..b.length - 1]) ?? "";
+                return this.aggregateValue(name, innerExpression);
+            }
+        }
+        return null;
+    }
+
+    fn aggregateOf(borrow this, band: StringView, expression: StringView) -> borrow(this) AggregateState? {
+        for (a in this.state.aggregates.view()) {
+            let k = a.key.bytes();
+            let bb = band.bytes();
+            if (k.length == bb.length + 1 + expression.bytes().length && (StringView.fromUtf8(k[0..bb.length]) ?? "") == band &&
+                k[bb.length] == '.' && (StringView.fromUtf8(k[bb.length + 1..]) ?? "") == expression) {
+                return a;
+            }
+        }
+        return null;
+    }
+
+    fn aggregateFor(borrow this, name: StringView, band: StringView, expression: StringView) -> Value {
+        let found = this.aggregateOf(band, expression);
+        let isCount = name == "Count";
+        let isFirstLast = name == "First" || name == "Last";
+        match (found) {
+            Some(s) => {
+                if (isCount) {
+                    return Value.ofInt(s.count);
+                }
+                if (name == "First") {
+                    return s.first.clone();
+                }
+                if (name == "Last") {
+                    return s.last.clone();
+                }
+                let n = round<f64>(s.count);
+                let mean = if (s.count > 0) s.sum / n else 0.0;
+                let ss = s.sumOfSquares - 2.0 * mean * s.sum + n * mean * mean;
+                let v = if (name == "Sum") s.sum else if (name == "Avg") (if (s.count > 0) s.sum / n else 0.0)
+                    else if (name == "Min") s.min else if (name == "Max") s.max
+                    else if (name == "Var") (if (s.count < 2) 0.0 else ss / (n - 1.0))
+                    else if (name == "VarP") (if (s.count < 1) 0.0 else ss / n)
+                    else if (name == "StDev") (if (s.count < 2) 0.0 else (ss / (n - 1.0)).sqrt())
+                    else (if (s.count < 1) 0.0 else (ss / n).sqrt());
+                return Value.ofDouble(v);
+            }
+            null => {
+                return if (isCount) Value.ofInt(0) else if (isFirstLast) Value.none() else Value.ofDouble(0.0);
+            }
+        }
+    }
+
+    fn aggregateValue(borrow this, name: StringView, expression: StringView) -> Value {
+        // Each data source's name as the band's, a zero or null meaning none; then "*".
+        for (src in this.data.sources.view()) {
+            let v = this.aggregateFor(name, src.name.view(), expression);
+            let none = v.isNull() || (v.kind == ValueKind.Double && v.d == 0.0) || (v.kind == ValueKind.Int && v.i == 0);
+            if (!none) {
+                return v;
+            }
+        }
+        return this.aggregateFor(name, "*", expression);
+    }
+
+    /// FormatNumber, FormatPercent, FormatCurrency, FormatDateTime, IIf and Choose (TryEvaluateFunction).
+    fn function(borrow this, e: StringView) -> Value? {
+        let b = e.bytes();
+        var open: usize = 0;
+        while (open < b.length && b[open] != '(') {
+            open += 1;
+        }
+        if (open == 0 || open >= b.length || b[b.length - 1] != ')') {
+            return null;
+        }
+        let name = trimmed(StringView.fromUtf8(b[0..open]) ?? "");
+        if (!isIdentifier(name) || !parenSpansToEnd(b, open)) {
+            return null;
+        }
+        let args = splitArguments(StringView.fromUtf8(b[open + 1..b.length - 1]) ?? "");
+        if (sameIgnoringCase(name, "FormatNumber") || sameIgnoringCase(name, "FormatCurrency")) {
+            if (args.length < 1) {
+                return Value.none();
+            }
+            let v = this.argument(args[0].view());
+            let digits = if (args.length >= 2) toInt(this.argument(args[1].view()), 2) else 2;
+            if (v.isNull()) {
+                return Value.ofStr("");
+            }
+            let x = toDouble(v);
+            return Value.ofString(if (sameIgnoringCase(name, "FormatNumber")) formatN(x, digits, NumberStyle.invariant())
+                else formatC(x, digits, CurrencyStyle.invariant()));
+        }
+        if (sameIgnoringCase(name, "FormatPercent")) {
+            if (args.length < 1) {
+                return Value.none();
+            }
+            let v = this.argument(args[0].view());
+            let digits = if (args.length >= 2) toInt(this.argument(args[1].view()), 0) else 0;
+            if (v.isNull()) {
+                return Value.ofStr("");
+            }
+            var t = formatN(toDouble(v) * 100.0, digits, NumberStyle.invariant());
+            let _ = t.append("%");
+            return Value.ofString(t);
+        }
+        if (sameIgnoringCase(name, "FormatDateTime")) {
+            if (args.length < 1) {
+                return Value.none();
+            }
+            let v = this.argument(args[0].view());
+            if (v.isNull()) {
+                return Value.ofStr("");
+            }
+            let format = if (args.length >= 2) this.argument(args[1].view()).text() else copyOf("g");
+            if (v.kind == ValueKind.Date) {
+                return Value.ofString(formatDateTime(v.date, format.view()));
+            }
+            return match (parseDateTime(v.text().view())) {
+                Some(dt) => Value.ofString(formatDateTime(dt, format.view())),
+                null => Value.ofString(v.text()),
+            };
+        }
+        if (sameIgnoringCase(name, "IIf")) {
+            if (args.length != 3) {
+                return Value.none();
+            }
+            return if (toBool(this.argument(args[0].view()))) this.argument(args[1].view()) else this.argument(args[2].view());
+        }
+        if (sameIgnoringCase(name, "Choose")) {
+            if (args.length < 2) {
+                return Value.none();
+            }
+            let index = toInt(this.argument(args[0].view()), 0);
+            if (index < 1 || index > truncate<i64>(args.length) - 1) {
+                return Value.none();
+            }
+            return this.argument(args[truncate<usize>(index)].view());
+        }
+        return null;
+    }
+
+    /// EvaluateArgument: a quoted string, a bracketed expression, a number, true, false, null, a comparison, or an
+    /// expression.
+    fn argument(borrow this, raw: StringView) -> Value {
+        let a = trimmed(raw);
+        let b = a.bytes();
+        if (b.length == 0) {
+            return Value.none();
+        }
+        if (b.length >= 2 && (b[0] == '"' || b[0] == 0x27) && b[b.length - 1] == b[0]) {
+            return Value.ofStr(inner(a));
+        }
+        if (isSingleBracketedToken(a)) {
+            return this.evaluate(inner(a));
+        }
+        match (parseNumberAny(a)) {
+            Some(n) => { return Value.ofDouble(n); }
+            null => {}
+        }
+        if (sameIgnoringCase(a, "true")) {
+            return Value.ofBool(true);
+        }
+        if (sameIgnoringCase(a, "false")) {
+            return Value.ofBool(false);
+        }
+        if (sameIgnoringCase(a, "null")) {
+            return Value.none();
+        }
+        match (findOperator(b)) {
+            Some(found) => {
+                let left = this.argument(StringView.fromUtf8(b[0..found.at]) ?? "");
+                let right = this.argument(StringView.fromUtf8(b[found.at + found.op.bytes().length..]) ?? "");
+                return Value.ofBool(compare(left, right, found.op));
+            }
+            null => {}
+        }
+        return this.evaluate(a);
+    }
+
+    /// EvaluateBool.
+    public fn evaluateBool(borrow this, expression: StringView) -> bool => toBool(this.argument(expression));
+
+    /// ProcessText: the text with its expressions' values, `format` applied to a single expression's value, and to
+    /// each value but a string's where there are more parts.
+    public fn processText(borrow this, text: StringView, format: borrow Format) -> String {
+        if (!hasExpressions(text)) {
+            return copyOf(text);
+        }
+        let segments = parseSegments(text);
+        if (segments.length == 1 && segments[0].expression) {
+            let v = this.evaluate(segments[0].text.view());
+            return if (format.kind != FormatKind.None) formatValue(format, v) else v.text();
+        }
+        var out = String.create();
+        for (s in segments.view()) {
+            if (s.expression) {
+                let v = this.evaluate(s.text.view());
+                let piece = if (format.kind != FormatKind.None && !v.isNull() && v.kind != ValueKind.Str) formatValue(format, v)
+                    else v.text();
+                let _ = out.append(piece.view());
+            } else {
+                let _ = out.append(s.text.view());
+            }
+        }
+        return out;
+    }
+}
+
+/// An operator found at the top level of a comparison.
+struct Found<region r> {
+    op: StringView<r>;
+    at: usize;
+}
+
+/// The first comparison operator outside quotes, parentheses and brackets, the longer ones first at each place.
+fn findOperator(b: Slice<u8>) -> Found<static>? {
+    let operators: [StringView; 8] = ["<=", ">=", "<>", "!=", "==", "=", "<", ">"];
+    var parens = 0;
+    var brackets = 0;
+    var quote: u8 = 0;
+    for (i in 0..b.length) {
+        let c = b[i];
+        if (quote != 0) {
+            if (c == quote) {
+                quote = 0;
+            }
+            continue;
+        }
+        if (c == '"' || c == 0x27) {
+            quote = c;
+            continue;
+        }
+        if (c == '(') {
+            parens += 1;
+            continue;
+        }
+        if (c == ')') {
+            parens -= 1;
+            continue;
+        }
+        if (c == '[') {
+            brackets += 1;
+            continue;
+        }
+        if (c == ']') {
+            brackets -= 1;
+            continue;
+        }
+        if (parens != 0 || brackets != 0) {
+            continue;
+        }
+        for (op in operators) {
+            let o = op.bytes();
+            if (i + o.length <= b.length) {
+                var same = true;
+                for (j in 0..o.length) {
+                    if (b[i + j] != o[j]) {
+                        same = false;
+                    }
+                }
+                if (same) {
+                    return Found { op: op, at: i };
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/// Compare: null only equal to null; numbers as doubles; else the texts, ordinal.
+fn compare(a: borrow Value, b: borrow Value, op: StringView) -> bool {
+    if (a.isNull() || b.isNull()) {
+        let both = a.isNull() && b.isNull();
+        return if (op == "=" || op == "==") both else if (op == "<>" || op == "!=") !both else false;
+    }
+    match (a.toDouble()) {
+        Some(x) => {
+            match (b.toDouble()) {
+                Some(y) => {
+                    return if (op == "=" || op == "==") x == y else if (op == "<>" || op == "!=") x != y
+                        else if (op == "<") x < y else if (op == ">") x > y else if (op == "<=") x <= y
+                        else if (op == ">=") x >= y else false;
+                }
+                null => {}
+            }
+        }
+        null => {}
+    }
+    let sa = a.text();
+    let sb = b.text();
+    let c = ordinalCompare(sa.view(), sb.view());
+    return if (op == "=" || op == "==") c == 0 else if (op == "<>" || op == "!=") c != 0 else if (op == "<") c < 0
+        else if (op == ">") c > 0 else if (op == "<=") c <= 0 else if (op == ">=") c >= 0 else false;
+}
+
+/// string.Compare ordinal on UTF-16: for the texts reports compare, byte order of UTF-8 is the same but for
+/// characters past U+FFFF against U+E000 to U+FFFF.
+fn ordinalCompare(a: StringView, b: StringView) -> i32 {
+    let x = a.bytes();
+    let y = b.bytes();
+    for (k in 0..x.length.min(y.length)) {
+        if (x[k] != y[k]) {
+            return if (x[k] < y[k]) -1 else 1;
+        }
+    }
+    return if (x.length < y.length) -1 else if (x.length > y.length) 1 else 0;
+}
+
+/// ToDouble: IConvertible's, 0 when it has none.
+fn toDouble(v: borrow Value) -> f64 => v.toDouble() ?? 0.0;
+
+/// ToInt: IConvertible.ToInt32 (a double or decimal rounded half to even), `otherwise` for null.
+fn toInt(v: borrow Value, otherwise: i64) -> i64 => match (v.kind) {
+    ValueKind.Null => otherwise,
+    ValueKind.Int => v.i,
+    ValueKind.Bool => if (v.b) 1 else 0,
+    ValueKind.Double => roundHalfEven(v.d),
+    ValueKind.Decimal => roundHalfEven(decimalToDouble(v.dec)),
+    ValueKind.Str => parseInt(v.s.view()) ?? otherwise,
+    _ => otherwise,
+};
+
+fn roundHalfEven(x: f64) -> i64 {
+    let f = x.floor();
+    let rest = x - f;
+    let n = truncate<i64>(f);
+    return if (rest > 0.5 || (rest == 0.5 && n % 2 != 0)) n + 1 else n;
+}
+
+/// ToBool: a bool, a number not zero, a string "true"; false otherwise.
+fn toBool(v: borrow Value) -> bool => match (v.kind) {
+    ValueKind.Bool => v.b,
+    ValueKind.Int => v.i != 0,
+    ValueKind.Double => v.d != 0.0,
+    ValueKind.Decimal => !v.dec.isZero(),
+    ValueKind.Str => sameIgnoringCase(trimmed(v.s.view()), "true"),
+    ValueKind.Null => false,
+    _ => true,
+};
+
+fn isIdentifier(s: StringView) -> bool {
+    let b = s.bytes();
+    if (b.length == 0) {
+        return false;
+    }
+    let first = b[0];
+    if (!((first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') || first == '_' || first >= 0x80)) {
+        return false;
+    }
+    for (c in b) {
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c >= 0x80)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Whether the parenthesis at `open` closes at the end.
+fn parenSpansToEnd(b: Slice<u8>, open: usize) -> bool {
+    var depth = 0;
+    var quote: u8 = 0;
+    for (i in open..b.length) {
+        let c = b[i];
+        if (quote != 0) {
+            if (c == quote) {
+                quote = 0;
+            }
+            continue;
+        }
+        if (c == '"' || c == 0x27) {
+            quote = c;
+            continue;
+        }
+        if (c == '(') {
+            depth += 1;
+        } else if (c == ')') {
+            depth -= 1;
+            if (depth == 0) {
+                return i == b.length - 1;
+            }
+        }
+    }
+    return false;
+}
+
+/// A function's arguments, split at the commas outside quotes, parentheses and brackets, each trimmed.
+fn splitArguments(input: StringView) -> Vector<String> {
+    var args = Vector<String>.create();
+    let b = input.bytes();
+    if (b.length == 0) {
+        return args;
+    }
+    var current = Vector<u8>.create();
+    var parens = 0;
+    var brackets = 0;
+    var quote: u8 = 0;
+    for (c in b) {
+        if (quote != 0) {
+            let _ = current.push(c);
+            if (c == quote) {
+                quote = 0;
+            }
+            continue;
+        }
+        if (c == '"' || c == 0x27) {
+            quote = c;
+        } else if (c == '(') {
+            parens += 1;
+        } else if (c == ')') {
+            parens -= 1;
+        } else if (c == '[') {
+            brackets += 1;
+        } else if (c == ']') {
+            brackets -= 1;
+        } else if (c == ',' && parens == 0 && brackets == 0) {
+            let _ = args.push(copyOf(trimmed(StringView.fromUtf8(current.view()) ?? "")));
+            current.clear();
+            continue;
+        }
+        let _ = current.push(c);
+    }
+    if (current.length > 0) {
+        let _ = args.push(copyOf(trimmed(StringView.fromUtf8(current.view()) ?? "")));
+    }
+    return args;
+}

@@ -2,7 +2,8 @@
 // A report's data: JSON documents registered under names, as CosmoReport's RegisterData registers the server's typed
 // objects. A value is typed by the report's Dictionary (each Column's DataType: System.Decimal, System.DateTime...),
 // so the JSON of an invoice prints as its C# object does: a decimal keeps "12.50", a date is a DateTime for a date
-// format. A path resolves as BusinessObjectDataSource.ResolvePropertyPath does: member by member, the case of a
+// format. A number the Dictionary does not type is a decimal when it has a point (the server's objects hold money as
+// decimals), an integer when it has none. A path resolves as BusinessObjectDataSource.ResolvePropertyPath does: member by member, the case of a
 // member's name not minded. A collection (LineItems) becomes a data source of its own over its parent's current row,
 // registered under its name, as the engine's ResolveChildCollection does.
 
@@ -79,6 +80,13 @@ public struct Value {
     public fn ofStr(v: StringView) -> Value {
         var x = Value.of(ValueKind.Str);
         x.s = copyOf(v);
+        return x;
+    }
+
+    /// A string value that takes `v`.
+    public fn ofString(v: String) -> Value {
+        var x = Value.of(ValueKind.Str);
+        x.s = v;
         return x;
     }
 
@@ -397,6 +405,10 @@ public struct DataSet {
                 null => null,
             };
         }
+        // Else by the Dictionary's source of its name (a report may list LineItems beside Header, not in it).
+        if (schemaAt == null) {
+            schemaAt = this.schema.root(registerName);
+        }
         this.put(DataSource { name: copyOf(registerName), doc: list.doc, rows: rows, current: 0, schema: schemaAt });
         return this.find(registerName);
     }
@@ -459,11 +471,24 @@ fn typed(doc: borrow JsonDoc, docIndex: usize, node: usize, dataType: StringView
     } else if (kind == "String" || kind.length > 0) {
         return Value.ofStr(t);
     }
-    // No type: as JsonDataSource reads it.
+    // No type: a whole number is an integer; one with a point a decimal, its scale kept, as the server's object holds
+    // a price (where JsonDataSource would read a double and drop "507.50"'s zero); one with an exponent a double.
     if (n.kind == JsonKind.Number) {
         match (parseInt(t)) {
             Some(i) => { return Value.ofInt(i); }
             null => {}
+        }
+        var exponent = false;
+        for (c in t.bytes()) {
+            if (c == 'e' || c == 'E') {
+                exponent = true;
+            }
+        }
+        if (!exponent) {
+            match (parseDecimal(t)) {
+                Some(d) => { return Value.ofDecimal(d); }
+                null => {}
+            }
         }
         return Value.ofDouble(NumberParsing.parseF64(t.bytes()) ?? 0.0);
     }

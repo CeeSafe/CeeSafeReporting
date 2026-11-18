@@ -1,0 +1,54 @@
+[FormatNumber([Header.NetAmount], 3)] => 10,559.470
+[FormatNumber([Header.CustomerBalance])] => -125.50
+[FormatNumber([Header.Nope])] => 
+[FormatCurrency([Header.NetAmount])] => ¤10,559.47
+[FormatCurrency([Header.CustomerBalance], 1)] => (¤125.5)
+[FormatPercent([Header.TaxPercent])] => 15%
+[FormatPercent([LineItems.TaxPercent], 2)] => 15.00%
+[FormatDateTime([Header.TransactionDate], "dd MMM yyyy")] => 18 Nov 2026
+[FormatDateTime([Header.TransactionDate])] => 11/18/2026 14:15
+[FormatDateTime([Header.PaymentDueDate], 'yyyy-MM-dd HH:mm')] => 2026-12-18 14:15
+[IIf([Header.Discount] > 0, "discount", "no discount")] => no discount
+[IIf([Header.CustomerBalance] < 0, "Credit", "Debit")] => Credit
+[IIf([Header.CustomerName] == "شركة الأمل التجارية", "same", "other")] => same
+[IIf([Header.CustomerName] <> "x", [Header.CustomerID], [Header.UserName])] => CUST-001
+[IIf([Header.Notes] = null, "none", "some")] => some
+[IIf([Header.Nope] = null, "none", "some")] => none
+[IIf([LineItems.Quantity] >= 4, "many", "few")] => few
+[Choose(2, "a", "b", "c")] => b
+[Choose([Header.BranchID], "Main", "Second")] => Main
+[Choose(5, "a", "b")] => 
+Page [Page#] of [TotalPages#]: [PageNofM] => Page 2 of 3: Page 2 of 3
+[Row#] [Level] => 4 0
+[[literal]] and [[[Header.UserName]]] => [literal] and [admin]
+[Parameter] => 
+[LineItems.Quantity] x [LineItems.SalesPrice] = [LineItems.AmountWithTax] => 3 x 150.00 = 507.50
+[Header.LineItems.ItemName] => خلاط مولينكس
+[Invoice.LineItems.ItemName] => خلاط مولينكس
+[ItemName] => خلاط مولينكس
+[Header.Customer.CreditLimit] / [Header.customer.creditperiod] => 5000 / 30
+[Header.LineItems] => 
+[Sum(LineItems.Quantity)] [Count(LineItems.Quantity)] [First(x)] => 0 0 
+[Nope] [Header.Nope] =>  
+unclosed [Header.UserName => unclosed [Header.UserName
+[ Header.UserName ] => admin
+[Header.TransactionDate] [Header.ExpiryDate] => 11/18/2026 14:15:00 
+[Header.CustomerBalance] [Header.TotalAmount] [Header.BranchID] => -125.5 9182.15 1
+fmt #,##0.00 | [Header.NetAmount] => 10,559.47
+fmt 0.### | [LineItems.SalesPrice] => 150
+fmt #,# | [Header.CashAmount] => 10,000
+fmt 0000 | [Header.BranchID] => 0001
+fmt #.00 | [LineItems.TaxPercent] => .15
+fmt 0% | [LineItems.TaxPercent] => 15%
+fmt "SAR "#,##0.00 | [Header.CustomerBalance] => -SAR 125.50
+fmt N3 | [Header.NetAmount] => 10,559.470
+fmt F1 | [LineItems.SalesPrice] => 150.0
+fmt G | [LineItems.SalesPrice] => 150.00
+fmt G3 | [Header.NetAmount] => 1.06E+04
+fmt D5 | [Header.BranchID] => 00001
+fmt N0 | [Header.BranchID] => 1
+fmt C | [Header.NetAmount] => ¤10,559.47
+fmt P1 | [LineItems.TaxPercent] => 15.0 %
+fmt dd/MM/yyyy | [Header.TransactionDate] => 18/11/2026
+fmt G29 | [Header.CustomerName] => شركة الأمل التجارية
+fmt 0.00 | [Header.Notes] => شكراً لتعاملكم معنا

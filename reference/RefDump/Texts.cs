@@ -2,9 +2,13 @@
 // scale, and the computed properties (AmountWithTax, ItemDetailsCount...) are written with the rest.
 // `texts <frx> <json> <name>`: the JSON read into the sample's classes and registered under <name> as the server does
 // (RegisterData), the data source on its first row, and every text, table cell and barcode of the report as
-// CosmoReport's evaluator makes it (EvaluateObject: ProcessText(Text, Format)), one per line: name | text.
+// CosmoReport's evaluator makes it (EvaluateObject: ProcessText(Text, Format)), one per line: name | text. Then again
+// for each line item current ("# LineItems <k>"), the list made a data source as the engine makes it
+// (ResolveChildCollection), and for an item with details, its first detail current too.
 
+using System.Reflection;
 using System.Text;
+using FastReport.Engine;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using FastReport;
@@ -101,12 +105,59 @@ static class Texts
         report.GetDataSource(name)!.First();
         var evaluator = new ExpressionEvaluator(report) { PageNo = 1, TotalPages = 1, RowNo = 1 };
         var o = new StringBuilder();
+        All(report, evaluator, o);
+        var engine = new ReportEngine(report);
+        var resolve = typeof(ReportEngine).GetMethod("ResolveChildCollection", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        for (int k = 0; k < invoice.LineItems.Count; k++)
+        {
+            var items = (FastReport.Data.DataSourceBase)resolve.Invoke(engine, [name, "LineItems", "LineItems"])!;
+            for (int j = 0; j < k; j++) items.Next();
+            o.Append($"# LineItems {k}\n");
+            if (invoice.LineItems[k].ItemDetails.Count > 0)
+                resolve.Invoke(engine, ["LineItems", "ItemDetails", "ItemDetails"]);
+            All(report, evaluator, o);
+        }
+        return o.ToString();
+    }
+
+    // `exprs <frx> <json> <name> <list>`: each line of <list> evaluated (ProcessText) with line item 3 current; a line
+    // "fmt <format> | <text>" with a CustomFormat of <format>. One per line: the line, " => ", the text.
+    public static string Expressions(string frx, string jsonPath, string name, string listPath)
+    {
+        var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
+        var report = new Report();
+        report.Load(frx);
+        report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
+        report.GetDataSource(name)!.First();
+        var evaluator = new ExpressionEvaluator(report) { PageNo = 2, TotalPages = 3, RowNo = 4 };
+        var engine = new ReportEngine(report);
+        var resolve = typeof(ReportEngine).GetMethod("ResolveChildCollection", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var items = (FastReport.Data.DataSourceBase)resolve.Invoke(engine, [name, "LineItems", "LineItems"])!;
+        for (int j = 0; j < 3; j++) items.Next();
+        var o = new StringBuilder();
+        foreach (var line in File.ReadAllLines(listPath))
+        {
+            string text;
+            if (line.StartsWith("fmt "))
+            {
+                var bar = line.IndexOf(" | ");
+                var format = new FastReport.Format.CustomFormat { FormatString = line[4..bar] };
+                text = evaluator.ProcessText(line[(bar + 3)..], format);
+            }
+            else
+                text = evaluator.ProcessText(line);
+            o.Append($"{line} => {Escape(text)}\n");
+        }
+        return o.ToString();
+    }
+
+    static void All(Report report, ExpressionEvaluator evaluator, StringBuilder o)
+    {
         foreach (var p in report.Pages)
             if (p is ReportPage page)
                 foreach (var b in page.Bands)
                     if (b is ReportComponentBase c)
                         Walk(c, evaluator, o);
-        return o.ToString();
     }
 
     static string Escape(string s) => s.Replace("\\", "\\\\").Replace("\n", "\\n").Replace("\r", "\\r");

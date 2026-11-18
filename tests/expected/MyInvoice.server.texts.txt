@@ -143,3 +143,1025 @@ Text17 | العدد
 Text19 | الإجمالي
 Text21 | بيان
 Text36 | 
+# LineItems 0
+Text10 | مؤسسة الغوباشي للأجهزة المنزلية
+Text12 | شارع الملك فهد، حي الشفا
+Text14 | ص.ب 1234 الرمز البريدي 12345
+Text16 | الرياض، المملكة العربية السعودية
+Text18 | الرقم الضريبي: 300753467100003
+Text20 | فاتورة ضريبية
+Text35 | الفرع الرئيسي
+Text30 | Al Khubashi Home Appliances
+Text31 | Al Bahah, Shafi Street
+Text32 | P.O. Box 116  Fax: 017-7251518
+Text33 | Tel: 017-7251517 Fax: 017-7251518
+Text34 | VAT: 300753467100003
+Text41 |  صفحة Page 1 / 1
+Text66 | #
+Cell59 | رقم مستند Doc No
+Cell76 | تاريخ التوريد  Delivery
+Cell60 | الوقت Time
+Cell61 | الموافق Hijri
+Cell62 | التاريخ Date
+Cell63 | رقم الفاتورة # Invoice
+Cell65 | DOC-2026-001
+Cell77 | 2026/12/18
+Cell66 | 14:15
+Cell67 | 
+Cell68 | 2026/11/18
+Cell69 | 1-C-TEST-001
+Text73 | Item Description
+Text74 | Quantity
+Text75 | Price
+Text76 | Total w/VAT
+Text78 | %
+Text79 | SAR
+Text80 | Total
+Text62 | وصف الصنف
+Text63 | الكمية
+Text64 | السعر
+Text69 | Tax   الضريبة
+Text70 | المجموع
+Text65 | الإجمالي
+Text87 | 0500000000
+Text88 | CUST-001
+Text89 |  300000000000003
+Text90 | شركة الأمل التجارية
+Text91 | Address:
+Text92 | العنوان:
+Text93 | الرياض، شارع العليا
+Text82 | رقم الهاتف Telephone
+Text83 | رقم الحساب Customer ID
+Text84 | الرقم الضريبي للعميل Customer VAT
+Text85 | Customer Name اسم العميل 
+Text98 | Unit
+Text99 | الوحدة
+Text100 | Discount
+Text101 | خصم
+Text104 | Net Amount
+Text105 | الصافي
+Text9 | 1
+Text1 | غسالة سامسونج 8 كيلو
+Text61 | 2.00
+Text5 | 1,500.00
+Text7 | 3,450.00
+Text39 | ITEM-001
+Text46 | 15%
+Text47 | 450.00
+Text60 | 3,000.00
+Text102 | 0
+Text103 | PCE
+Text106 | 3,000.00
+Text107 | 0.00
+Text108 | 0.00
+Text110 | 0.00
+Text111 | 0.00
+Text112 | 0.00
+Text113 | 0.00
+Text114 | Total الإجمالي
+Cell83 | Net Amount (SAR 10,559.47) الصافي 
+Cell30 | 
+Cell129 | 
+Cell31 | 
+Cell139 | Payment Terms
+Cell134 | شروط الدفع
+Cell78 | Sub Total:
+Cell32 | 9182.15
+Cell33 | المجموع الفرعي:
+Cell84 | 
+Cell35 | 
+Cell130 | 
+Cell36 | 
+Cell140 | 
+Cell135 | 
+Cell79 | Discount:
+Cell37 | 0
+Cell38 | الخصم:
+Cell85 | Cash:
+Cell40 | 10000.00
+Cell131 | Cash
+Cell41 | نقداً:
+Cell141 | 
+Cell136 | 
+Cell80 | Net Amount:
+Cell42 | 9182.15
+Cell43 | صافي المبلغ:
+Cell86 | فاتورة
+Cell51 | 559.47
+Cell132 | Span
+Cell52 | شبكة:
+Cell142 | 
+Cell137 | 
+Cell81 | VAT 15%:
+Cell53 | 1377.32
+Cell54 | الضريبة  15%:
+Cell87 | Customer Due:
+Cell55 | 0
+Cell133 | على العميل
+Cell56 | آجل:
+Cell143 | 
+Cell138 | 
+Cell82 | Net Payable:
+Cell57 | 10559.47
+Cell58 | الإجمالي:
+Text37 | 
+Cell44 | Credit دائن
+Cell45 | (125.50)
+Cell46 | رصيد حساب العميل Account Balance
+Text23 | اسم الموظف: admin
+Text71 | المستلم: Received By
+Barcode1 | QR_PLACEHOLDER_DATA
+Text120 | شكراً لتعاملكم معنا
+Text117 | To be continued on the next page... 
+Text116 | Page Total إجمالي الصفحة :
+Text118 | يتبع في الصفحة التالية...
+Text119 | 0.00
+Text24 | 
+Text25 | 
+Text26 | 
+Text27 | 
+Text28 | 
+Text29 | 
+Text11 | طول
+Text13 | عرض
+Text15 | ارتفاع
+Text17 | العدد
+Text19 | الإجمالي
+Text21 | بيان
+Text36 | 0
+# LineItems 1
+Text10 | مؤسسة الغوباشي للأجهزة المنزلية
+Text12 | شارع الملك فهد، حي الشفا
+Text14 | ص.ب 1234 الرمز البريدي 12345
+Text16 | الرياض، المملكة العربية السعودية
+Text18 | الرقم الضريبي: 300753467100003
+Text20 | فاتورة ضريبية
+Text35 | الفرع الرئيسي
+Text30 | Al Khubashi Home Appliances
+Text31 | Al Bahah, Shafi Street
+Text32 | P.O. Box 116  Fax: 017-7251518
+Text33 | Tel: 017-7251517 Fax: 017-7251518
+Text34 | VAT: 300753467100003
+Text41 |  صفحة Page 1 / 1
+Text66 | #
+Cell59 | رقم مستند Doc No
+Cell76 | تاريخ التوريد  Delivery
+Cell60 | الوقت Time
+Cell61 | الموافق Hijri
+Cell62 | التاريخ Date
+Cell63 | رقم الفاتورة # Invoice
+Cell65 | DOC-2026-001
+Cell77 | 2026/12/18
+Cell66 | 14:15
+Cell67 | 
+Cell68 | 2026/11/18
+Cell69 | 1-C-TEST-001
+Text73 | Item Description
+Text74 | Quantity
+Text75 | Price
+Text76 | Total w/VAT
+Text78 | %
+Text79 | SAR
+Text80 | Total
+Text62 | وصف الصنف
+Text63 | الكمية
+Text64 | السعر
+Text69 | Tax   الضريبة
+Text70 | المجموع
+Text65 | الإجمالي
+Text87 | 0500000000
+Text88 | CUST-001
+Text89 |  300000000000003
+Text90 | شركة الأمل التجارية
+Text91 | Address:
+Text92 | العنوان:
+Text93 | الرياض، شارع العليا
+Text82 | رقم الهاتف Telephone
+Text83 | رقم الحساب Customer ID
+Text84 | الرقم الضريبي للعميل Customer VAT
+Text85 | Customer Name اسم العميل 
+Text98 | Unit
+Text99 | الوحدة
+Text100 | Discount
+Text101 | خصم
+Text104 | Net Amount
+Text105 | الصافي
+Text9 | 1
+Text1 | ثلاجة LG 18 قدم
+Text61 | 1.00
+Text5 | 2,000.00
+Text7 | 2,300.00
+Text39 | ITEM-002
+Text46 | 15%
+Text47 | 300.00
+Text60 | 2,000.00
+Text102 | 0
+Text103 | PCE
+Text106 | 2,000.00
+Text107 | 0.00
+Text108 | 0.00
+Text110 | 0.00
+Text111 | 0.00
+Text112 | 0.00
+Text113 | 0.00
+Text114 | Total الإجمالي
+Cell83 | Net Amount (SAR 10,559.47) الصافي 
+Cell30 | 
+Cell129 | 
+Cell31 | 
+Cell139 | Payment Terms
+Cell134 | شروط الدفع
+Cell78 | Sub Total:
+Cell32 | 9182.15
+Cell33 | المجموع الفرعي:
+Cell84 | 
+Cell35 | 
+Cell130 | 
+Cell36 | 
+Cell140 | 
+Cell135 | 
+Cell79 | Discount:
+Cell37 | 0
+Cell38 | الخصم:
+Cell85 | Cash:
+Cell40 | 10000.00
+Cell131 | Cash
+Cell41 | نقداً:
+Cell141 | 
+Cell136 | 
+Cell80 | Net Amount:
+Cell42 | 9182.15
+Cell43 | صافي المبلغ:
+Cell86 | فاتورة
+Cell51 | 559.47
+Cell132 | Span
+Cell52 | شبكة:
+Cell142 | 
+Cell137 | 
+Cell81 | VAT 15%:
+Cell53 | 1377.32
+Cell54 | الضريبة  15%:
+Cell87 | Customer Due:
+Cell55 | 0
+Cell133 | على العميل
+Cell56 | آجل:
+Cell143 | 
+Cell138 | 
+Cell82 | Net Payable:
+Cell57 | 10559.47
+Cell58 | الإجمالي:
+Text37 | 
+Cell44 | Credit دائن
+Cell45 | (125.50)
+Cell46 | رصيد حساب العميل Account Balance
+Text23 | اسم الموظف: admin
+Text71 | المستلم: Received By
+Barcode1 | QR_PLACEHOLDER_DATA
+Text120 | شكراً لتعاملكم معنا
+Text117 | To be continued on the next page... 
+Text116 | Page Total إجمالي الصفحة :
+Text118 | يتبع في الصفحة التالية...
+Text119 | 0.00
+Text24 | 
+Text25 | 
+Text26 | 
+Text27 | 
+Text28 | 
+Text29 | 
+Text11 | طول
+Text13 | عرض
+Text15 | ارتفاع
+Text17 | العدد
+Text19 | الإجمالي
+Text21 | بيان
+Text36 | 0
+# LineItems 2
+Text10 | مؤسسة الغوباشي للأجهزة المنزلية
+Text12 | شارع الملك فهد، حي الشفا
+Text14 | ص.ب 1234 الرمز البريدي 12345
+Text16 | الرياض، المملكة العربية السعودية
+Text18 | الرقم الضريبي: 300753467100003
+Text20 | فاتورة ضريبية
+Text35 | الفرع الرئيسي
+Text30 | Al Khubashi Home Appliances
+Text31 | Al Bahah, Shafi Street
+Text32 | P.O. Box 116  Fax: 017-7251518
+Text33 | Tel: 017-7251517 Fax: 017-7251518
+Text34 | VAT: 300753467100003
+Text41 |  صفحة Page 1 / 1
+Text66 | #
+Cell59 | رقم مستند Doc No
+Cell76 | تاريخ التوريد  Delivery
+Cell60 | الوقت Time
+Cell61 | الموافق Hijri
+Cell62 | التاريخ Date
+Cell63 | رقم الفاتورة # Invoice
+Cell65 | DOC-2026-001
+Cell77 | 2026/12/18
+Cell66 | 14:15
+Cell67 | 
+Cell68 | 2026/11/18
+Cell69 | 1-C-TEST-001
+Text73 | Item Description
+Text74 | Quantity
+Text75 | Price
+Text76 | Total w/VAT
+Text78 | %
+Text79 | SAR
+Text80 | Total
+Text62 | وصف الصنف
+Text63 | الكمية
+Text64 | السعر
+Text69 | Tax   الضريبة
+Text70 | المجموع
+Text65 | الإجمالي
+Text87 | 0500000000
+Text88 | CUST-001
+Text89 |  300000000000003
+Text90 | شركة الأمل التجارية
+Text91 | Address:
+Text92 | العنوان:
+Text93 | الرياض، شارع العليا
+Text82 | رقم الهاتف Telephone
+Text83 | رقم الحساب Customer ID
+Text84 | الرقم الضريبي للعميل Customer VAT
+Text85 | Customer Name اسم العميل 
+Text98 | Unit
+Text99 | الوحدة
+Text100 | Discount
+Text101 | خصم
+Text104 | Net Amount
+Text105 | الصافي
+Text9 | 1
+Text1 | مكيف هاير 24000 وحدة
+Text61 | 1.00
+Text5 | 900.00
+Text7 | 1,035.00
+Text39 | ITEM-003
+Text46 | 15%
+Text47 | 135.00
+Text60 | 900.00
+Text102 | 0
+Text103 | PCE
+Text106 | 900.00
+Text107 | 0.00
+Text108 | 0.00
+Text110 | 0.00
+Text111 | 0.00
+Text112 | 0.00
+Text113 | 0.00
+Text114 | Total الإجمالي
+Cell83 | Net Amount (SAR 10,559.47) الصافي 
+Cell30 | 
+Cell129 | 
+Cell31 | 
+Cell139 | Payment Terms
+Cell134 | شروط الدفع
+Cell78 | Sub Total:
+Cell32 | 9182.15
+Cell33 | المجموع الفرعي:
+Cell84 | 
+Cell35 | 
+Cell130 | 
+Cell36 | 
+Cell140 | 
+Cell135 | 
+Cell79 | Discount:
+Cell37 | 0
+Cell38 | الخصم:
+Cell85 | Cash:
+Cell40 | 10000.00
+Cell131 | Cash
+Cell41 | نقداً:
+Cell141 | 
+Cell136 | 
+Cell80 | Net Amount:
+Cell42 | 9182.15
+Cell43 | صافي المبلغ:
+Cell86 | فاتورة
+Cell51 | 559.47
+Cell132 | Span
+Cell52 | شبكة:
+Cell142 | 
+Cell137 | 
+Cell81 | VAT 15%:
+Cell53 | 1377.32
+Cell54 | الضريبة  15%:
+Cell87 | Customer Due:
+Cell55 | 0
+Cell133 | على العميل
+Cell56 | آجل:
+Cell143 | 
+Cell138 | 
+Cell82 | Net Payable:
+Cell57 | 10559.47
+Cell58 | الإجمالي:
+Text37 | 
+Cell44 | Credit دائن
+Cell45 | (125.50)
+Cell46 | رصيد حساب العميل Account Balance
+Text23 | اسم الموظف: admin
+Text71 | المستلم: Received By
+Barcode1 | QR_PLACEHOLDER_DATA
+Text120 | شكراً لتعاملكم معنا
+Text117 | To be continued on the next page... 
+Text116 | Page Total إجمالي الصفحة :
+Text118 | يتبع في الصفحة التالية...
+Text119 | 0.00
+Text24 | 
+Text25 | 
+Text26 | 
+Text27 | 
+Text28 | 
+Text29 | 
+Text11 | طول
+Text13 | عرض
+Text15 | ارتفاع
+Text17 | العدد
+Text19 | الإجمالي
+Text21 | بيان
+Text36 | 0
+# LineItems 3
+Text10 | مؤسسة الغوباشي للأجهزة المنزلية
+Text12 | شارع الملك فهد، حي الشفا
+Text14 | ص.ب 1234 الرمز البريدي 12345
+Text16 | الرياض، المملكة العربية السعودية
+Text18 | الرقم الضريبي: 300753467100003
+Text20 | فاتورة ضريبية
+Text35 | الفرع الرئيسي
+Text30 | Al Khubashi Home Appliances
+Text31 | Al Bahah, Shafi Street
+Text32 | P.O. Box 116  Fax: 017-7251518
+Text33 | Tel: 017-7251517 Fax: 017-7251518
+Text34 | VAT: 300753467100003
+Text41 |  صفحة Page 1 / 1
+Text66 | #
+Cell59 | رقم مستند Doc No
+Cell76 | تاريخ التوريد  Delivery
+Cell60 | الوقت Time
+Cell61 | الموافق Hijri
+Cell62 | التاريخ Date
+Cell63 | رقم الفاتورة # Invoice
+Cell65 | DOC-2026-001
+Cell77 | 2026/12/18
+Cell66 | 14:15
+Cell67 | 
+Cell68 | 2026/11/18
+Cell69 | 1-C-TEST-001
+Text73 | Item Description
+Text74 | Quantity
+Text75 | Price
+Text76 | Total w/VAT
+Text78 | %
+Text79 | SAR
+Text80 | Total
+Text62 | وصف الصنف
+Text63 | الكمية
+Text64 | السعر
+Text69 | Tax   الضريبة
+Text70 | المجموع
+Text65 | الإجمالي
+Text87 | 0500000000
+Text88 | CUST-001
+Text89 |  300000000000003
+Text90 | شركة الأمل التجارية
+Text91 | Address:
+Text92 | العنوان:
+Text93 | الرياض، شارع العليا
+Text82 | رقم الهاتف Telephone
+Text83 | رقم الحساب Customer ID
+Text84 | الرقم الضريبي للعميل Customer VAT
+Text85 | Customer Name اسم العميل 
+Text98 | Unit
+Text99 | الوحدة
+Text100 | Discount
+Text101 | خصم
+Text104 | Net Amount
+Text105 | الصافي
+Text9 | 1
+Text1 | خلاط مولينكس
+Text61 | 3.00
+Text5 | 150.00
+Text7 | 507.50
+Text39 | ITEM-004
+Text46 | 15%
+Text47 | 67.50
+Text60 | 450.00
+Text102 | 10.00
+Text103 | PCE
+Text106 | 440.00
+Text107 | 0.00
+Text108 | 0.00
+Text110 | 0.00
+Text111 | 0.00
+Text112 | 0.00
+Text113 | 0.00
+Text114 | Total الإجمالي
+Cell83 | Net Amount (SAR 10,559.47) الصافي 
+Cell30 | 
+Cell129 | 
+Cell31 | 
+Cell139 | Payment Terms
+Cell134 | شروط الدفع
+Cell78 | Sub Total:
+Cell32 | 9182.15
+Cell33 | المجموع الفرعي:
+Cell84 | 
+Cell35 | 
+Cell130 | 
+Cell36 | 
+Cell140 | 
+Cell135 | 
+Cell79 | Discount:
+Cell37 | 0
+Cell38 | الخصم:
+Cell85 | Cash:
+Cell40 | 10000.00
+Cell131 | Cash
+Cell41 | نقداً:
+Cell141 | 
+Cell136 | 
+Cell80 | Net Amount:
+Cell42 | 9182.15
+Cell43 | صافي المبلغ:
+Cell86 | فاتورة
+Cell51 | 559.47
+Cell132 | Span
+Cell52 | شبكة:
+Cell142 | 
+Cell137 | 
+Cell81 | VAT 15%:
+Cell53 | 1377.32
+Cell54 | الضريبة  15%:
+Cell87 | Customer Due:
+Cell55 | 0
+Cell133 | على العميل
+Cell56 | آجل:
+Cell143 | 
+Cell138 | 
+Cell82 | Net Payable:
+Cell57 | 10559.47
+Cell58 | الإجمالي:
+Text37 | 
+Cell44 | Credit دائن
+Cell45 | (125.50)
+Cell46 | رصيد حساب العميل Account Balance
+Text23 | اسم الموظف: admin
+Text71 | المستلم: Received By
+Barcode1 | QR_PLACEHOLDER_DATA
+Text120 | شكراً لتعاملكم معنا
+Text117 | To be continued on the next page... 
+Text116 | Page Total إجمالي الصفحة :
+Text118 | يتبع في الصفحة التالية...
+Text119 | 0.00
+Text24 | 
+Text25 | 
+Text26 | 
+Text27 | 
+Text28 | 
+Text29 | 
+Text11 | طول
+Text13 | عرض
+Text15 | ارتفاع
+Text17 | العدد
+Text19 | الإجمالي
+Text21 | بيان
+Text36 | 0
+# LineItems 4
+Text10 | مؤسسة الغوباشي للأجهزة المنزلية
+Text12 | شارع الملك فهد، حي الشفا
+Text14 | ص.ب 1234 الرمز البريدي 12345
+Text16 | الرياض، المملكة العربية السعودية
+Text18 | الرقم الضريبي: 300753467100003
+Text20 | فاتورة ضريبية
+Text35 | الفرع الرئيسي
+Text30 | Al Khubashi Home Appliances
+Text31 | Al Bahah, Shafi Street
+Text32 | P.O. Box 116  Fax: 017-7251518
+Text33 | Tel: 017-7251517 Fax: 017-7251518
+Text34 | VAT: 300753467100003
+Text41 |  صفحة Page 1 / 1
+Text66 | #
+Cell59 | رقم مستند Doc No
+Cell76 | تاريخ التوريد  Delivery
+Cell60 | الوقت Time
+Cell61 | الموافق Hijri
+Cell62 | التاريخ Date
+Cell63 | رقم الفاتورة # Invoice
+Cell65 | DOC-2026-001
+Cell77 | 2026/12/18
+Cell66 | 14:15
+Cell67 | 
+Cell68 | 2026/11/18
+Cell69 | 1-C-TEST-001
+Text73 | Item Description
+Text74 | Quantity
+Text75 | Price
+Text76 | Total w/VAT
+Text78 | %
+Text79 | SAR
+Text80 | Total
+Text62 | وصف الصنف
+Text63 | الكمية
+Text64 | السعر
+Text69 | Tax   الضريبة
+Text70 | المجموع
+Text65 | الإجمالي
+Text87 | 0500000000
+Text88 | CUST-001
+Text89 |  300000000000003
+Text90 | شركة الأمل التجارية
+Text91 | Address:
+Text92 | العنوان:
+Text93 | الرياض، شارع العليا
+Text82 | رقم الهاتف Telephone
+Text83 | رقم الحساب Customer ID
+Text84 | الرقم الضريبي للعميل Customer VAT
+Text85 | Customer Name اسم العميل 
+Text98 | Unit
+Text99 | الوحدة
+Text100 | Discount
+Text101 | خصم
+Text104 | Net Amount
+Text105 | الصافي
+Text9 | 1
+Text1 | Water 330ml x 40
+Text61 | 4.00
+Text5 | 11.30
+Text7 | 51.98
+Text39 | ITEM-005
+Text46 | 15%
+Text47 | 6.78
+Text60 | 45.20
+Text102 | 0
+Text103 | PCE
+Text106 | 45.20
+Text107 | 0.00
+Text108 | 0.00
+Text110 | 0.00
+Text111 | 0.00
+Text112 | 0.00
+Text113 | 0.00
+Text114 | Total الإجمالي
+Cell83 | Net Amount (SAR 10,559.47) الصافي 
+Cell30 | 
+Cell129 | 
+Cell31 | 
+Cell139 | Payment Terms
+Cell134 | شروط الدفع
+Cell78 | Sub Total:
+Cell32 | 9182.15
+Cell33 | المجموع الفرعي:
+Cell84 | 
+Cell35 | 
+Cell130 | 
+Cell36 | 
+Cell140 | 
+Cell135 | 
+Cell79 | Discount:
+Cell37 | 0
+Cell38 | الخصم:
+Cell85 | Cash:
+Cell40 | 10000.00
+Cell131 | Cash
+Cell41 | نقداً:
+Cell141 | 
+Cell136 | 
+Cell80 | Net Amount:
+Cell42 | 9182.15
+Cell43 | صافي المبلغ:
+Cell86 | فاتورة
+Cell51 | 559.47
+Cell132 | Span
+Cell52 | شبكة:
+Cell142 | 
+Cell137 | 
+Cell81 | VAT 15%:
+Cell53 | 1377.32
+Cell54 | الضريبة  15%:
+Cell87 | Customer Due:
+Cell55 | 0
+Cell133 | على العميل
+Cell56 | آجل:
+Cell143 | 
+Cell138 | 
+Cell82 | Net Payable:
+Cell57 | 10559.47
+Cell58 | الإجمالي:
+Text37 | 
+Cell44 | Credit دائن
+Cell45 | (125.50)
+Cell46 | رصيد حساب العميل Account Balance
+Text23 | اسم الموظف: admin
+Text71 | المستلم: Received By
+Barcode1 | QR_PLACEHOLDER_DATA
+Text120 | شكراً لتعاملكم معنا
+Text117 | To be continued on the next page... 
+Text116 | Page Total إجمالي الصفحة :
+Text118 | يتبع في الصفحة التالية...
+Text119 | 0.00
+Text24 | 
+Text25 | 
+Text26 | 
+Text27 | 
+Text28 | 
+Text29 | 
+Text11 | طول
+Text13 | عرض
+Text15 | ارتفاع
+Text17 | العدد
+Text19 | الإجمالي
+Text21 | بيان
+Text36 | 0
+# LineItems 5
+Text10 | مؤسسة الغوباشي للأجهزة المنزلية
+Text12 | شارع الملك فهد، حي الشفا
+Text14 | ص.ب 1234 الرمز البريدي 12345
+Text16 | الرياض، المملكة العربية السعودية
+Text18 | الرقم الضريبي: 300753467100003
+Text20 | فاتورة ضريبية
+Text35 | الفرع الرئيسي
+Text30 | Al Khubashi Home Appliances
+Text31 | Al Bahah, Shafi Street
+Text32 | P.O. Box 116  Fax: 017-7251518
+Text33 | Tel: 017-7251517 Fax: 017-7251518
+Text34 | VAT: 300753467100003
+Text41 |  صفحة Page 1 / 1
+Text66 | #
+Cell59 | رقم مستند Doc No
+Cell76 | تاريخ التوريد  Delivery
+Cell60 | الوقت Time
+Cell61 | الموافق Hijri
+Cell62 | التاريخ Date
+Cell63 | رقم الفاتورة # Invoice
+Cell65 | DOC-2026-001
+Cell77 | 2026/12/18
+Cell66 | 14:15
+Cell67 | 
+Cell68 | 2026/11/18
+Cell69 | 1-C-TEST-001
+Text73 | Item Description
+Text74 | Quantity
+Text75 | Price
+Text76 | Total w/VAT
+Text78 | %
+Text79 | SAR
+Text80 | Total
+Text62 | وصف الصنف
+Text63 | الكمية
+Text64 | السعر
+Text69 | Tax   الضريبة
+Text70 | المجموع
+Text65 | الإجمالي
+Text87 | 0500000000
+Text88 | CUST-001
+Text89 |  300000000000003
+Text90 | شركة الأمل التجارية
+Text91 | Address:
+Text92 | العنوان:
+Text93 | الرياض، شارع العليا
+Text82 | رقم الهاتف Telephone
+Text83 | رقم الحساب Customer ID
+Text84 | الرقم الضريبي للعميل Customer VAT
+Text85 | Customer Name اسم العميل 
+Text98 | Unit
+Text99 | الوحدة
+Text100 | Discount
+Text101 | خصم
+Text104 | Net Amount
+Text105 | الصافي
+Text9 | 1
+Text1 | Laban 2L
+Text61 | 12.00
+Text5 | 9.26
+Text7 | 127.82
+Text39 | ITEM-006
+Text46 | 15%
+Text47 | 16.67
+Text60 | 111.15
+Text102 | 0
+Text103 | PCE
+Text106 | 111.15
+Text107 | 0.00
+Text108 | 0.00
+Text110 | 0.00
+Text111 | 0.00
+Text112 | 0.00
+Text113 | 0.00
+Text114 | Total الإجمالي
+Cell83 | Net Amount (SAR 10,559.47) الصافي 
+Cell30 | 
+Cell129 | 
+Cell31 | 
+Cell139 | Payment Terms
+Cell134 | شروط الدفع
+Cell78 | Sub Total:
+Cell32 | 9182.15
+Cell33 | المجموع الفرعي:
+Cell84 | 
+Cell35 | 
+Cell130 | 
+Cell36 | 
+Cell140 | 
+Cell135 | 
+Cell79 | Discount:
+Cell37 | 0
+Cell38 | الخصم:
+Cell85 | Cash:
+Cell40 | 10000.00
+Cell131 | Cash
+Cell41 | نقداً:
+Cell141 | 
+Cell136 | 
+Cell80 | Net Amount:
+Cell42 | 9182.15
+Cell43 | صافي المبلغ:
+Cell86 | فاتورة
+Cell51 | 559.47
+Cell132 | Span
+Cell52 | شبكة:
+Cell142 | 
+Cell137 | 
+Cell81 | VAT 15%:
+Cell53 | 1377.32
+Cell54 | الضريبة  15%:
+Cell87 | Customer Due:
+Cell55 | 0
+Cell133 | على العميل
+Cell56 | آجل:
+Cell143 | 
+Cell138 | 
+Cell82 | Net Payable:
+Cell57 | 10559.47
+Cell58 | الإجمالي:
+Text37 | 
+Cell44 | Credit دائن
+Cell45 | (125.50)
+Cell46 | رصيد حساب العميل Account Balance
+Text23 | اسم الموظف: admin
+Text71 | المستلم: Received By
+Barcode1 | QR_PLACEHOLDER_DATA
+Text120 | شكراً لتعاملكم معنا
+Text117 | To be continued on the next page... 
+Text116 | Page Total إجمالي الصفحة :
+Text118 | يتبع في الصفحة التالية...
+Text119 | 0.00
+Text24 | 
+Text25 | 
+Text26 | 
+Text27 | 
+Text28 | 
+Text29 | 
+Text11 | طول
+Text13 | عرض
+Text15 | ارتفاع
+Text17 | العدد
+Text19 | الإجمالي
+Text21 | بيان
+Text36 | 0
+# LineItems 6
+Text10 | مؤسسة الغوباشي للأجهزة المنزلية
+Text12 | شارع الملك فهد، حي الشفا
+Text14 | ص.ب 1234 الرمز البريدي 12345
+Text16 | الرياض، المملكة العربية السعودية
+Text18 | الرقم الضريبي: 300753467100003
+Text20 | فاتورة ضريبية
+Text35 | الفرع الرئيسي
+Text30 | Al Khubashi Home Appliances
+Text31 | Al Bahah, Shafi Street
+Text32 | P.O. Box 116  Fax: 017-7251518
+Text33 | Tel: 017-7251517 Fax: 017-7251518
+Text34 | VAT: 300753467100003
+Text41 |  صفحة Page 1 / 1
+Text66 | #
+Cell59 | رقم مستند Doc No
+Cell76 | تاريخ التوريد  Delivery
+Cell60 | الوقت Time
+Cell61 | الموافق Hijri
+Cell62 | التاريخ Date
+Cell63 | رقم الفاتورة # Invoice
+Cell65 | DOC-2026-001
+Cell77 | 2026/12/18
+Cell66 | 14:15
+Cell67 | 
+Cell68 | 2026/11/18
+Cell69 | 1-C-TEST-001
+Text73 | Item Description
+Text74 | Quantity
+Text75 | Price
+Text76 | Total w/VAT
+Text78 | %
+Text79 | SAR
+Text80 | Total
+Text62 | وصف الصنف
+Text63 | الكمية
+Text64 | السعر
+Text69 | Tax   الضريبة
+Text70 | المجموع
+Text65 | الإجمالي
+Text87 | 0500000000
+Text88 | CUST-001
+Text89 |  300000000000003
+Text90 | شركة الأمل التجارية
+Text91 | Address:
+Text92 | العنوان:
+Text93 | الرياض، شارع العليا
+Text82 | رقم الهاتف Telephone
+Text83 | رقم الحساب Customer ID
+Text84 | الرقم الضريبي للعميل Customer VAT
+Text85 | Customer Name اسم العميل 
+Text98 | Unit
+Text99 | الوحدة
+Text100 | Discount
+Text101 | خصم
+Text104 | Net Amount
+Text105 | الصافي
+Text9 | 1
+Text1 | Glass sheet
+Text61 | 2.00
+Text5 | 120.50
+Text7 | 277.15
+Text39 | ITEM-007
+Text46 | 15%
+Text47 | 36.15
+Text60 | 241.00
+Text102 | 0
+Text103 | PCE
+Text106 | 241.00
+Text107 | 0.00
+Text108 | 0.00
+Text110 | 0.00
+Text111 | 0.00
+Text112 | 0.00
+Text113 | 0.00
+Text114 | Total الإجمالي
+Cell83 | Net Amount (SAR 10,559.47) الصافي 
+Cell30 | 
+Cell129 | 
+Cell31 | 
+Cell139 | Payment Terms
+Cell134 | شروط الدفع
+Cell78 | Sub Total:
+Cell32 | 9182.15
+Cell33 | المجموع الفرعي:
+Cell84 | 
+Cell35 | 
+Cell130 | 
+Cell36 | 
+Cell140 | 
+Cell135 | 
+Cell79 | Discount:
+Cell37 | 0
+Cell38 | الخصم:
+Cell85 | Cash:
+Cell40 | 10000.00
+Cell131 | Cash
+Cell41 | نقداً:
+Cell141 | 
+Cell136 | 
+Cell80 | Net Amount:
+Cell42 | 9182.15
+Cell43 | صافي المبلغ:
+Cell86 | فاتورة
+Cell51 | 559.47
+Cell132 | Span
+Cell52 | شبكة:
+Cell142 | 
+Cell137 | 
+Cell81 | VAT 15%:
+Cell53 | 1377.32
+Cell54 | الضريبة  15%:
+Cell87 | Customer Due:
+Cell55 | 0
+Cell133 | على العميل
+Cell56 | آجل:
+Cell143 | 
+Cell138 | 
+Cell82 | Net Payable:
+Cell57 | 10559.47
+Cell58 | الإجمالي:
+Text37 | 
+Cell44 | Credit دائن
+Cell45 | (125.50)
+Cell46 | رصيد حساب العميل Account Balance
+Text23 | اسم الموظف: admin
+Text71 | المستلم: Received By
+Barcode1 | QR_PLACEHOLDER_DATA
+Text120 | شكراً لتعاملكم معنا
+Text117 | To be continued on the next page... 
+Text116 | Page Total إجمالي الصفحة :
+Text118 | يتبع في الصفحة التالية...
+Text119 | 0.00
+Text24 | 1.20
+Text25 | 0.80
+Text26 | 0.01
+Text27 | 1.00
+Text28 | 0.96
+Text29 | Front
+Text11 | طول
+Text13 | عرض
+Text15 | ارتفاع
+Text17 | العدد
+Text19 | الإجمالي
+Text21 | بيان
+Text36 | 2
