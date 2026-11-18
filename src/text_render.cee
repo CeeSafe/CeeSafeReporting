@@ -87,6 +87,16 @@ impl<region r> Fonts<r> {
         return true;
     }
 
+    /// Whether a face of `family` was given.
+    public fn hasFamily(borrow this, family: StringView) -> bool {
+        for (f in this.faces.view()) {
+            if (sameIgnoringCase(f.family.view(), family)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// FontBridge.Resolve's order: the family in the style asked, else (for bold or italic) the family plain, else
     /// the first face given.
     fn resolve(borrow this, family: StringView, bold: bool, italic: bool) -> usize? {

@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: MIT
+// The system's fonts for a report, found as CosmoPdf's FontBridge finds them: in the usual font folders of Linux,
+// macOS and Windows, by the file names a family's faces have there (macOS "Arial Bold.ttf", Windows "arialbd.ttf",
+// Linux "Arial-Bold.ttf"), and, for a family the system lacks, the faces of the first fallback family it has (Arial,
+// Liberation Sans, DejaVu Sans, Noto Sans) under the family's name.
+
+const FONT_DIRS: [StringView; 13] = [
+    "/usr/share/fonts/truetype", "/usr/share/fonts/truetype/noto", "/usr/share/fonts/truetype/dejavu",
+    "/usr/share/fonts/truetype/liberation", "/usr/share/fonts/truetype/msttcorefonts", "/usr/share/fonts/opentype",
+    "/usr/share/fonts", "/usr/local/share/fonts", "/System/Library/Fonts/Supplemental", "/System/Library/Fonts",
+    "/Library/Fonts", "C:/Windows/Fonts", "/system/fonts",
+];
+
+const FALLBACK_FAMILIES: [StringView; 4] = ["Arial", "Liberation Sans", "DejaVu Sans", "Noto Sans"];
+
+/// Windows' file names (FontBridge's WindowsFileStems): regular, bold, italic, bold italic.
+const WINDOWS_STEMS: [StringView; 50] = [
+    "Arial", "arial", "arialbd", "ariali", "arialbi",
+    "Times New Roman", "times", "timesbd", "timesi", "timesbi",
+    "Courier New", "cour", "courbd", "couri", "courbi",
+    "Verdana", "verdana", "verdanab", "verdanai", "verdanaz",
+    "Georgia", "georgia", "georgiab", "georgiai", "georgiaz",
+    "Segoe UI", "segoeui", "segoeuib", "segoeuii", "segoeuiz",
+    "Calibri", "calibri", "calibrib", "calibrii", "calibriz",
+    "Trebuchet MS", "trebuc", "trebucbd", "trebucit", "trebucbi",
+    "Tahoma", "tahoma", "tahomabd", "tahoma", "tahomabd",
+    "Comic Sans MS", "comic", "comicbd", "comici", "comicz",
+];
+
+fn fileBytes(path: StringView) -> Vector<u8> {
+    var bytes = Vector<u8>.create();
+    var file = match (File.open(path)) {
+        Ok(f) => f,
+        Err(_) => { return bytes; }
+    };
+    var buffer = [0u8; 65536];
+    loop {
+        let n = match (file.read(mut buffer[..])) {
+            Ok(n) => n,
+            Err(_) => { break; }
+        };
+        if (n == 0) {
+            break;
+        }
+        for (i in 0..n) {
+            let _ = bytes.push(buffer[i]);
+        }
+    }
+    return bytes;
+}
+
+fn replaced(s: StringView, from: u8, to: StringView) -> String {
+    var out = String.create();
+    for (b in s.bytes()) {
+        if (b == from) {
+            let _ = out.append(to);
+        } else {
+            let one = [b];
+            let _ = out.append(StringView.fromUtf8(one[..]) ?? "");
+        }
+    }
+    return out;
+}
+
+/// BuildFileStemCandidates: the names a face of `family` may have, most specific first.
+fn stems(family: StringView, bold: bool, italic: bool) -> Vector<String> {
+    var out = Vector<String>.create();
+    for (k in 0..10usize) {
+        if (sameIgnoringCase(WINDOWS_STEMS[k * 5], family)) {
+            let column: usize = if (bold && italic) 4 else if (bold) 2 else if (italic) 3 else 1;
+            let _ = out.push(copyOf(WINDOWS_STEMS[k * 5 + column]));
+        }
+    }
+    let noSpace = replaced(family, ' ', "");
+    let dashed = replaced(family, ' ', "-");
+    let suffixes: [StringView; 6] = if (bold && italic) [" Bold Italic", "-BoldItalic", "#-BoldItalic", "BI", "-Bold-Italic", "BoldItalic"]
+        else if (bold) [" Bold", "-Bold", "#-Bold", "Bd", "Bold", ""]
+        else if (italic) [" Italic", "-Italic", "#-Italic", "It", "I", "Italic"]
+        else ["", "", "", "", "", ""];
+    for (k in 0..6usize) {
+        let s = suffixes[k];
+        if (s.length == 0) {
+            continue;
+        }
+        // The first is the family's own name with a space; "#" marks the dashed name; the rest the name unspaced.
+        var stem = String.create();
+        if (k == 0) {
+            let _ = stem.append(family);
+            let _ = stem.append(s);
+        } else if (s.bytes()[0] == '#') {
+            let _ = stem.append(dashed.view());
+            let _ = stem.append(StringView.fromUtf8(s.bytes()[1..]) ?? "");
+        } else {
+            let _ = stem.append(noSpace.view());
+            let _ = stem.append(s);
+        }
+        let _ = out.push(stem);
+    }
+    let _ = out.push(copyOf(noSpace.view()));
+    let _ = out.push(copyOf(dashed.view()));
+    return out;
+}
+
+/// The first file of `family` in that style the font folders hold (".ttf", ".TTF", ".otf"), or none.
+fn findFace(family: StringView, bold: bool, italic: bool) -> Vector<u8> {
+    let names = stems(family, bold, italic);
+    let extensions: [StringView; 3] = [".ttf", ".TTF", ".otf"];
+    for (dir in FONT_DIRS) {
+        for (name in names.view()) {
+            for (ext in extensions) {
+                var path = copyOf(dir);
+                let _ = path.append("/");
+                let _ = path.append(name.view());
+                let _ = path.append(ext);
+                let bytes = fileBytes(path.view());
+                if (bytes.length > 0) {
+                    return bytes;
+                }
+            }
+        }
+    }
+    return Vector<u8>.create();
+}
+
+/// Adds the system's faces of `family` (regular, bold, italic, bold italic: those it has) to `fonts`, or the
+/// faces of the first fallback family it has under `family`'s name. False when there is none at all.
+public fn addSystemFamily(fonts: borrow mut Fonts, family: StringView) -> bool {
+    var any = false;
+    for (fallback in 0..FALLBACK_FAMILIES.length + 1) {
+        let from = if (fallback == 0) family else FALLBACK_FAMILIES[fallback - 1];
+        for (style in 0..4usize) {
+            let bold = style == 1 || style == 3;
+            let italic = style >= 2;
+            let bytes = findFace(from, bold, italic);
+            // A style a family lacks is no style: its plain face stands in (Resolve's second step).
+            if (bytes.length > 0 && fonts.add(family, bold, italic, bytes)) {
+                any = true;
+            }
+        }
+        if (any) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// The families a report's texts are drawn in, each once.
+public fn reportFamilies(report: borrow Report) -> Vector<String> {
+    var out = Vector<String>.create();
+    for (page in report.pages.view()) {
+        for (band in page.bands.view()) {
+            collectFamilies(band, mut out);
+        }
+    }
+    return out;
+}
+
+fn collectFamilies(c: borrow Component, out: borrow mut Vector<String>) {
+    match (borrow c.text) {
+        Some(t) => {
+            var seen = false;
+            for (f in out.view()) {
+                if (sameIgnoringCase(f.view(), t.font.family.view())) {
+                    seen = true;
+                }
+            }
+            if (!seen) {
+                let _ = out.push(copyOf(t.font.family.view()));
+            }
+        }
+        null => {}
+    }
+    for (row in c.tableRows.view()) {
+        for (cell in row.cells.view()) {
+            collectFamilies(cell, mut out);
+        }
+    }
+    for (child in c.children.view()) {
+        collectFamilies(child, mut out);
+    }
+}
