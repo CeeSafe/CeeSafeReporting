@@ -3,27 +3,27 @@ Page 1 "Page1"
     TextObject "Text12" box=9450,30800,264600,18900 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
     LineObject "Line1" box=9450,111850,264600,0 fill=#00000000
     TableObject "Table1" box=9450,163100,264600,113400 fill=#00000000
-      TableRow "Row1" height=20000
+      TableRow "Row1" height=18900
         TableCell "Cell1" box=0,0,0,0 fill=#00000000 text="Invoice #" color=#FF000000 font="Tahoma",10000,700,Upright
         TableCell "Cell2" box=0,0,0,0 fill=#00000000 text="1-C-TEST-001" color=#FF000000 font="Tahoma",10000,400,Upright
         TableCell "Cell3" box=0,0,0,0 fill=#00000000 text="رقم الفاتورة:" color=#FF000000 font="Tahoma",10000,700,Upright
-      TableRow "Row2" height=20000
+      TableRow "Row2" height=18900
         TableCell "Cell6" box=0,0,0,0 fill=#00000000 text="Date:" color=#FF000000 font="Tahoma",10000,700,Upright
         TableCell "Cell7" box=0,0,0,0 fill=#00000000 text="18/11/2026" color=#FF000000 font="Tahoma",10000,400,Upright
         TableCell "Cell8" box=0,0,0,0 fill=#00000000 text="التاريخ:" color=#FF000000 font="Tahoma",10000,700,Upright
-      TableRow "Row3" height=20000
+      TableRow "Row3" height=18900
         TableCell "Cell9" box=0,0,0,0 fill=#00000000 text="Time:" color=#FF000000 font="Tahoma",10000,700,Upright
         TableCell "Cell10" box=0,0,0,0 fill=#00000000 text="14:15:00" color=#FF000000 font="Tahoma",10000,400,Upright
         TableCell "Cell11" box=0,0,0,0 fill=#00000000 text="الوقت:" color=#FF000000 font="Tahoma",10000,700,Upright
-      TableRow "Row17" height=20000
+      TableRow "Row17" height=18900
         TableCell "Cell51" box=0,0,0,0 fill=#00000000 text="Cashier:" color=#FF000000 font="Tahoma",10000,700,Upright
         TableCell "Cell52" box=0,0,0,0 fill=#00000000 text="admin" color=#FF000000 font="Tahoma",10000,400,Upright
         TableCell "Cell53" box=0,0,0,0 fill=#00000000 text="الكاشير:" color=#FF000000 font="Tahoma",10000,700,Upright
-      TableRow "Row18" height=20000
+      TableRow "Row18" height=18900
         TableCell "Cell54" box=0,0,0,0 fill=#00000000 text="العميل Customer: شركة الأمل التجارية" color=#FF000000 font="Tahoma",10000,400,Upright
         TableCell "Cell55" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
         TableCell "Cell56" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
-      TableRow "Row19" height=20000
+      TableRow "Row19" height=18900
         TableCell "Cell64" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Tahoma",10000,400,Upright
         TableCell "Cell65" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
         TableCell "Cell66" box=0,0,0,0 fill=#00000000 text="" color=#FF000000 font="Arial",10000,400,Upright
