@@ -27,7 +27,7 @@ const WINDOWS_STEMS: [StringView; 50] = [
     "Comic Sans MS", "comic", "comicbd", "comici", "comicz",
 ];
 
-fn fileBytes(path: StringView) -> Vector<u8> {
+fn fontFileBytes(path: StringView) -> Vector<u8> {
     var bytes = Vector<u8>.create();
     var file = match (File.open(path)) {
         Ok(f) => f,
@@ -112,7 +112,7 @@ fn findFace(family: StringView, bold: bool, italic: bool) -> Vector<u8> {
                 let _ = path.append("/");
                 let _ = path.append(name.view());
                 let _ = path.append(ext);
-                let bytes = fileBytes(path.view());
+                let bytes = fontFileBytes(path.view());
                 if (bytes.length > 0) {
                     return bytes;
                 }
