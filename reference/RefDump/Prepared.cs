@@ -60,6 +60,22 @@ static class Prepared
         return $"{export.PageImages.Count} pages\n";
     }
 
+    /// The report prepared as production prepares it and exported by EscPosExport: the bytes to `out`.
+    public static string EscPos(string frx, string jsonPath, string name, string outPath)
+    {
+        CosmoPdf.FastReport.CoreTextMeasureBridge.Install();
+        CosmoPdf.FastReport.CoreQrBridge.Install();
+        var invoice = JsonSerializer.Deserialize<MyInvoice>(File.ReadAllText(jsonPath))!;
+        var report = new Report();
+        report.Load(frx);
+        report.RegisterData(new List<MyInvoice> { invoice }, name, 5);
+        report.Prepare();
+        using var stream = new MemoryStream();
+        report.Export(new CosmoPdf.FastReport.EscPosExport(), stream);
+        File.WriteAllBytes(outPath, stream.ToArray());
+        return $"{stream.Length} bytes\n";
+    }
+
     static string DumpPages(PreparedPages pages)
     {
         var o = new StringBuilder();

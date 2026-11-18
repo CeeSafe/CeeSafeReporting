@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT
+// Pages as ESC/POS raster for a thermal printer, as CosmoReport's EscPosExport writes them: the printer reset and
+// its line spacing set to 24 dots, then each page in bands 24 dots high (ESC * 33: 24-dot double density, three
+// bytes of dots a column, top dot the high bit), a line feed after each band and two after the page; at the end the
+// spacing back to 30, four feeds and a full cut.
+
+/// What EscPosExport writes around the pages.
+public struct EscPosOptions {
+    /// ESC @ and ESC 3 24 first.
+    public initializePrinter: bool;
+    public feedLinesAtEnd: u8;
+    /// GS V 0 last.
+    public cutAtEnd: bool;
+    public feedLinesBetweenPages: u8;
+    /// A pixel is a dot when its luminance is below this (ImageExport's ThresholdLuminance).
+    public threshold: u8;
+
+    /// EscPosExport's defaults.
+    public fn receipt() -> EscPosOptions => EscPosOptions {
+        initializePrinter: true,
+        feedLinesAtEnd: 4,
+        cutAtEnd: true,
+        feedLinesBetweenPages: 2,
+        threshold: 180,
+    };
+}
+
+fn push(out: borrow mut Vector<u8>, bytes: Slice<u8>) {
+    for (b in bytes) {
+        let _ = out.push(b);
+    }
+}
+
+/// `pages` (drawn by renderPages) as the bytes to send to the printer.
+public fn escPos(pages: borrow Vector<Canvas>, options: EscPosOptions) -> Vector<u8> {
+    var out = Vector<u8>.create();
+    if (options.initializePrinter) {
+        push(mut out, [0x1Bu8, '@', 0x1B, '3', 24][..]);
+    }
+    for (p in pages.view()) {
+        encodePage(mut out, p, options);
+    }
+    push(mut out, [0x1Bu8, '3', 30][..]);
+    for (k in 0..options.feedLinesAtEnd) {
+        let _ = out.push(0x0A);
+    }
+    if (options.cutAtEnd) {
+        push(mut out, [0x1Du8, 'V', 0][..]);
+    }
+    return out;
+}
+
+/// EncodePage: the page's dots (each pixel thresholded by its luminance) in 24-dot bands.
+fn encodePage(out: borrow mut Vector<u8>, page: borrow Canvas, options: EscPosOptions) {
+    let width = page.width;
+    let height = page.height;
+    var dots = Vector<bool>.create();
+    for (k in 0..truncate<usize>(width * height)) {
+        let i = k * 3;
+        let lum = roundEven(0.2126 * round<f64>(page.rgb[i] as i64) + 0.7152 * round<f64>(page.rgb[i + 1] as i64) +
+            0.0722 * round<f64>(page.rgb[i + 2] as i64));
+        let _ = dots.push(lum < (options.threshold as i64));
+    }
+    push(mut out, [0x1Bu8, '3', 24][..]);
+    let lo = truncate<u8>(width % 256);
+    let hi = truncate<u8>((width / 256) % 256);
+    var offset: i64 = 0;
+    while (offset < height) {
+        push(mut out, [0x1Bu8, '*', 33, lo, hi][..]);
+        for (x in 0..width) {
+            for (k in 0..3i64) {
+                var slice: u8 = 0;
+                for (b in 0..8i64) {
+                    let y = (offset / 8 + k) * 8 + b;
+                    let i = y * width + x;
+                    if (i < width * height && dots[truncate<usize>(i)]) {
+                        slice |= truncate<u8>(0x80u32 >> truncate<u32>(b));
+                    }
+                }
+                let _ = out.push(slice);
+            }
+        }
+        let _ = out.push(0x0A);
+        offset += 24;
+    }
+    for (k in 0..options.feedLinesBetweenPages) {
+        let _ = out.push(0x0A);
+    }
+}

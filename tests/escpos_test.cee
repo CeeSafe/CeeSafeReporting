@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: MIT
+// ESC/POS bytes against CosmoReport's EscPosExport for the same report and data, byte for byte
+// (tests/expected/escpos/X.data.bin, written by `dotnet RefDump.dll escpos tests/fixtures/X.frx tests/data/data.json Name`).
+import claywind;
+
+fn sameEscPos(file: StringView, sourceName: StringView, data: StringView) -> Result<void, TestFailure> {
+    var path = copyOf("tests/fixtures/");
+    let _ = path.append(file);
+    let _ = path.append(".frx");
+    let report = match (loadReport(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    var dataPath = copyOf("tests/data/");
+    let _ = dataPath.append(data);
+    let _ = dataPath.append(".json");
+    let pages = preparedOf(file, sourceName, dataPath.view(), report)?;
+    var storage = heapBytes(67108864);
+    let memory = FixedBufferAllocator.over(mut storage.viewMut());
+    var capacity = RasterCapacity.of(1, 1);
+    capacity.fontBytes = 8388608;
+    let raster = Raster.create(memory, capacity)!;
+    var fonts = Fonts.over(raster);
+    if (!addSystemFonts(mut fonts)) {
+        Console.writeLine("  (Arial or Tahoma not found: skipped)");
+        return Ok();
+    }
+    let canvases = renderPages(report, pages, fonts, RenderOptions.receipt());
+    let got = escPos(canvases, EscPosOptions.receipt());
+    var expected = copyOf("tests/expected/escpos/");
+    let _ = expected.append(file);
+    let _ = expected.append(".");
+    let _ = expected.append(data);
+    let _ = expected.append(".bin");
+    let want = readFile(expected.view());
+    if (got.length != want.length) {
+        Console.write("  want ");
+        Console.write(truncate<i64>(want.length));
+        Console.write(" bytes, got ");
+        Console.writeLine(truncate<i64>(got.length));
+        return Err(TestFailure.create("the ESC/POS is not CosmoReport's"));
+    }
+    for (k in 0..got.length) {
+        if (got[k] != want[k]) {
+            Console.write("  the first byte that differs: ");
+            Console.writeLine(truncate<i64>(k));
+            return Err(TestFailure.create("the ESC/POS is not CosmoReport's"));
+        }
+    }
+    return Ok();
+}
+
+@test
+fn theReceiptsEscPosIsCosmoReports() -> Result<void, TestFailure> => sameEscPos("PosInvoice", "Header", "invoice");
+
+@test
+fn aLongReceiptsEscPosIsCosmoReports() -> Result<void, TestFailure> => sameEscPos("PosInvoice", "Header", "invoice45");
+
+@test
+fn threeA4PagesAsEscPosAreCosmoReports() -> Result<void, TestFailure> =>
+    sameEscPos("MyInvoice.server", "Invoice", "invoice45");

@@ -81,6 +81,8 @@ dumps (bands, positions, texts) and as pixels.
    CosmoFonts' fix/arabic-positional (positional features run again after the presentation-form pass; marks GPOS
    did not attach moved off their base). The harness builds against ~/dev/CosmoDesign-fix, which holds the two.
 5. **ESC/POS.** The page as raster commands, as EscPosExport writes them. Test: the same bytes as CosmoReport's.
+   *Done.* src/escpos.cee: the printer reset and 24-dot spacing, each page in ESC * 33 bands, the feeds and the cut.
+   The receipt, the 45-item receipt and three A4 pages are CosmoReport's bytes, every one.
 6. **Preview and print in IPos.** A ClayWind view of the pages; the receipt's ESC/POS for the printer once there is a way
    to send it.
 7. **MyInvoice.frx and VoucherView.frx.** A4: what they add over the receipt (watermark, PrintOnBottom, the subreport's
