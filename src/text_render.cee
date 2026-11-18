@@ -554,9 +554,41 @@ fn glyphOutline(f: borrow Face, g: u32, scale: f32, ox: f32, oy: f32, m: Affine,
 
 // ---- a text -------------------------------------------------------------------------------------------------------------
 
-/// RenderText's text: in box (x, y, w, h) (canvas pixels), less its padding.
+/// RenderText's text: in box (x, y, w, h) (canvas pixels), less its padding. A text at 90° (or 270°) is laid out in
+/// the box turned a quarter (its height as its width), around its centre, and turned back: it reads bottom to top
+/// (top to bottom), as the PDF export and the WinForms viewer draw it. (ImageExport draws every text level.)
 fn drawText(canvas: borrow mut Canvas, fonts: borrow Fonts, t: borrow TextProps, x: i64, y: i64, w: i64, h: i64,
     pxScale: f64, dpi: i64) {
+    let color = Color.rgb(t.color.r, t.color.g, t.color.b);
+    var angle = t.angle - (t.angle / 360.0).floor() * 360.0;
+    let up = (angle - 90.0).abs() < 45.0;
+    let down = (angle - 270.0).abs() < 45.0;
+    if (!up && !down) {
+        drawTextIn(mut canvas, fonts, t, x, y, w, h, pxScale, dpi, color);
+        return;
+    }
+    // The text in black on a white canvas the box's height wide and its width high: no anti-aliasing, so a pixel is
+    // the text's or not.
+    var turned = Canvas.create(h, w);
+    drawTextIn(mut turned, fonts, t, 0, 0, h, w, pxScale, dpi, Color.rgb(0, 0, 0));
+    for (v in 0..w) {
+        for (u in 0..h) {
+            if (turned.rgb[truncate<usize>((v * h + u) * 3)] != 0) {
+                continue;
+            }
+            // 90°: the text's line runs up the box (u → from the bottom), its lines go right (v → from the left).
+            if (up) {
+                canvas.setPixel(x + v, y + h - 1 - u, color, 1.0);
+            } else {
+                canvas.setPixel(x + w - 1 - v, y + u, color, 1.0);
+            }
+        }
+    }
+}
+
+/// drawText's level text, in `color`.
+fn drawTextIn(canvas: borrow mut Canvas, fonts: borrow Fonts, t: borrow TextProps, x: i64, y: i64, w: i64, h: i64,
+    pxScale: f64, dpi: i64, color: Color) {
     // Lines end at "\r\n", "\r" or "\n".
     var text = Vector<u8>.create();
     let raw = t.processed.bytes();
@@ -606,7 +638,6 @@ fn drawText(canvas: borrow mut Canvas, fonts: borrow Fonts, t: borrow TextProps,
         maxX: round<f64>(innerX + innerW),
         maxY: round<f64>(innerY + innerH),
     };
-    let color = Color.rgb(t.color.r, t.color.g, t.color.b);
     var glyphs = Vector<ShapedGlyph>.create();
     var pen = GlyphPen.create();
     let identity = Affine { sx: 1.0, s01: 0.0, s10: 0.0, sy: 1.0 };
