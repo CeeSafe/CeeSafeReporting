@@ -34,8 +34,8 @@ fn preparedOf(file: StringView, sourceName: StringView, dataFile: StringView, re
     }
     var handlers = Handlers.create();
     handlers.add("Data1_BeforePrint", shadeOddRows);
-    return Ok(if (file == "PosInvoice") preparePages(report, data, Handlers.create(), null)
-        else preparePages(report, data, handlers, null));
+    return Ok(if (file == "PosInvoice") preparePages(report, data, Handlers.create(), NewlinesOnly.create())
+        else preparePages(report, data, handlers, NewlinesOnly.create()));
 }
 
 /// Canvas `got` against the PNG at `expected`: their sizes, then every pixel's red (the pages are black and white).
@@ -108,6 +108,31 @@ fn samePixels(got: borrow Canvas, expected: StringView, name: StringView) -> Res
     return Err(TestFailure.create("the page is not CosmoReport's"));
 }
 
+fn heapBytes(n: usize) -> Vector<u8> {
+    var v = Vector<u8>.create();
+    for (k in 0..n) {
+        let _ = v.push(0);
+    }
+    return v;
+}
+
+/// The macOS faces CosmoReport finds for the reports' families (FontBridge: /System/Library/Fonts/Supplemental).
+fn addSystemFonts(fonts: borrow mut Fonts) -> bool {
+    let dir = "/System/Library/Fonts/Supplemental/";
+    let names: [StringView; 4] = ["Arial.ttf", "Arial Bold.ttf", "Tahoma.ttf", "Tahoma Bold.ttf"];
+    let families: [StringView; 4] = ["Arial", "Arial", "Tahoma", "Tahoma"];
+    let bold: [bool; 4] = [false, true, false, true];
+    for (k in 0..4usize) {
+        var path = copyOf(dir);
+        let _ = path.append(names[k]);
+        let bytes = readFile(path.view());
+        if (bytes.length == 0 || !fonts.add(families[k], bold[k], false, bytes)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 fn samePagesWithoutText(file: StringView, sourceName: StringView) -> Result<void, TestFailure> {
     var path = String.create();
     let _ = path.append("tests/fixtures/");
@@ -123,7 +148,13 @@ fn samePagesWithoutText(file: StringView, sourceName: StringView) -> Result<void
             emptyTexts(mut pages[p].bands[b].band.children);
         }
     }
-    let canvases = renderPages(report, pages, Fonts.none(), RenderOptions.receipt());
+    var storage = heapBytes(16777216);
+    let memory = FixedBufferAllocator.over(mut storage.viewMut());
+    var capacity = RasterCapacity.of(1, 1);
+    capacity.fontBytes = 1048576;
+    let raster = Raster.create(memory, capacity)!;
+    let fonts = Fonts.over(raster);
+    let canvases = renderPages(report, pages, fonts, RenderOptions.receipt());
     var expected = String.create();
     let _ = expected.append("tests/expected/images/");
     let _ = expected.append(file);
@@ -153,7 +184,11 @@ fn aPageWrittenAsPngReadsBack() -> Result<void, TestFailure> {
         Err(_) => { return Err(TestFailure.create("the report did not load")); }
     };
     let pages = preparedOf("MyInvoice.server", "Invoice", "tests/data/invoice.json", report)?;
-    let canvases = renderPages(report, pages, Fonts.none(), RenderOptions.receipt());
+    var storage = heapBytes(16777216);
+    let memory = FixedBufferAllocator.over(mut storage.viewMut());
+    let raster = Raster.create(memory, RasterCapacity.of(1, 1))!;
+    let fonts = Fonts.over(raster);
+    let canvases = renderPages(report, pages, fonts, RenderOptions.receipt());
     let png = canvases[0].png();
     match (File.create("out/roundtrip.png")) {
         Ok(f) => {
@@ -189,3 +224,65 @@ fn aPageWrittenAsPngReadsBack() -> Result<void, TestFailure> {
     Check.isTrue(png.length < c.rgb.length / 10, "the page compresses")?;
     return Ok();
 }
+
+/// Every page of a report with its text, drawn with the system's Arial and Tahoma, against CosmoReport's.
+fn samePagePixels(file: StringView, sourceName: StringView, dataFile: StringView, expectedStem: StringView)
+    -> Result<void, TestFailure> {
+    var path = String.create();
+    let _ = path.append("tests/fixtures/");
+    let _ = path.append(file);
+    let _ = path.append(".frx");
+    let report = match (loadReport(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    let pages = preparedOf(file, sourceName, dataFile, report)?;
+    var storage = heapBytes(67108864);
+    let memory = FixedBufferAllocator.over(mut storage.viewMut());
+    var capacity = RasterCapacity.of(1, 1);
+    capacity.fontBytes = 8388608;
+    let raster = Raster.create(memory, capacity)!;
+    var fonts = Fonts.over(raster);
+    if (!addSystemFonts(mut fonts)) {
+        Console.writeLine("  (Arial or Tahoma not found: skipped)");
+        return Ok();
+    }
+    let canvases = renderPages(report, pages, fonts, RenderOptions.receipt());
+    for (k in 0..canvases.length) {
+        var expected = String.create();
+        let _ = expected.append("tests/expected/images/");
+        let _ = expected.append(expectedStem);
+        let _ = expected.append("-");
+        appendInt(mut expected, truncate<i64>(k) + 1);
+        let _ = expected.append(".png");
+        var name = copyOf(expectedStem);
+        let _ = name.append("-");
+        appendInt(mut name, truncate<i64>(k) + 1);
+        samePixels(canvases[k], expected.view(), name.view())?;
+    }
+    return Ok();
+}
+
+@test
+fn thePosInvoiceIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagePixels("PosInvoice", "Header", "tests/data/invoice.json", "PosInvoice");
+
+@test
+fn theServersMyInvoiceIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagePixels("MyInvoice.server", "Invoice", "tests/data/invoice.json", "MyInvoice.server");
+
+@test
+fn theMyInvoiceIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagePixels("MyInvoice", "Invoice", "tests/data/invoice.json", "MyInvoice");
+
+@test
+fn aLongReceiptIsCosmoReportsPixels() -> Result<void, TestFailure> =>
+    samePagePixels("PosInvoice", "Header", "tests/data/invoice45.json", "PosInvoice.45");
+
+@test
+fn aLongMyInvoiceIsCosmoReportsPixelsOnEveryPage() -> Result<void, TestFailure> =>
+    samePagePixels("MyInvoice", "Invoice", "tests/data/invoice45.json", "MyInvoice.45");
+
+@test
+fn aLongServersMyInvoiceIsCosmoReportsPixelsOnEveryPage() -> Result<void, TestFailure> =>
+    samePagePixels("MyInvoice.server", "Invoice", "tests/data/invoice45.json", "MyInvoice.server.45");

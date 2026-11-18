@@ -70,6 +70,16 @@ dumps (bands, positions, texts) and as pixels.
 4. **Pixels.** Rendering prepared pages with ClayWind: text (shaped, right to left), borders, fills, tables with spans,
    lines, pictures, and QR codes (a QR encoder, written here). PNG output (a PNG encoder). Test: PosInvoice.frx at 203 dpi,
    monochrome, against CosmoReport's ImageExport.
+   *Done.* The pages of PosInvoice, MyInvoice and the server's MyInvoice, with 7 items and with 45 (three A4
+   pages), are CosmoReport's ImageExport pixels, text included, every one: the canvas draws as RgbCanvas, the QR
+   codes are CosmoPdf's modules, text is laid out as CosmoFonts lays it (wrapped at spaces, aligned in its box) with
+   Arabic in its presentation forms, shaped by claywind, and its outlines read from the font's glyf table and filled
+   as ImageExport fills them. Growing texts are measured as CosmoPdf measures them (FontMeasure.LineBreak).
+   The reference had five faults of its own, fixed on branches beside the repositories (not pushed): CosmoPdf's
+   fix/image-export-text (glyphs filled one contour at a time with the winding reversed, so letters came out as
+   their holes; Arabic reordered twice; aligned text pushed out of its box; "\r" drawn as a missing glyph) and
+   CosmoFonts' fix/arabic-positional (positional features run again after the presentation-form pass; marks GPOS
+   did not attach moved off their base). The harness builds against ~/dev/CosmoDesign-fix, which holds the two.
 5. **ESC/POS.** The page as raster commands, as EscPosExport writes them. Test: the same bytes as CosmoReport's.
 6. **Preview and print in IPos.** A ClayWind view of the pages; the receipt's ESC/POS for the printer once there is a way
    to send it.

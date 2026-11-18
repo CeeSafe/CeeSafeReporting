@@ -36,6 +36,16 @@ if (args.Length is 5 or 6 && args[0] == "image")
     Console.Out.Write(Prepared.Image(args[1], args[2], args[3], args[4], args.Length == 6 && args[5] == "notext"));
     return 0;
 }
+if (args.Length == 3 && args[0] == "lines")
+{
+    Console.Out.Write(Lines.Run(args[1], args[2]));
+    return 0;
+}
+if (args.Length == 3 && args[0] == "shape")
+{
+    Console.Out.Write(Shape.Run(args[1], args[2]));
+    return 0;
+}
 if (args.Length == 2 && args[0] == "qr")
 {
     Console.Out.Write(Qr.Run(args[1]));
@@ -53,7 +63,7 @@ if (args.Length == 5 && args[0] == "exprs")
 }
 if (args.Length != 2 || args[0] != "model")
 {
-    Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample [items] | texts <file.frx> <data.json> <name> | prepare <file.frx> <data.json> <name> | image <file.frx> <data.json> <name> <out> [notext] | qr <list> | exprs <file.frx> <data.json> <name> <list>");
+    Console.Error.WriteLine("usage: RefDump model <file.frx> | values | sample [items] | texts <file.frx> <data.json> <name> | prepare <file.frx> <data.json> <name> | image <file.frx> <data.json> <name> <out> [notext] | qr <list> | shape <font.ttf> <list> | lines <font.ttf> <list> | exprs <file.frx> <data.json> <name> <list>");
     return 2;
 }
 var report = new Report();

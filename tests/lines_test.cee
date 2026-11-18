@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+// Growing texts measured as CosmoPdf's CoreTextMeasureBridge measures them (FontMeasure.LineBreak): each text of
+// tests/data/lines.txt in Arial and in Tahoma Bold, at three sizes and three widths, against CosmoPdf's line counts
+// (tests/expected/lines.<font>.txt, written by `dotnet RefDump.dll lines <font.ttf> tests/data/lines.txt`).
+import claywind;
+
+fn sameLines(family: StringView, bold: bool, file: StringView) -> Result<void, TestFailure> {
+    var path = copyOf("/System/Library/Fonts/Supplemental/");
+    let _ = path.append(file);
+    let _ = path.append(".ttf");
+    let bytes = readFile(path.view());
+    if (bytes.length == 0) {
+        Console.writeLine("  (the font is not here: skipped)");
+        return Ok();
+    }
+    var storage = heapBytes(16777216);
+    let memory = FixedBufferAllocator.over(mut storage.viewMut());
+    let raster = Raster.create(memory, RasterCapacity.of(1, 1))!;
+    var fonts = Fonts.over(raster);
+    Check.isTrue(fonts.add(family, bold, false, bytes), "the font loads")?;
+    var got = String.create();
+    let list = readFile("tests/data/lines.txt");
+    for (raw in splitOn(StringView.fromUtf8(list.view()) ?? "", '\n').view()) {
+        if (raw.length == 0) {
+            continue;
+        }
+        // "\n" and "\r" in the list are line ends.
+        var text = Vector<u8>.create();
+        let b = raw.bytes();
+        var k: usize = 0;
+        while (k < b.length) {
+            if (b[k] == '\\' && k + 1 < b.length && (b[k + 1] == 'n' || b[k + 1] == 'r')) {
+                let _ = text.push(if (b[k + 1] == 'n') 0x0A else 0x0D);
+                k += 2;
+            } else {
+                let _ = text.push(b[k]);
+                k += 1;
+            }
+        }
+        let _ = got.append("# ");
+        let _ = got.append(raw);
+        let _ = got.append("\n");
+        let sizes: [f32; 3] = [8.0, 10.0, 12.0];
+        let widths: [f32; 3] = [40.0, 120.0, 300.0];
+        let names: [StringView; 3] = ["8", "10", "12"];
+        let widthNames: [StringView; 3] = ["40", "120", "300"];
+        for (s in 0..3usize) {
+            for (w in 0..3usize) {
+                let n = fonts.countLines(StringView.fromUtf8(text.view()) ?? "", family, sizes[s], bold, false, widths[w]);
+                let _ = got.append(names[s]);
+                let _ = got.append(" ");
+                let _ = got.append(widthNames[w]);
+                let _ = got.append(" ");
+                appendInt(mut got, n);
+                let _ = got.append("\n");
+            }
+        }
+    }
+    var expected = copyOf("tests/expected/lines.");
+    let _ = expected.append(file);
+    let _ = expected.append(".txt");
+    let want = readFile(expected.view());
+    let wantText = StringView.fromUtf8(want.view()) ?? "";
+    if (got.view() != wantText) {
+        var dump = copyOf("out/lines.");
+        let _ = dump.append(file);
+        let _ = dump.append(".txt");
+        match (File.create(dump.view())) {
+            Ok(f) => {
+                var fh = f;
+                let _ = fh.write(got.bytes());
+            }
+            Err(_) => {}
+        }
+        let g = splitOn(got.view(), '\n');
+        let wl = splitOn(wantText, '\n');
+        for (i in 0..g.length.max(wl.length)) {
+            let a = if (i < g.length) g[i] else "<none>";
+            let c = if (i < wl.length) wl[i] else "<none>";
+            if (a != c) {
+                Console.write("  want ");
+                Console.writeLine(c);
+                Console.write("  got  ");
+                Console.writeLine(a);
+            }
+        }
+        return Err(TestFailure.create("the line counts are not CosmoPdf's"));
+    }
+    return Ok();
+}
+
+@test
+fn growingTextsCountLinesAsCosmoPdfInArial() -> Result<void, TestFailure> => sameLines("Arial", false, "Arial");
+
+@test
+fn growingTextsCountLinesAsCosmoPdfInTahomaBold() -> Result<void, TestFailure> =>
+    sameLines("Tahoma", true, "Tahoma Bold");

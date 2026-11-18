@@ -34,8 +34,8 @@ fn samePages(file: StringView, sourceName: StringView, dataFile: StringView, exp
     var handlers = Handlers.create();
     handlers.add("Data1_BeforePrint", shadeOddRows);
     // PosInvoice's script does not compile in CosmoReport (it names Image), so it runs there with none.
-    let pages = if (file == "PosInvoice") preparePages(report, data, Handlers.create(), null)
-        else preparePages(report, data, handlers, null);
+    let pages = if (file == "PosInvoice") preparePages(report, data, Handlers.create(), NewlinesOnly.create())
+        else preparePages(report, data, handlers, NewlinesOnly.create());
     let got = dumpPrepared(report, pages);
     let want = readFile(expected);
     let wantText = StringView.fromUtf8(want.view()) ?? "";

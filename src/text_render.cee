@@ -1,14 +1,816 @@
 // SPDX-License-Identifier: MIT
-// Text on the canvas, as ImageExport draws it through CosmoFonts.
+// Text on the canvas, as ImageExport draws it through CosmoFonts: the text wrapped at spaces to its box's inner width
+// (or kept whole when it does not wrap), each line aligned in that width, the block placed by its vertical alignment,
+// lines a font's height apart (hhea's ascender, descender and line gap), and each glyph's outline flattened (a
+// quadratic curve into 12 segments) and filled by the non-zero rule at pixel centres, clipped to the box. The lines
+// are shaped by claywind (cmap, GSUB, GPOS, kerning, bidi); the outlines are read here from the font's glyf table
+// with CosmoFonts' arithmetic, so a glyph's pixels come out where CosmoReport's do.
+import claywind;
 
-/// The fonts a report's texts are drawn with, by family and style; the program gives their files.
-public struct Fonts {
-    families: Vector<String>;
-
-    public fn none() -> Fonts => Fonts { families: Vector<String>.create() };
+/// A face the program gave: its family and style, its file, and where its tables are.
+struct Face {
+    family: String;
+    bold: bool;
+    italic: bool;
+    id: u32;
+    bytes: Vector<u8>;
+    upem: f32;
+    ascender: i64;
+    descender: i64;
+    lineGap: i64;
+    loca: usize;
+    glyf: usize;
+    longLoca: bool;
+    /// claywind's reading of its tables (cmap, hmtx), for measuring.
+    info: FontInfo;
 }
 
-/// A text's lines drawn in its box (x, y, w, h in canvas pixels).
+/// The fonts a report's texts are drawn with, by family and style; the program gives their files. A claywind Raster
+/// holds them for shaping.
+public struct Fonts<region r> {
+    raster: Raster<r>;
+    faces: Vector<Face>;
+
+    /// Fonts shaped by `raster` (one the program made; its memory holds the files it is given).
+    public fn over(raster: Raster<r>) -> Fonts<r> => Fonts { raster: raster, faces: Vector<Face>.create() };
+}
+
+impl<region r> Fonts<r> {
+    /// Adds face `bytes` (a TrueType file) as `family` in the style given. False when it does not read.
+    public fn add(borrow mut this, family: StringView, bold: bool, italic: bool, bytes: Vector<u8>) -> bool {
+        let id = truncate<u32>(this.faces.length);
+        let dir = match (faceDirectory(bytes.view(), 0)) {
+            Some(d) => d,
+            null => { return false; }
+        };
+        let tables = bytes.view()[dir..];
+        let head = match (findTable(tables, ['h', 'e', 'a', 'd'])) {
+            Some(t) => t.offset,
+            null => { return false; }
+        };
+        let hhea = match (findTable(tables, ['h', 'h', 'e', 'a'])) {
+            Some(t) => t.offset,
+            null => { return false; }
+        };
+        let loca = match (findTable(tables, ['l', 'o', 'c', 'a'])) {
+            Some(t) => t.offset,
+            null => 0,
+        };
+        let glyf = match (findTable(tables, ['g', 'l', 'y', 'f'])) {
+            Some(t) => t.offset,
+            null => 0,
+        };
+        let info = match (parseFontFace(bytes.view(), 0)) {
+            Some(i) => i,
+            null => { return false; }
+        };
+        if (!this.raster.loadFont(id, bytes.view())) {
+            return false;
+        }
+        let d = bytes.view();
+        let face = Face {
+            family: copyOf(family),
+            bold: bold,
+            italic: italic,
+            id: id,
+            upem: round<f32>(u16(d, head + 18)),
+            ascender: i16(d, hhea + 4),
+            descender: i16(d, hhea + 6),
+            lineGap: i16(d, hhea + 8),
+            loca: loca,
+            glyf: glyf,
+            longLoca: i16(d, head + 50) != 0,
+            info: info,
+            bytes: bytes,
+        };
+        let _ = this.faces.push(face);
+        return true;
+    }
+
+    /// FontBridge.Resolve's order: the family in the style asked, else (for bold or italic) the family plain, else
+    /// the first face given.
+    fn resolve(borrow this, family: StringView, bold: bool, italic: bool) -> usize? {
+        for (k in 0..this.faces.length) {
+            let f = borrow this.faces[k];
+            if (sameIgnoringCase(f.family.view(), family) && f.bold == bold && f.italic == italic) {
+                return k;
+            }
+        }
+        if (bold || italic) {
+            for (k in 0..this.faces.length) {
+                let f = borrow this.faces[k];
+                if (sameIgnoringCase(f.family.view(), family) && !f.bold && !f.italic) {
+                    return k;
+                }
+            }
+        }
+        return if (this.faces.length > 0) 0 else null;
+    }
+
+    /// MeasureLine: the line's shaped width at `size` pixels per em.
+    fn measure(borrow this, face: usize, text: StringView, size: f32) -> f32 {
+        var none = Vector<ShapedGlyph>.create();
+        return match (this.raster.shapeRun(text.bytes(), this.faces[face].id, size, 0.0, none.viewMut())) {
+            Some(run) => run.width,
+            null => 0.0,
+        };
+    }
+
+    /// The face loaded in Raster slot `slot`.
+    fn faceOfSlot(borrow this, slot: u32) -> usize? {
+        for (k in 0..this.faces.length) {
+            match (this.raster.fontIndex(this.faces[k].id)) {
+                Some(s) => {
+                    if (s == slot) {
+                        return k;
+                    }
+                }
+                null => {}
+            }
+        }
+        return null;
+    }
+}
+
+fn u16(d: Slice<u8>, at: usize) -> i64 => ((d[at] as i64) * 256) + (d[at + 1] as i64);
+fn i16(d: Slice<u8>, at: usize) -> i64 {
+    let v = u16(d, at);
+    return if (v >= 32768) v - 65536 else v;
+}
+
+/// A wrapped line: its text and the width it was measured at.
+struct Line {
+    text: String;
+    width: f32;
+}
+
+/// WrapLines: each hard line kept whole, or wrapped at spaces (WrapBySpace: runs of spaces collapse, a word is never
+/// broken).
+fn wrapLines(fonts: borrow Fonts, face: usize, text: StringView, size: f32, wrap: f32, keepAll: bool) -> Vector<Line> {
+    var lines = Vector<Line>.create();
+    for (hard in splitOn(text, '\n').view()) {
+        if (wrap <= 0.0 || keepAll) {
+            let _ = lines.push(Line { text: copyOf(hard), width: fonts.measure(face, arabicPresentation(hard).view(), size) });
+            continue;
+        }
+        var current = String.create();
+        var currentWidth: f32 = 0.0;
+        let spaceWidth = fonts.measure(face, " ", size);
+        for (word in splitOn(hard, ' ').view()) {
+            if (word.length == 0) {
+                continue;
+            }
+            let wordWidth = fonts.measure(face, arabicPresentation(word).view(), size);
+            if (current.view().length == 0) {
+                current = copyOf(word);
+                currentWidth = wordWidth;
+                continue;
+            }
+            let tentative = currentWidth + spaceWidth + wordWidth;
+            if (tentative <= wrap) {
+                let _ = current.append(" ");
+                let _ = current.append(word);
+                currentWidth = tentative;
+            } else {
+                let _ = lines.push(Line { text: current, width: currentWidth });
+                current = copyOf(word);
+                currentWidth = wordWidth;
+            }
+        }
+        let _ = lines.push(Line { text: current, width: currentWidth });
+    }
+    return lines;
+}
+
+// ---- outlines --------------------------------------------------------------------------------------------------------
+
+/// A point of a flattened figure.
+struct Pt2 {
+    x: f32;
+    y: f32;
+}
+
+/// PolygonGlyphRenderer (with CosmoPdf's fix): figures built from move, line and quadratic commands (a curve into
+/// 12 segments, in float), each closed, and a glyph's figures filled together.
+struct GlyphPen {
+    figures: Vector<Vector<Pt2>>;
+    current: Vector<Pt2>;
+    penX: f32;
+    penY: f32;
+    startX: f32;
+    startY: f32;
+    open: bool;
+}
+
+fn absF(v: f32) -> f32 => if (v < 0.0) -v else v;
+
+impl GlyphPen {
+    fn create() -> GlyphPen => GlyphPen {
+        figures: Vector<Vector<Pt2>>.create(),
+        current: Vector<Pt2>.create(),
+        penX: 0.0,
+        penY: 0.0,
+        startX: 0.0,
+        startY: 0.0,
+        open: false,
+    };
+
+    fn beginFigure(borrow mut this) {
+        this.current.clear();
+        this.open = true;
+    }
+
+    fn endFigure(borrow mut this) {
+        if (!this.open) {
+            return;
+        }
+        this.open = false;
+        if (this.current.length > 0 &&
+            ((absF(this.penX - this.startX) as f64) > 0.001 || (absF(this.penY - this.startY) as f64) > 0.001)) {
+            let _ = this.current.push(Pt2 { x: this.startX, y: this.startY });
+        }
+        if (this.current.length < 3) {
+            return;
+        }
+        var copy = Vector<Pt2>.create();
+        for (p in this.current.view()) {
+            let _ = copy.push(p);
+        }
+        let _ = this.figures.push(copy);
+    }
+
+    fn moveTo(borrow mut this, p: Pt2) {
+        this.penX = p.x;
+        this.penY = p.y;
+        this.startX = p.x;
+        this.startY = p.y;
+        let _ = this.current.push(p);
+    }
+
+    fn lineTo(borrow mut this, p: Pt2) {
+        this.penX = p.x;
+        this.penY = p.y;
+        let _ = this.current.push(p);
+    }
+
+    fn quadTo(borrow mut this, c: Pt2, p: Pt2) {
+        let p0x = this.penX;
+        let p0y = this.penY;
+        for (i in 1..13) {
+            let t = round<f32>(i) / 12.0;
+            let u = 1.0 - t;
+            // (u*u)*p0 + (2*u*t)*c + (t*t)*p, as System.Numerics evaluates it.
+            let a = u * u;
+            let b = 2.0 * u * t;
+            let k = t * t;
+            let _ = this.current.push(Pt2 { x: a * p0x + b * c.x + k * p.x, y: a * p0y + b * c.y + k * p.y });
+        }
+        this.penX = p.x;
+        this.penY = p.y;
+    }
+
+    /// The figures filled by the non-zero rule, each row sampled at its centre, clipped; then forgotten.
+    fn flush(borrow mut this, canvas: borrow mut Canvas, color: Color, clip: Clip) {
+        if (this.figures.length == 0) {
+            return;
+        }
+        var minY: f64 = 1.0e300;
+        var maxY: f64 = -1.0e300;
+        for (f in this.figures.view()) {
+            for (p in f.view()) {
+                let y = p.y as f64;
+                minY = minY.min(y);
+                maxY = maxY.max(y);
+            }
+        }
+        let first = truncate<i64>(minY.floor());
+        let last = truncate<i64>(maxY.ceil());
+        var xs = Vector<f64>.create();
+        var dirs = Vector<i64>.create();
+        for (y in first..last + 1) {
+            let sampleY = round<f64>(y) + 0.5;
+            xs.clear();
+            dirs.clear();
+            for (f in this.figures.view()) {
+                let n = f.length;
+                for (i in 0..n) {
+                    let p1 = f[i];
+                    let p2 = f[(i + 1) % n];
+                    let y1 = p1.y as f64;
+                    let y2 = p2.y as f64;
+                    let dy = y1 - y2;
+                    if ((if (dy < 0.0) -dy else dy) < 0.0001) {
+                        continue;
+                    }
+                    if (sampleY < y1.min(y2) || sampleY >= y1.max(y2)) {
+                        continue;
+                    }
+                    let t = (sampleY - y1) / (y2 - y1);
+                    let x1 = p1.x as f64;
+                    let x2 = p2.x as f64;
+                    insertCrossing(mut xs, mut dirs, x1 + (x2 - x1) * t, if (y2 > y1) 1 else -1);
+                }
+            }
+            if (xs.length < 2) {
+                continue;
+            }
+            var winding: i64 = 0;
+            for (i in 0..xs.length - 1) {
+                winding += dirs[i];
+                if (winding != 0) {
+                    canvas.fillRect(xs[i], round<f64>(y), xs[i + 1], round<f64>(y), color, clip, 1.0);
+                }
+            }
+        }
+        this.figures.clear();
+    }
+}
+
+/// Inserts a crossing keeping the list sorted by x.
+fn insertCrossing(xs: borrow mut Vector<f64>, dirs: borrow mut Vector<i64>, x: f64, dir: i64) {
+    var at = xs.length;
+    while (at > 0 && xs[at - 1] > x) {
+        at -= 1;
+    }
+    let _ = xs.insert(at, x);
+    let _ = dirs.insert(at, dir);
+}
+
+/// Where glyph `g`'s outline is in the glyf table, and its length (0 for an empty glyph).
+fn glyphSpan(f: borrow Face, g: u32) -> [usize; 2] {
+    if (f.loca == 0 || f.glyf == 0) {
+        return [0, 0];
+    }
+    let d = f.bytes.view();
+    let k = g as usize;
+    let a = if (f.longLoca) truncate<usize>(u16(d, f.loca + k * 4) * 65536 + u16(d, f.loca + k * 4 + 2))
+        else truncate<usize>(u16(d, f.loca + k * 2)) * 2;
+    let b = if (f.longLoca) truncate<usize>(u16(d, f.loca + k * 4 + 4) * 65536 + u16(d, f.loca + k * 4 + 6))
+        else truncate<usize>(u16(d, f.loca + k * 2 + 2)) * 2;
+    return [f.glyf + a, if (b > a) b - a else 0];
+}
+
+/// The transform a composite's component is drawn with (CosmoFonts' scaleX, skew01, skew10, scaleY).
+struct Affine {
+    sx: f32;
+    s01: f32;
+    s10: f32;
+    sy: f32;
+}
+
+/// A glyph's point: transformed, scaled, placed at the origin, then flipped about the baseline (YFlipRenderer).
+fn tx(x: i64, y: i64, scale: f32, ox: f32, oy: f32, m: Affine, pivot: f32) -> Pt2 {
+    let fx = round<f32>(x) * m.sx + round<f32>(y) * m.s10;
+    let fy = round<f32>(x) * m.s01 + round<f32>(y) * m.sy;
+    return Pt2 { x: fx * scale + ox, y: pivot - (fy * scale + oy) };
+}
+
+fn signedByte(b: u8) -> i64 => if (b >= 128) (b as i64) - 256 else (b as i64);
+
+fn f2dot14(d: Slice<u8>, at: usize) -> f32 => round<f32>(i16(d, at)) / 16384.0;
+
+/// GlyphOutlineDriver.RenderInto: glyph `g` at `scale`, its origin at (ox, oy) (y up), flipped about `pivot`, into
+/// `pen`. A composite's components are drawn by their offsets (point matching is not read, as CosmoFonts reads it not).
+fn glyphOutline(f: borrow Face, g: u32, scale: f32, ox: f32, oy: f32, m: Affine, pivot: f32, depth: i64,
+    pen: borrow mut GlyphPen) {
+    if (depth > 16) {
+        return;
+    }
+    let span = glyphSpan(f, g);
+    if (span[1] < 10) {
+        return;
+    }
+    let d = f.bytes.view();
+    let at = span[0];
+    let contours = i16(d, at);
+    if (contours < 0) {
+        var p = at + 10;
+        loop {
+            let flags = truncate<u32>(u16(d, p));
+            let index = truncate<u32>(u16(d, p + 2));
+            p += 4;
+            var arg1: i64 = 0;
+            var arg2: i64 = 0;
+            let xy = (flags & 0x0002) != 0;
+            if ((flags & 0x0001) != 0) {
+                arg1 = if (xy) i16(d, p) else u16(d, p);
+                arg2 = if (xy) i16(d, p + 2) else u16(d, p + 2);
+                p += 4;
+            } else {
+                arg1 = if (xy) signedByte(d[p]) else (d[p] as i64);
+                arg2 = if (xy) signedByte(d[p + 1]) else (d[p + 1] as i64);
+                p += 2;
+            }
+            var c = Affine { sx: 1.0, s01: 0.0, s10: 0.0, sy: 1.0 };
+            if ((flags & 0x0008) != 0) {
+                let s = f2dot14(d, p);
+                c.sx = s;
+                c.sy = s;
+                p += 2;
+            } else if ((flags & 0x0040) != 0) {
+                c.sx = f2dot14(d, p);
+                c.sy = f2dot14(d, p + 2);
+                p += 4;
+            } else if ((flags & 0x0080) != 0) {
+                c.sx = f2dot14(d, p);
+                c.s01 = f2dot14(d, p + 2);
+                c.s10 = f2dot14(d, p + 4);
+                c.sy = f2dot14(d, p + 6);
+                p += 8;
+            }
+            let child = Affine {
+                sx: m.sx * c.sx + m.s10 * c.s01,
+                s10: m.sx * c.s10 + m.s10 * c.sy,
+                s01: m.s01 * c.sx + m.sy * c.s01,
+                sy: m.s01 * c.s10 + m.sy * c.sy,
+            };
+            var cx = ox;
+            var cy = oy;
+            if (xy) {
+                let a1 = round<f32>(arg1);
+                let a2 = round<f32>(arg2);
+                cx = ox + (a1 * m.sx + a2 * m.s10) * scale;
+                cy = oy + (a1 * m.s01 + a2 * m.sy) * scale;
+            }
+            glyphOutline(f, index, scale, cx, cy, child, pivot, depth + 1, mut pen);
+            if ((flags & 0x0020) == 0) {
+                break;
+            }
+        }
+        return;
+    }
+    if (contours == 0) {
+        return;
+    }
+    // A simple glyph: its contours' end points, flags, then x and y deltas.
+    let cn = truncate<usize>(contours);
+    var p = at + 10;
+    var ends = Vector<i64>.create();
+    for (i in 0..cn) {
+        let _ = ends.push(u16(d, p));
+        p += 2;
+    }
+    let count = truncate<usize>(ends[cn - 1] + 1);
+    p += 2 + truncate<usize>(u16(d, p));
+    var flags = Vector<u8>.create();
+    while (flags.length < count) {
+        let fl = d[p];
+        p += 1;
+        let _ = flags.push(fl);
+        if ((fl & 0x08) != 0) {
+            let repeat = d[p];
+            p += 1;
+            for (r in 0..repeat as usize) {
+                if (flags.length < count) {
+                    let _ = flags.push(fl);
+                }
+            }
+        }
+    }
+    var xs = Vector<i64>.create();
+    var acc: i64 = 0;
+    for (i in 0..count) {
+        let fl = flags[i];
+        if ((fl & 0x02) != 0) {
+            let v = d[p] as i64;
+            p += 1;
+            acc += if ((fl & 0x10) != 0) v else -v;
+        } else if ((fl & 0x10) == 0) {
+            acc += i16(d, p);
+            p += 2;
+        }
+        let _ = xs.push(acc);
+    }
+    var ys = Vector<i64>.create();
+    acc = 0;
+    for (i in 0..count) {
+        let fl = flags[i];
+        if ((fl & 0x04) != 0) {
+            let v = d[p] as i64;
+            p += 1;
+            acc += if ((fl & 0x20) != 0) v else -v;
+        } else if ((fl & 0x20) == 0) {
+            acc += i16(d, p);
+            p += 2;
+        }
+        let _ = ys.push(acc);
+    }
+    var start: usize = 0;
+    for (ci in 0..cn) {
+        let end = truncate<usize>(ends[ci]);
+        if (end + 1 <= start) {
+            start = end + 1;
+            continue;
+        }
+        let n = end - start + 1;
+        var sx: i64 = 0;
+        var sy: i64 = 0;
+        var cursor = start;
+        if ((flags[start] & 1) != 0) {
+            sx = xs[start];
+            sy = ys[start];
+            cursor = start + 1;
+        } else if ((flags[end] & 1) != 0) {
+            sx = xs[end];
+            sy = ys[end];
+        } else {
+            sx = (xs[end] + xs[start]) / 2;
+            sy = (ys[end] + ys[start]) / 2;
+        }
+        pen.beginFigure();
+        pen.moveTo(tx(sx, sy, scale, ox, oy, m, pivot));
+        var step: usize = 0;
+        while (step < n) {
+            let i = start + (cursor - start + step) % n;
+            if ((flags[i] & 1) != 0) {
+                pen.lineTo(tx(xs[i], ys[i], scale, ox, oy, m, pivot));
+                step += 1;
+                continue;
+            }
+            let next = start + (cursor - start + step + 1) % n;
+            let c = tx(xs[i], ys[i], scale, ox, oy, m, pivot);
+            if ((flags[next] & 1) != 0) {
+                pen.quadTo(c, tx(xs[next], ys[next], scale, ox, oy, m, pivot));
+                step += 2;
+                continue;
+            }
+            pen.quadTo(c, tx((xs[i] + xs[next]) / 2, (ys[i] + ys[next]) / 2, scale, ox, oy, m, pivot));
+            step += 1;
+        }
+        pen.endFigure();
+        start = end + 1;
+    }
+}
+
+// ---- a text -------------------------------------------------------------------------------------------------------------
+
+/// RenderText's text: in box (x, y, w, h) (canvas pixels), less its padding.
 fn drawText(canvas: borrow mut Canvas, fonts: borrow Fonts, t: borrow TextProps, x: i64, y: i64, w: i64, h: i64,
     pxScale: f64, dpi: i64) {
+    // Lines end at "\r\n", "\r" or "\n".
+    var text = Vector<u8>.create();
+    let raw = t.processed.bytes();
+    var k: usize = 0;
+    while (k < raw.length) {
+        if (raw[k] == '\r') {
+            let _ = text.push('\n');
+            if (k + 1 < raw.length && raw[k + 1] == '\n') {
+                k += 1;
+            }
+        } else {
+            let _ = text.push(raw[k]);
+        }
+        k += 1;
+    }
+    let display = StringView.fromUtf8(text.view()) ?? "";
+    let face = match (fonts.resolve(t.font.family.view(), t.font.weight >= 700, t.font.slant != FontSlant.Upright)) {
+        Some(f) => f,
+        null => { return; }
+    };
+    let padL = roundEven((t.padLeft as f64) * pxScale);
+    let padR = roundEven((t.padRight as f64) * pxScale);
+    let padT = roundEven((t.padTop as f64) * pxScale);
+    let padB = roundEven((t.padBottom as f64) * pxScale);
+    let innerX = x + padL;
+    let innerY = y + padT;
+    let innerW = (w - padL - padR).max(1);
+    let innerH = (h - padT - padB).max(1);
+    let size: f32 = t.font.size * round<f32>(dpi) / 72.0;
+    let wrap = round<f32>(innerW);
+    let lines = wrapLines(fonts, face, display, size, wrap, !t.wordWrap);
+    let f = borrow fonts.faces[face];
+    let scale = size / f.upem;
+    let lineHeight = round<f32>(f.ascender - f.descender + f.lineGap) * scale * 1.0;
+    // AnchorPoint: the block's top by its vertical alignment.
+    let blockH = round<f32>(truncate<i64>(lines.length)) * lineHeight;
+    let top = round<f32>(innerY);
+    let originY: f32 = match (t.vertAlign) {
+        VertAlign.Center => top + ((round<f32>(innerH) - blockH) / 2.0).max(0.0),
+        VertAlign.Bottom => top + (round<f32>(innerH) - blockH).max(0.0),
+        _ => top,
+    };
+    let originX = round<f32>(innerX);
+    let clip = Clip {
+        minX: round<f64>(innerX),
+        minY: round<f64>(innerY),
+        maxX: round<f64>(innerX + innerW),
+        maxY: round<f64>(innerY + innerH),
+    };
+    let color = Color.rgb(t.color.r, t.color.g, t.color.b);
+    var glyphs = Vector<ShapedGlyph>.create();
+    var pen = GlyphPen.create();
+    let identity = Affine { sx: 1.0, s01: 0.0, s10: 0.0, sy: 1.0 };
+    for (li in 0..lines.length) {
+        let line = borrow lines[li];
+        let baseline = originY + round<f32>(truncate<i64>(li)) * lineHeight * 1.0 + round<f32>(f.ascender) * scale;
+        let startX: f32 = match (t.horzAlign) {
+            HorzAlign.Right => wrap - line.width,
+            HorzAlign.Center => (wrap - line.width) * 0.5,
+            _ => 0.0,
+        };
+        let lineX = originX + startX;
+        glyphs.clear();
+        for (b in 0..line.text.bytes().length * 2 + 1) {
+            let _ = glyphs.push(ShapedGlyph { font: 0, glyph: 0, x: 0.0, y: 0.0, cluster: 0 });
+        }
+        // ShapeLine: Arabic in its presentation forms, then shaped (claywind: bidi runs, cmap, GSUB, GPOS).
+        let shapedText = arabicPresentation(line.text.view());
+        // Shaped at one pixel a font unit, so each glyph's place is exact in font units; the pen then moves in
+        // pixels a glyph at a time (pen += advance × scale), as TextRenderer moves it.
+        let run = match (fonts.raster.shapeRun(shapedText.bytes(), f.id, f.upem, 0.0, glyphs.viewMut())) {
+            Some(r) => r,
+            null => { continue; }
+        };
+        var penX = lineX;
+        for (gi in 0..run.count) {
+            let g = glyphs[gi];
+            let next = if (gi + 1 < run.count) glyphs[gi + 1].x else run.width;
+            let gk = fonts.faceOfSlot(g.font) ?? face;
+            glyphOutline(fonts.faces[gk], g.glyph, scale, penX, (0.0 - g.y) * scale, identity, baseline, 0, mut pen);
+            pen.flush(mut canvas, color, clip);
+            penX += (next - g.x) * scale;
+        }
+    }
+}
+
+// ---- measuring a growing text ------------------------------------------------------------------------------------------
+
+/// CosmoPdf's CoreTextMeasureBridge: the lines FontMeasure.LineBreak breaks a text into, in the family's face at
+/// `size` points in `width` report units (3/4 of a point each).
+impl<region r> LineCounter for Fonts<r> {
+    fn countLines(borrow this, text: StringView, family: StringView, size: f32, bold: bool, italic: bool, width: f32)
+        -> i64 {
+        let face = match (this.resolve(family, bold, italic)) {
+            Some(k) => k,
+            null => { return 0; }
+        };
+        return truncate<i64>(this.lineBreak(face, text, size as f64, (width as f64) * 0.75).length);
+    }
+}
+
+const KINSOKU_START: [u32; 38] = [
+    0xFF09, 0x300D, 0x300F, 0x3011, 0x3009, 0x300B, 0x3001, 0x3002, 0xFF0E, 0xFF0C, 0xFF01, 0xFF1F, 0xFF1A, 0xFF1B,
+    0x30FC, 0x2026, 0x2025, 0xFF5D, 0x3015, 0x29, 0x5D, 0x7D, 0x21, 0x3F, 0x2C, 0x2E, 0x3A, 0x3B, 0x30FB, 0x309B, 0x309C,
+    0x309D, 0x309E, 0x30FD, 0x30FE, 0x3005, 0, 0,
+];
+const KINSOKU_END: [u32; 11] = [0xFF08, 0x300C, 0x300E, 0x3010, 0x3008, 0x300A, 0xFF5B, 0x3014, 0x28, 0x5B, 0x7B];
+
+fn kinsokuStart(r: u32) -> bool {
+    for (k in KINSOKU_START) {
+        if (k == r && k != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn kinsokuEnd(r: u32) -> bool {
+    for (k in KINSOKU_END) {
+        if (k == r) {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn isCjk(r: u32) -> bool =>
+    (r >= 0x4E00 && r <= 0x9FFF) || (r >= 0x3400 && r <= 0x4DBF) || (r >= 0x20000 && r <= 0x2A6DF) ||
+        (r >= 0x2A700 && r <= 0x2EBEF) || (r >= 0xF900 && r <= 0xFAFF) || (r >= 0x3040 && r <= 0x309F) ||
+        (r >= 0x30A0 && r <= 0x30FF) || (r >= 0x31F0 && r <= 0x31FF) || (r >= 0xAC00 && r <= 0xD7AF) ||
+        (r >= 0x1100 && r <= 0x11FF) || (r >= 0x3130 && r <= 0x318F) || (r >= 0x3000 && r <= 0x303F) ||
+        (r >= 0xFF00 && r <= 0xFFEF);
+
+/// AdjustBreakForKinsoku: a break moved back before a character that may not start a line or after one that may not
+/// end one.
+fn adjustForKinsoku(runes: borrow Vector<u32>, breakPos: usize, lineStart: usize) -> usize {
+    var pos = breakPos;
+    while (pos > lineStart) {
+        var after: i64 = -1;
+        if (pos < runes.length) {
+            after = runes[pos] as i64;
+        }
+        if (after == 0x20 && pos + 1 < runes.length) {
+            after = runes[pos + 1] as i64;
+        }
+        let at = runes[pos - 1];
+        if (!(after >= 0 && kinsokuStart(truncate<u32>(after))) && !kinsokuEnd(at)) {
+            break;
+        }
+        pos -= 1;
+    }
+    return pos;
+}
+
+impl<region r> Fonts<r> {
+    /// A character's advance in font units (hmtx): a character of the Basic Multilingual Plane the font lacks is
+    /// measured as .notdef, which is what is drawn for it (CosmoPdf's format 4 lookup answers glyph 0 for it); one
+    /// beyond, as a space.
+    fn charWidth(borrow this, face: usize, cp: u32) -> f64 {
+        let f = borrow this.faces[face];
+        let d = f.bytes.view();
+        var g = glyphIndex(d, f.info, cp);
+        if (g == 0 && cp > 0xFFFF) {
+            g = glyphIndex(d, f.info, 0x20);
+        }
+        return glyphAdvance(d, f.info, g) as f64;
+    }
+
+    /// FontMeasure.LineBreak: the lines of `text` at `size` points in `maxWidth` points, each character its advance
+    /// (no shaping, no kerning), broken at the last space (or after a CJK character) before the width runs out.
+    fn lineBreak(borrow this, face: usize, text: StringView, size: f64, maxWidth: f64) -> Vector<Vector<u32>> {
+        var lines = Vector<Vector<u32>>.create();
+        var runes = Vector<u32>.create();
+        let b = text.bytes();
+        var at: usize = 0;
+        while (at < b.length) {
+            let c = b[at] as u32;
+            let len: usize = if (c < 0x80) 1 else if (c < 0xE0) 2 else if (c < 0xF0) 3 else 4;
+            var cp: u32 = if (len == 1) c else if (len == 2) c & 0x1F else if (len == 3) c & 0x0F else c & 0x07;
+            for (k in 1..len) {
+                if (at + k < b.length) {
+                    cp = (cp << 6) | ((b[at + k] as u32) & 0x3F);
+                }
+            }
+            // "\r\n" and "\r" are line ends.
+            if (cp == 0x0D) {
+                let _ = runes.push(0x0A);
+                if (at + 1 < b.length && b[at + 1] == 0x0A) {
+                    at += 1;
+                }
+            } else {
+                let _ = runes.push(cp);
+            }
+            at += len;
+        }
+        if (runes.length == 0) {
+            let _ = lines.push(Vector<u32>.create());
+            return lines;
+        }
+        let upem = this.faces[face].upem as f64;
+        var lineStart: usize = 0;
+        while (lineStart < runes.length) {
+            var lineEnd = lineStart;
+            var lastBreak: i64 = -1;
+            var lineWidth: f64 = 0.0;
+            var wrapped = false;
+            while (lineEnd < runes.length) {
+                let r = runes[lineEnd];
+                if (r == 0x0A) {
+                    let _ = lines.push(slice(runes, lineStart, lineEnd));
+                    lineStart = lineEnd + 1;
+                    wrapped = true;
+                    break;
+                }
+                let charWidth = this.charWidth(face, r) * size / upem;
+                if (lineWidth + charWidth > maxWidth && lineEnd > lineStart) {
+                    if (lastBreak > truncate<i64>(lineStart)) {
+                        // Back to the last space (it starts no line), or after the last CJK character.
+                        let bp = adjustForKinsoku(runes, truncate<usize>(lastBreak), lineStart);
+                        if (bp > lineStart) {
+                            let _ = lines.push(slice(runes, lineStart, bp));
+                            lineStart = bp;
+                            if (lineStart < runes.length && runes[lineStart] == 0x20) {
+                                lineStart += 1;
+                            }
+                        } else {
+                            let _ = lines.push(slice(runes, lineStart, lineEnd));
+                            lineStart = lineEnd;
+                        }
+                    } else {
+                        // No break opportunity: the word is cut where it overflows.
+                        let bp = adjustForKinsoku(runes, lineEnd, lineStart);
+                        if (bp > lineStart) {
+                            let _ = lines.push(slice(runes, lineStart, bp));
+                            lineStart = bp;
+                        } else {
+                            let _ = lines.push(slice(runes, lineStart, lineEnd));
+                            lineStart = lineEnd;
+                        }
+                    }
+                    wrapped = true;
+                    break;
+                }
+                lineWidth += charWidth;
+                if (r == 0x20) {
+                    lastBreak = truncate<i64>(lineEnd);
+                } else if (isCjk(r)) {
+                    lastBreak = truncate<i64>(lineEnd) + 1;
+                }
+                lineEnd += 1;
+            }
+            if (!wrapped) {
+                let _ = lines.push(slice(runes, lineStart, lineEnd));
+                break;
+            }
+        }
+        return lines;
+    }
+}
+
+fn slice(runes: borrow Vector<u32>, from: usize, to: usize) -> Vector<u32> {
+    var out = Vector<u32>.create();
+    for (k in from..to) {
+        let _ = out.push(runes[k]);
+    }
+    return out;
 }

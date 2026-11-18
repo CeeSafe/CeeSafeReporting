@@ -45,10 +45,21 @@ public struct Handlers {
     }
 }
 
-/// How many lines `text` wraps to in `family` at `size` points (bold, italic) in `width` (1/96 inch); 0 or less when
-/// it cannot say. CanGrow and CanShrink use it.
-public struct LineCounter {
-    public count: fn(StringView, StringView, f32, bool, bool, f32) -> i64;
+/// What measures a growing text (TextMeasureBridge): how many lines `text` wraps to in `family` at `size` points
+/// (bold, italic) in `width` (1/96 inch); 0 or less when it cannot say, and the text's newlines count.
+public interface LineCounter {
+    fn countLines(borrow this, text: StringView, family: StringView, size: f32, bold: bool, italic: bool, width: f32)
+        -> i64;
+}
+
+/// No measuring: a growing text counts its newlines, as CosmoReport's engine does with no bridge installed.
+public struct NewlinesOnly {
+    public fn create() -> NewlinesOnly => NewlinesOnly {};
+}
+
+impl LineCounter for NewlinesOnly {
+    fn countLines(borrow this, text: StringView, family: StringView, size: f32, bold: bool, italic: bool, width: f32)
+        -> i64 => 0;
 }
 
 // ---- what the engine makes -------------------------------------------------------------------------------------------
@@ -215,7 +226,7 @@ fn isPayload(c: borrow Component, subreports: bool) -> bool {
 
 /// TextObject.CalcHeight: its lines (by the counter, else its newlines) times its line height (LineHeight, else
 /// 1.2 em at 96/72), and its top and bottom padding; its own height when it has no text.
-fn textHeight(c: borrow Component, counter: LineCounter?) -> f32 {
+fn textHeight(c: borrow Component, counter: borrow dyn LineCounter) -> f32 {
     let t = match (borrow c.text) {
         Some(t) => t,
         null => { return c.height; }
@@ -230,16 +241,10 @@ fn textHeight(c: borrow Component, counter: LineCounter?) -> f32 {
     var lines: i64 = 0;
     let innerW = c.width - t.padLeft - t.padRight;
     if (t.wordWrap && innerW > 0.0) {
-        match (counter) {
-            Some(lc) => {
-                let count = lc.count;
-                let counted = count(text, t.font.family.view(), t.font.size, t.font.weight >= 700,
-                    t.font.slant != FontSlant.Upright, innerW);
-                if (counted > 0) {
-                    lines = counted;
-                }
-            }
-            null => {}
+        let counted = counter.countLines(text, t.font.family.view(), t.font.size, t.font.weight >= 700,
+            t.font.slant != FontSlant.Upright, innerW);
+        if (counted > 0) {
+            lines = counted;
         }
     }
     if (lines <= 0) {
@@ -396,7 +401,7 @@ fn contains(text: StringView, part: StringView) -> bool {
 
 /// Prepares `report`'s pages over `data` (its sources registered), calling `handlers` for the report's script events
 /// and `counter`, if given, to measure growing texts.
-public fn preparePages(report: borrow Report, data: DataSet, handlers: borrow Handlers, counter: LineCounter?)
+public fn preparePages(report: borrow Report, data: DataSet, handlers: borrow Handlers, counter: borrow dyn LineCounter)
     -> Vector<PreparedPage> {
     var engine = Engine.create(report, data, handlers, counter);
     engine.run();
@@ -406,7 +411,7 @@ public fn preparePages(report: borrow Report, data: DataSet, handlers: borrow Ha
 struct Engine<region r> {
     report: borrow(r) Report;
     handlers: borrow(r) Handlers;
-    counter: LineCounter?;
+    counter: borrow(r) dyn LineCounter;
     data: DataSet;
     state: EvalState;
     bands: Vector<EBand>;
@@ -438,7 +443,8 @@ struct Engine<region r> {
 }
 
 impl<region r> Engine<r> {
-    fn create(report: borrow(r) Report, data: DataSet, handlers: borrow(r) Handlers, counter: LineCounter?) -> Engine<r> {
+    fn create(report: borrow(r) Report, data: DataSet, handlers: borrow(r) Handlers, counter: borrow(r) dyn LineCounter)
+        -> Engine<r> {
         var e = Engine {
             report: report,
             handlers: handlers,

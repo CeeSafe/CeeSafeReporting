@@ -1,0 +1,227 @@
+// SPDX-License-Identifier: MIT
+// Arabic as CosmoFonts shapes it (ArabicShaper): each letter replaced by its Presentation Forms-B character for its
+// joining context (isolated, final, initial or medial), then lam and alef joined into their ligature. The font's
+// cmap then picks the glyph for each form, which is how CosmoReport draws Arabic (claywind would choose forms by the
+// font's GSUB instead, and a font may map the two to different glyphs: Arial's medial beh by GSUB is its initial
+// glyph, by presentation form a glyph of its own).
+
+/// Joining types (ArabicShaping): U non-joining, D dual, R right, C join-causing, T transparent.
+const JT_U: u8 = 0;
+const JT_D: u8 = 1;
+const JT_R: u8 = 2;
+const JT_C: u8 = 3;
+const JT_T: u8 = 4;
+
+/// The right-joining letters (CosmoFonts' list).
+const RIGHT_JOINING: [u32; 63] = [
+    0x0622, 0x0623, 0x0624, 0x0625, 0x0627, 0x0629, 0x062F, 0x0630, 0x0631, 0x0632, 0x0648, 0x0649, 0x0671, 0x0672,
+    0x0673, 0x0675, 0x0676, 0x0677, 0x0688, 0x0689, 0x068A, 0x068B, 0x068C, 0x068D, 0x068E, 0x068F, 0x0690, 0x0691,
+    0x0692, 0x0693, 0x0694, 0x0695, 0x0696, 0x0697, 0x0698, 0x0699, 0x06C0, 0x06C3, 0x06C4, 0x06C5, 0x06C6, 0x06C7,
+    0x06C8, 0x06C9, 0x06CA, 0x06CB, 0x06CD, 0x06CF, 0x06D2, 0x06D3, 0x06EE, 0x06EF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
+/// The dual-joining letters (CosmoFonts' list).
+const DUAL_JOINING: [u32; 65] = [
+    0x0626, 0x0628, 0x062A, 0x062B, 0x062C, 0x062D, 0x062E, 0x0633, 0x0634, 0x0635, 0x0636, 0x0637, 0x0638, 0x0639,
+    0x063A, 0x0641, 0x0642, 0x0643, 0x0644, 0x0645, 0x0646, 0x0647, 0x064A, 0x0620, 0x06A0, 0x06A1, 0x06A2, 0x06A3,
+    0x06A4, 0x06A5, 0x06A6, 0x06A7, 0x06A8, 0x06A9, 0x06AA, 0x06AB, 0x06AC, 0x06AD, 0x06AE, 0x06AF, 0x06B0, 0x06B1,
+    0x06B2, 0x06B3, 0x06B4, 0x06B5, 0x06B6, 0x06B7, 0x06B8, 0x06B9, 0x06BA, 0x06BB, 0x06BC, 0x06BD, 0x06BE, 0x06BF,
+    0x06C1, 0x06C2, 0x06CC, 0x06CE, 0x06D0, 0x06D1, 0x06FA, 0x06FB, 0x06FC,
+];
+
+/// Each letter with forms: the letter, then its isolated, final, initial and medial forms (0 for none).
+const FORMS: [u32; 180] = [
+    0x0621, 0xFE80, 0, 0, 0,
+    0x0622, 0xFE81, 0xFE82, 0, 0,
+    0x0623, 0xFE83, 0xFE84, 0, 0,
+    0x0624, 0xFE85, 0xFE86, 0, 0,
+    0x0625, 0xFE87, 0xFE88, 0, 0,
+    0x0626, 0xFE89, 0xFE8A, 0xFE8B, 0xFE8C,
+    0x0627, 0xFE8D, 0xFE8E, 0, 0,
+    0x0628, 0xFE8F, 0xFE90, 0xFE91, 0xFE92,
+    0x0629, 0xFE93, 0xFE94, 0, 0,
+    0x062A, 0xFE95, 0xFE96, 0xFE97, 0xFE98,
+    0x062B, 0xFE99, 0xFE9A, 0xFE9B, 0xFE9C,
+    0x062C, 0xFE9D, 0xFE9E, 0xFE9F, 0xFEA0,
+    0x062D, 0xFEA1, 0xFEA2, 0xFEA3, 0xFEA4,
+    0x062E, 0xFEA5, 0xFEA6, 0xFEA7, 0xFEA8,
+    0x062F, 0xFEA9, 0xFEAA, 0, 0,
+    0x0630, 0xFEAB, 0xFEAC, 0, 0,
+    0x0631, 0xFEAD, 0xFEAE, 0, 0,
+    0x0632, 0xFEAF, 0xFEB0, 0, 0,
+    0x0633, 0xFEB1, 0xFEB2, 0xFEB3, 0xFEB4,
+    0x0634, 0xFEB5, 0xFEB6, 0xFEB7, 0xFEB8,
+    0x0635, 0xFEB9, 0xFEBA, 0xFEBB, 0xFEBC,
+    0x0636, 0xFEBD, 0xFEBE, 0xFEBF, 0xFEC0,
+    0x0637, 0xFEC1, 0xFEC2, 0xFEC3, 0xFEC4,
+    0x0638, 0xFEC5, 0xFEC6, 0xFEC7, 0xFEC8,
+    0x0639, 0xFEC9, 0xFECA, 0xFECB, 0xFECC,
+    0x063A, 0xFECD, 0xFECE, 0xFECF, 0xFED0,
+    0x0641, 0xFED1, 0xFED2, 0xFED3, 0xFED4,
+    0x0642, 0xFED5, 0xFED6, 0xFED7, 0xFED8,
+    0x0643, 0xFED9, 0xFEDA, 0xFEDB, 0xFEDC,
+    0x0644, 0xFEDD, 0xFEDE, 0xFEDF, 0xFEE0,
+    0x0645, 0xFEE1, 0xFEE2, 0xFEE3, 0xFEE4,
+    0x0646, 0xFEE5, 0xFEE6, 0xFEE7, 0xFEE8,
+    0x0647, 0xFEE9, 0xFEEA, 0xFEEB, 0xFEEC,
+    0x0648, 0xFEED, 0xFEEE, 0, 0,
+    0x0649, 0xFEEF, 0xFEF0, 0, 0,
+    0x064A, 0xFEF1, 0xFEF2, 0xFEF3, 0xFEF4,
+];
+
+fn joiningOfCp(cp: u32) -> u8 {
+    if ((cp >= 0x064B && cp <= 0x065F) || (cp >= 0x0610 && cp <= 0x061A) || (cp >= 0x06D6 && cp <= 0x06E4) ||
+        cp == 0x06E7 || cp == 0x06E8 || (cp >= 0x06EA && cp <= 0x06ED)) {
+        return JT_T;
+    }
+    if (cp == 0x0640) {
+        return JT_C;
+    }
+    for (r in RIGHT_JOINING) {
+        if (r == cp && r != 0) {
+            return JT_R;
+        }
+    }
+    for (d in DUAL_JOINING) {
+        if (d == cp) {
+            return JT_D;
+        }
+    }
+    return JT_U;
+}
+
+/// ContainsArabic: a character in U+0600 to U+06FF or U+FE70 to U+FEFF.
+fn containsArabic(cps: borrow Vector<u32>) -> bool {
+    for (c in cps.view()) {
+        if ((c >= 0x600 && c <= 0x6FF) || (c >= 0xFE70 && c <= 0xFEFF)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn rightConnects(cps: borrow Vector<u32>, i: usize) -> bool {
+    let jt = joiningOfCp(cps[i]);
+    if (jt != JT_D && jt != JT_R) {
+        return false;
+    }
+    var j = i;
+    while (j > 0) {
+        j -= 1;
+        let p = joiningOfCp(cps[j]);
+        if (p == JT_T) {
+            continue;
+        }
+        return p == JT_D || p == JT_C;
+    }
+    return false;
+}
+
+fn leftConnects(cps: borrow Vector<u32>, i: usize) -> bool {
+    if (joiningOfCp(cps[i]) != JT_D) {
+        return false;
+    }
+    for (j in i + 1..cps.length) {
+        let n = joiningOfCp(cps[j]);
+        if (n == JT_T) {
+            continue;
+        }
+        return n == JT_D || n == JT_R || n == JT_C;
+    }
+    return false;
+}
+
+fn pushCp(out: borrow mut Vector<u8>, cp: u32) {
+    if (cp < 0x80) {
+        let _ = out.push(truncate<u8>(cp));
+    } else if (cp < 0x800) {
+        let _ = out.push(truncate<u8>(0xC0 | (cp >> 6)));
+        let _ = out.push(truncate<u8>(0x80 | (cp & 0x3F)));
+    } else if (cp < 0x10000) {
+        let _ = out.push(truncate<u8>(0xE0 | (cp >> 12)));
+        let _ = out.push(truncate<u8>(0x80 | ((cp >> 6) & 0x3F)));
+        let _ = out.push(truncate<u8>(0x80 | (cp & 0x3F)));
+    } else {
+        let _ = out.push(truncate<u8>(0xF0 | (cp >> 18)));
+        let _ = out.push(truncate<u8>(0x80 | ((cp >> 12) & 0x3F)));
+        let _ = out.push(truncate<u8>(0x80 | ((cp >> 6) & 0x3F)));
+        let _ = out.push(truncate<u8>(0x80 | (cp & 0x3F)));
+    }
+}
+
+/// The lam-alef ligature for a shaped lam and a shaped alef, if they make one.
+fn lamAlef(lam: u32, alef: u32) -> u32? {
+    if (lam != 0xFEDD && lam != 0xFEDE && lam != 0xFEDF && lam != 0xFEE0) {
+        return null;
+    }
+    let connected = lam == 0xFEE0 || lam == 0xFEDE;
+    let base: u32 = if (alef == 0xFE81 || alef == 0xFE82) 0xFEF5 else if (alef == 0xFE83 || alef == 0xFE84) 0xFEF7
+        else if (alef == 0xFE87 || alef == 0xFE88) 0xFEF9 else if (alef == 0xFE8D || alef == 0xFE8E) 0xFEFB else 0;
+    if (base == 0) {
+        return null;
+    }
+    return if (connected) base + 1 else base;
+}
+
+/// ArabicShaper.Shape: `text` with its Arabic letters in their presentation forms and lam-alef ligated.
+public fn arabicPresentation(text: StringView) -> String {
+    var cps = Vector<u32>.create();
+    let b = text.bytes();
+    var at: usize = 0;
+    while (at < b.length) {
+        let c = b[at] as u32;
+        let len: usize = if (c < 0x80) 1 else if (c < 0xE0) 2 else if (c < 0xF0) 3 else 4;
+        var cp: u32 = if (len == 1) c else if (len == 2) c & 0x1F else if (len == 3) c & 0x0F else c & 0x07;
+        for (k in 1..len) {
+            if (at + k < b.length) {
+                cp = (cp << 6) | ((b[at + k] as u32) & 0x3F);
+            }
+        }
+        let _ = cps.push(cp);
+        at += len;
+    }
+    if (!containsArabic(cps)) {
+        return copyOf(text);
+    }
+    var shaped = Vector<u32>.create();
+    for (i in 0..cps.length) {
+        let cp = cps[i];
+        var row: usize? = null;
+        for (r in 0..36usize) {
+            if (FORMS[r * 5] == cp) {
+                row = r;
+            }
+        }
+        match (row) {
+            Some(r) => {
+                let rc = rightConnects(cps, i);
+                let lc = leftConnects(cps, i);
+                let isolated = FORMS[r * 5 + 1];
+                let fin = FORMS[r * 5 + 2];
+                let initial = FORMS[r * 5 + 3];
+                let medial = FORMS[r * 5 + 4];
+                let f = if (rc && lc && medial != 0) medial else if (rc && !lc && fin != 0) fin
+                    else if (!rc && lc && initial != 0) initial else if (isolated != 0) isolated else cp;
+                let _ = shaped.push(f);
+            }
+            null => { let _ = shaped.push(cp); }
+        }
+    }
+    var out = Vector<u8>.create();
+    var i: usize = 0;
+    while (i < shaped.length) {
+        if (i + 1 < shaped.length) {
+            match (lamAlef(shaped[i], shaped[i + 1])) {
+                Some(l) => {
+                    pushCp(mut out, l);
+                    i += 2;
+                    continue;
+                }
+                null => {}
+            }
+        }
+        pushCp(mut out, shaped[i]);
+        i += 1;
+    }
+    return stringOf(out.view());
+}
