@@ -1,0 +1,366 @@
+// SPDX-License-Identifier: MIT
+// PDF/A-3b as CosmoPdf's PdfA.Apply makes it (with the fixes on CosmoPdf's fix/image-export-text branch): an sRGB ICC
+// profile (Icc.BuildSRgbProfile) as the document's output intent, XMP metadata with the PDF/A identification
+// (Xmp.Generate), the files a ZATCA invoice carries (its XML) as associated files, and the MD5 of the XMP as the
+// trailer's ID.
+
+/// A file carried in the PDF (PdfA's AttachmentInfo).
+public struct PdfAttachment {
+    public name: String;
+    public mimeType: String;
+    public data: Vector<u8>;
+    public description: String;
+    /// AFRelationship: Source, Data, Alternative, Supplement or Unspecified.
+    public relationship: String;
+
+    /// CosmoPdfExport.AddEmbeddedXML: an XML file, the source the PDF shows.
+    public fn xml(name: StringView, description: StringView, data: Vector<u8>) -> PdfAttachment => PdfAttachment {
+        name: copyOf(name),
+        mimeType: copyOf("application/xml"),
+        data: data,
+        description: copyOf(description),
+        relationship: copyOf("Source"),
+    };
+}
+
+/// How a PDF is written: plain (CosmoPdfExport's default), or PDF/A-3b with attachments, made at `now`, a local
+/// time `utcOffsetMinutes` from UTC (the XMP's dates and the attachments' ModDate).
+public struct PdfOptions {
+    public pdfA3: bool;
+    public attachments: Vector<PdfAttachment>;
+    public now: DateTime;
+    public utcOffsetMinutes: i64;
+
+    public fn plain() -> PdfOptions => PdfOptions {
+        pdfA3: false,
+        attachments: Vector<PdfAttachment>.create(),
+        now: DateTime.fromUnixSeconds(0),
+        utcOffsetMinutes: 0,
+    };
+
+    /// PDF/A-3b made at `now` (local, `utcOffsetMinutes` from UTC), carrying `attachments`.
+    public fn archival(now: DateTime, utcOffsetMinutes: i64, attachments: Vector<PdfAttachment>) -> PdfOptions => PdfOptions {
+        pdfA3: true,
+        attachments: attachments,
+        now: now,
+        utcOffsetMinutes: utcOffsetMinutes,
+    };
+}
+
+// ---- MD5 (RFC 1321) ---------------------------------------------------------------------------------------------------
+
+const MD5_SHIFTS: [u32; 64] = [
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+];
+
+const MD5_K: [u32; 64] = [
+    0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501, 0x698098d8,
+    0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821, 0xf61e2562, 0xc040b340,
+    0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8, 0x21e1cde6, 0xc33707d6, 0xf4d50d87,
+    0x455a14ed, 0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c,
+    0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05, 0xd9d4d039,
+    0xe6db99e5, 0x1fa27cf8, 0xc4ac5665, 0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92,
+    0xffeff47d, 0x85845dd1, 0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb,
+    0xeb86d391,
+];
+
+fn rotl(x: u32, n: u32) -> u32 => (x << n) | (x >> (32 - n));
+
+/// The MD5 digest of `data`.
+public fn md5(data: Slice<u8>) -> [u8; 16] {
+    var msg = Vector<u8>.create();
+    for (c in data) {
+        let _ = msg.push(c);
+    }
+    let _ = msg.push(0x80);
+    while (msg.length % 64 != 56) {
+        let _ = msg.push(0);
+    }
+    let bits = truncate<u64>(data.length) * 8;
+    for (k in 0..8u64) {
+        let _ = msg.push(truncate<u8>(bits >> (k * 8)));
+    }
+    var a0: u32 = 0x67452301;
+    var b0: u32 = 0xefcdab89;
+    var c0: u32 = 0x98badcfe;
+    var d0: u32 = 0x10325476;
+    var block: usize = 0;
+    while (block < msg.length) {
+        var m = [0u32; 16];
+        for (j in 0..16usize) {
+            let at = block + j * 4;
+            m[j] = (msg[at] as u32) | ((msg[at + 1] as u32) << 8) | ((msg[at + 2] as u32) << 16) |
+                ((msg[at + 3] as u32) << 24);
+        }
+        var a = a0;
+        var b = b0;
+        var c = c0;
+        var d = d0;
+        for (i in 0..64usize) {
+            var f: u32 = 0;
+            var g: usize = 0;
+            if (i < 16) {
+                f = (b & c) | ((b ^ 0xFFFFFFFF) & d);
+                g = i;
+            } else if (i < 32) {
+                f = (d & b) | ((d ^ 0xFFFFFFFF) & c);
+                g = (5 * i + 1) % 16;
+            } else if (i < 48) {
+                f = b ^ c ^ d;
+                g = (3 * i + 5) % 16;
+            } else {
+                f = c ^ (b | (d ^ 0xFFFFFFFF));
+                g = (7 * i) % 16;
+            }
+            let t = d;
+            d = c;
+            c = b;
+            b = b.wrappingAdd(rotl(a.wrappingAdd(f).wrappingAdd(MD5_K[i]).wrappingAdd(m[g]), MD5_SHIFTS[i]));
+            a = t;
+        }
+        a0 = a0.wrappingAdd(a);
+        b0 = b0.wrappingAdd(b);
+        c0 = c0.wrappingAdd(c);
+        d0 = d0.wrappingAdd(d);
+        block += 64;
+    }
+    var out = [0u8; 16];
+    let words = [a0, b0, c0, d0];
+    for (w in 0..4usize) {
+        for (k in 0..4usize) {
+            out[w * 4 + k] = truncate<u8>(words[w] >> (truncate<u32>(k) * 8));
+        }
+    }
+    return out;
+}
+
+// ---- the sRGB profile (Icc.BuildSRgbProfile) ------------------------------------------------------------------------
+
+fn put16(o: borrow mut Vector<u8>, v: u32) {
+    let _ = o.push(truncate<u8>(v >> 8));
+    let _ = o.push(truncate<u8>(v));
+}
+
+fn put32(o: borrow mut Vector<u8>, v: u32) {
+    put16(mut o, v >> 16);
+    put16(mut o, v & 0xFFFF);
+}
+
+fn putAscii(o: borrow mut Vector<u8>, s: StringView) {
+    for (c in s.bytes()) {
+        let _ = o.push(c);
+    }
+}
+
+fn pad4(o: borrow mut Vector<u8>) {
+    while (o.length % 4 != 0) {
+        let _ = o.push(0);
+    }
+}
+
+/// S15Fixed16: (uint)(int)Math.Round(f · 65536).
+fn s15(f: f64) -> u32 => truncate<u32>(truncate<u64>(roundEven(f * 65536.0)));
+
+fn xyzTag(x: f64, y: f64, z: f64) -> Vector<u8> {
+    var o = Vector<u8>.create();
+    putAscii(mut o, "XYZ ");
+    put32(mut o, 0);
+    put32(mut o, s15(x));
+    put32(mut o, s15(y));
+    put32(mut o, s15(z));
+    return o;
+}
+
+fn curveTag(gamma: f64) -> Vector<u8> {
+    var o = Vector<u8>.create();
+    putAscii(mut o, "curv");
+    put32(mut o, 0);
+    put32(mut o, 1);
+    put16(mut o, truncate<u32>(truncate<u64>(roundTowardZero(gamma * 256.0))));
+    pad4(mut o);
+    return o;
+}
+
+fn roundTowardZero(v: f64) -> i64 => truncate<i64>(v);
+
+fn descTag(text: StringView) -> Vector<u8> {
+    var o = Vector<u8>.create();
+    putAscii(mut o, "desc");
+    put32(mut o, 0);
+    put32(mut o, truncate<u32>(text.length + 1));
+    putAscii(mut o, text);
+    let _ = o.push(0);
+    put32(mut o, 0);
+    put32(mut o, 0);
+    put16(mut o, 0);
+    let _ = o.push(0);
+    for (k in 0..67usize) {
+        let _ = o.push(0);
+    }
+    pad4(mut o);
+    return o;
+}
+
+fn textTag(text: StringView) -> Vector<u8> {
+    var o = Vector<u8>.create();
+    putAscii(mut o, "text");
+    put32(mut o, 0);
+    putAscii(mut o, text);
+    let _ = o.push(0);
+    pad4(mut o);
+    return o;
+}
+
+/// An ICC v2.1 monitor profile for sRGB: D50-adapted primaries, a 2.2 gamma curve.
+fn srgbProfile() -> Vector<u8> {
+    let gamma = curveTag(2.2);
+    var sigs = Vector<String>.create();
+    var datas = Vector<Vector<u8>>.create();
+    let _ = sigs.push(copyOf("desc"));
+    let _ = datas.push(descTag("sRGB IEC61966-2.1"));
+    let _ = sigs.push(copyOf("wtpt"));
+    let _ = datas.push(xyzTag(0.9504559, 1.0, 1.0890578));
+    let _ = sigs.push(copyOf("rXYZ"));
+    let _ = datas.push(xyzTag(0.4360747, 0.2225045, 0.0139322));
+    let _ = sigs.push(copyOf("gXYZ"));
+    let _ = datas.push(xyzTag(0.3850649, 0.7168786, 0.0971045));
+    let _ = sigs.push(copyOf("bXYZ"));
+    let _ = datas.push(xyzTag(0.1430804, 0.0606169, 0.7141733));
+    for (s in ["rTRC", "gTRC", "bTRC"]) {
+        let _ = sigs.push(copyOf(s));
+        let _ = datas.push(copyBytes(gamma.view()));
+    }
+    let _ = sigs.push(copyOf("cprt"));
+    let _ = datas.push(textTag("Public Domain"));
+    let n = sigs.length;
+    var dataOffset = 128 + 4 + n * 12;
+    if (dataOffset % 4 != 0) {
+        dataOffset += 4 - dataOffset % 4;
+    }
+    var offsets = Vector<usize>.create();
+    var current = dataOffset;
+    for (d in datas.view()) {
+        let _ = offsets.push(current);
+        current += d.length;
+        if (current % 4 != 0) {
+            current += 4 - current % 4;
+        }
+    }
+    var o = Vector<u8>.create();
+    put32(mut o, truncate<u32>(current));
+    putAscii(mut o, "CosP");
+    put32(mut o, 0x02100000);
+    putAscii(mut o, "mntr");
+    putAscii(mut o, "RGB ");
+    putAscii(mut o, "XYZ ");
+    put16(mut o, 2024);
+    put16(mut o, 1);
+    put16(mut o, 1);
+    put16(mut o, 0);
+    put16(mut o, 0);
+    put16(mut o, 0);
+    putAscii(mut o, "acsp");
+    putAscii(mut o, "APPL");
+    put32(mut o, 0);
+    putAscii(mut o, "CosP");
+    putAscii(mut o, "sRGB");
+    put32(mut o, 0);
+    put32(mut o, 0);
+    put32(mut o, 0);
+    put32(mut o, s15(0.9642));
+    put32(mut o, s15(1.0));
+    put32(mut o, s15(0.8249));
+    putAscii(mut o, "CosP");
+    for (k in 0..44usize) {
+        let _ = o.push(0);
+    }
+    put32(mut o, truncate<u32>(n));
+    for (k in 0..n) {
+        putAscii(mut o, sigs[k].view());
+        put32(mut o, truncate<u32>(offsets[k]));
+        put32(mut o, truncate<u32>(datas[k].length));
+    }
+    while (o.length < dataOffset) {
+        let _ = o.push(0);
+    }
+    for (d in datas.view()) {
+        for (c in d.view()) {
+            let _ = o.push(c);
+        }
+        pad4(mut o);
+    }
+    return o;
+}
+
+// ---- the XMP (Xmp.Generate) -----------------------------------------------------------------------------------------
+
+fn two(o: borrow mut String, v: i64) {
+    if (v < 10) {
+        let _ = o.append("0");
+    }
+    appendInt(mut o, v);
+}
+
+/// "yyyy-MM-ddTHH:mm:sszzz": the local time and its offset from UTC.
+fn xmpDate(t: DateTime, offsetMinutes: i64) -> String {
+    var o = String.create();
+    appendInt(mut o, t.year);
+    let _ = o.append("-");
+    two(mut o, t.month);
+    let _ = o.append("-");
+    two(mut o, t.day);
+    let _ = o.append("T");
+    two(mut o, t.hour);
+    let _ = o.append(":");
+    two(mut o, t.minute);
+    let _ = o.append(":");
+    two(mut o, t.second);
+    let _ = o.append(if (offsetMinutes < 0) "-" else "+");
+    let m = if (offsetMinutes < 0) -offsetMinutes else offsetMinutes;
+    two(mut o, m / 60);
+    let _ = o.append(":");
+    two(mut o, m % 60);
+    return o;
+}
+
+/// "D:yyyyMMddHHmmssZ": the time in UTC.
+fn pdfUtcDate(t: DateTime, offsetMinutes: i64) -> String {
+    let utc = DateTime.fromUnixSeconds(t.unixSeconds() - offsetMinutes * 60);
+    var o = copyOf("D:");
+    appendInt(mut o, utc.year);
+    two(mut o, utc.month);
+    two(mut o, utc.day);
+    two(mut o, utc.hour);
+    two(mut o, utc.minute);
+    two(mut o, utc.second);
+    let _ = o.append("Z");
+    return o;
+}
+
+/// Xmp.Generate for PDF/A-3b: Dublin Core (title, author, subject), the creator tool and dates, the producer, and
+/// pdfaid part 3, conformance B.
+fn pdfaXmp(info: borrow ReportInfo, creator: StringView, producer: StringView, date: StringView) -> String {
+    var b = String.create();
+    let _ = b.append("<?xpacket begin=\"\u{FEFF}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n");
+    let _ = b.append("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n");
+    let _ = b.append("<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n");
+    let _ = b.append("<rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n");
+    xmpField(mut b, "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">", info.name.view(), "</rdf:li></rdf:Alt></dc:title>\n");
+    xmpField(mut b, "<dc:creator><rdf:Seq><rdf:li>", info.author.view(), "</rdf:li></rdf:Seq></dc:creator>\n");
+    xmpField(mut b, "<dc:description><rdf:Alt><rdf:li xml:lang=\"x-default\">", info.description.view(),
+        "</rdf:li></rdf:Alt></dc:description>\n");
+    let _ = b.append("</rdf:Description>\n");
+    let _ = b.append("<rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\">\n");
+    xmpField(mut b, "<xmp:CreatorTool>", creator, "</xmp:CreatorTool>\n");
+    xmpField(mut b, "<xmp:CreateDate>", date, "</xmp:CreateDate>\n");
+    xmpField(mut b, "<xmp:ModifyDate>", date, "</xmp:ModifyDate>\n");
+    let _ = b.append("</rdf:Description>\n");
+    let _ = b.append("<rdf:Description rdf:about=\"\" xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\">\n");
+    xmpField(mut b, "<pdf:Producer>", producer, "</pdf:Producer>\n");
+    let _ = b.append("</rdf:Description>\n");
+    let _ = b.append("<rdf:Description rdf:about=\"\" xmlns:pdfaid=\"http://www.aiim.org/pdfa/ns/id/\">\n");
+    let _ = b.append("<pdfaid:part>3</pdfaid:part>\n<pdfaid:conformance>B</pdfaid:conformance>\n");
+    let _ = b.append("</rdf:Description>\n</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>");
+    return b;
+}

@@ -105,6 +105,11 @@ dumps (bands, positions, texts) and as pixels.
    receipt, the server's MyInvoice and the voucher, short and long, dump object for object as CosmoReport's PDFs do
    (tests/expected/pdf, written by the harness's `pdf` mode, streams inflated), and Poppler draws the two files to the
    same pixels. The deflated bytes differ (fixed Huffman codes here, zlib's there).
+   *PDF/A-3b is done.* exportPdfWith(PdfOptions.archival(now, offset, files)) is PdfCompliance PdfA_3b with
+   AddEmbeddedXML (src/pdf_a.cee): the sRGB ICC profile as the output intent, the pdfaid XMP, the invoice's XML as
+   its source file (Names, AF), the MD5 of the XMP as the trailer's ID. CosmoPdf wrote no binary header comment and no
+   ID (ISO 19005-2 6.1.2, 6.1.3) and dated the file by the clock; fixed on its branch (PdfA.WithClock,
+   CosmoPdfExport.Now) and matched. Not yet checked by a PDF/A validator (veraPDF).
 9. **The rest of FastReport.Core,** by what reports in use need: other objects, styles, aggregates, relations, columns,
    KeepTogether, and the other exporters.
 

@@ -5,7 +5,11 @@
 import claywind;
 
 /// The report's PDF with the system's Arial and Tahoma, null when they are not there.
-fn pdfOf(file: StringView, sourceName: StringView, dataFile: StringView) -> Result<PdfFile?, TestFailure> {
+fn pdfOf(file: StringView, sourceName: StringView, dataFile: StringView) -> Result<PdfFile?, TestFailure> =>
+    pdfWith(file, sourceName, dataFile, PdfOptions.plain());
+
+fn pdfWith(file: StringView, sourceName: StringView, dataFile: StringView, options: PdfOptions)
+    -> Result<PdfFile?, TestFailure> {
     var path = String.create();
     let _ = path.append("tests/fixtures/");
     let _ = path.append(file);
@@ -25,7 +29,7 @@ fn pdfOf(file: StringView, sourceName: StringView, dataFile: StringView) -> Resu
         Console.writeLine("  (Arial or Tahoma not found: skipped)");
         return Ok(null);
     }
-    return Ok(exportPdf(report, pages, fonts));
+    return Ok(exportPdfWith(report, pages, fonts, options));
 }
 
 fn writeOut(name: StringView, suffix: StringView, bytes: Slice<u8>) {
@@ -44,8 +48,11 @@ fn writeOut(name: StringView, suffix: StringView, bytes: Slice<u8>) {
 
 /// The report's PDF dumped as CosmoReport's is, line by line; the first line that differs is shown.
 fn samePdf(file: StringView, sourceName: StringView, dataFile: StringView, name: StringView)
+    -> Result<void, TestFailure> => samePdfWith(file, sourceName, dataFile, name, PdfOptions.plain());
+
+fn samePdfWith(file: StringView, sourceName: StringView, dataFile: StringView, name: StringView, options: PdfOptions)
     -> Result<void, TestFailure> {
-    let pdf = match (pdfOf(file, sourceName, dataFile)?) {
+    let pdf = match (pdfWith(file, sourceName, dataFile, options)?) {
         Some(p) => p,
         null => { return Ok(); }
     };
@@ -151,3 +158,31 @@ fn aLongInvoicesPdfIsCosmoReportsOnEveryPage() -> Result<void, TestFailure> =>
 @test
 fn aLongVouchersPdfIsCosmoReportsOnEveryPage() -> Result<void, TestFailure> =>
     samePdf("VoucherView", "Voucher", "tests/data/voucher30.json", "VoucherView.voucher30");
+
+/// A ZATCA invoice as PDF/A-3b: the sRGB output intent, the PDF/A metadata, the invoice's XML as its source file, the
+/// trailer's ID; made at the harness's test time in Riyadh (UTC+3).
+@test
+fn aZatcaInvoicesPdfA3IsCosmoReports() -> Result<void, TestFailure> {
+    var files = Vector<PdfAttachment>.create();
+    let _ = files.push(PdfAttachment.xml("invoice.xml", "ZATCA e-invoice", readFile("tests/data/invoice.xml")));
+    return samePdfWith("MyInvoice.server", "Invoice", "tests/data/invoice.json", "MyInvoice.server.pdfa3",
+        PdfOptions.archival(testNow(), 180, files));
+}
+
+fn hex(d: [u8; 16]) -> String {
+    var s = String.create();
+    for (b in d) {
+        appendHex2(mut s, b);
+    }
+    return s;
+}
+
+/// RFC 1321's test suite.
+@test
+fn md5IsRfc1321s() -> Result<void, TestFailure> {
+    Check.isTrue(hex(md5("".bytes())).view() == "D41D8CD98F00B204E9800998ECF8427E", "md5 of nothing")?;
+    Check.isTrue(hex(md5("abc".bytes())).view() == "900150983CD24FB0D6963F7D28E17F72", "md5 of abc")?;
+    Check.isTrue(hex(md5("12345678901234567890123456789012345678901234567890123456789012345678901234567890".bytes()))
+        .view() == "57EDF4A22BE3C955AC49DA2E2107B67A", "md5 of 80 digits")?;
+    return Ok();
+}

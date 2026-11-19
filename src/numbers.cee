@@ -740,6 +740,18 @@ public struct DateTime {
         return DateTime { year: year, month: month, day: day, hour: second / 3600, minute: second / 60 % 60,
             second: second % 60, ticks: 0 };
     }
+
+    /// The seconds since 1970-01-01 00:00:00 to this time (fromUnixSeconds' inverse; Hinnant's days_from_civil).
+    public fn unixSeconds(borrow this) -> i64 {
+        let y = if (this.month <= 2) this.year - 1 else this.year;
+        let era = (if (y >= 0) y else y - 399) / 400;
+        let yoe = y - era * 400;
+        let mp = if (this.month > 2) this.month - 3 else this.month + 9;
+        let doy = (153 * mp + 2) / 5 + this.day - 1;
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        let days = era * 146097 + doe - 719468;
+        return days * 86400 + this.hour * 3600 + this.minute * 60 + this.second;
+    }
 }
 
 fn digitsValue(b: Slice<u8>) -> i64? {

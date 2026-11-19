@@ -77,7 +77,7 @@ static class Prepared
     }
 
     /// The report prepared as production prepares it and exported by CosmoPdfExport (its defaults): the PDF to `out`.
-    public static string Pdf(string frx, string jsonPath, string name, string outPath)
+    public static string Pdf(string frx, string jsonPath, string name, string outPath, string? pdfa3Xml = null)
     {
         CosmoPdf.FastReport.CoreTextMeasureBridge.Install();
         CosmoPdf.FastReport.CoreQrBridge.Install();
@@ -86,7 +86,16 @@ static class Prepared
         RegisterJson(report, jsonPath, name);
         report.Prepare();
         using var stream = new MemoryStream();
-        report.Export(new CosmoPdf.FastReport.CosmoPdfExport(), stream);
+        var export = new CosmoPdf.FastReport.CosmoPdfExport();
+        if (pdfa3Xml != null)
+        {
+            // A ZATCA invoice: PDF/A-3b with the invoice's XML embedded, made at the test time in Riyadh.
+            export.PdfCompliance = CosmoPdf.FastReport.PdfStandard.PdfA_3b;
+            export.Now = () => new DateTimeOffset(TestNow, TimeSpan.FromHours(3));
+            using var xml = File.OpenRead(pdfa3Xml);
+            export.AddEmbeddedXML(Path.GetFileName(pdfa3Xml), "ZATCA e-invoice", TestNow, xml);
+        }
+        report.Export(export, stream);
         File.WriteAllBytes(outPath, stream.ToArray());
         File.WriteAllText(outPath + ".txt", PdfDump(stream.ToArray()), new UTF8Encoding(false));
         return $"{stream.Length} bytes\n";
@@ -100,7 +109,9 @@ static class Prepared
         var latin = Encoding.Latin1;
         var o = new List<byte>();
         void Text(string t) => o.AddRange(Encoding.UTF8.GetBytes(t));
-        int at = pdf.AsSpan().IndexOf("\n"u8) + 1;
+        // Past the header and the comment lines after it.
+        int at = 0;
+        while (at < pdf.Length && pdf[at] == (byte)'%') at += pdf.AsSpan(at).IndexOf("\n"u8) + 1;
         while (true)
         {
             var head = System.Text.RegularExpressions.Regex.Match(latin.GetString(pdf, at, Math.Min(32, pdf.Length - at)), @"^(\d+) (\d+) obj\n");
@@ -129,7 +140,8 @@ static class Prepared
                 z.CopyTo(m);
                 content = m.ToArray();
             }
-            if (dict.Contains("/Length1 ") || dict.Contains("/Subtype /Image"))
+            if (dict.Contains("/Length1 ") || dict.Contains("/Subtype /Image") || dict.Contains("/Alternate ") ||
+                dict.Contains("/Type /EmbeddedFile"))
                 Text($"binary {content.Length} {Crc32(content):X8}");
             else
                 o.AddRange(content);

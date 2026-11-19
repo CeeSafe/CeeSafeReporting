@@ -204,6 +204,10 @@ public struct PdfWriter {
         var w = PdfWriter { out: Vector<u8>.create(), offsets: Vector<i64>.create(), next: 1, dump: Vector<u8>.create() };
         let _ = w.offsets.push(0);
         w.raw("%PDF-1.7\n");
+        // A comment of bytes above 127 marks the file as binary (PDF/A wants it: ISO 19005-2 6.1.2).
+        for (c in [0x25u8, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]) {
+            let _ = w.out.push(c);
+        }
         let _ = w.alloc();
         let _ = w.alloc();
         return w;
@@ -285,8 +289,9 @@ public struct PdfWriter {
         this.dumped("\nendstream\nendobj\n");
     }
 
-    /// The cross-reference table and the trailer (`root`, and `info` when there is one); the file's bytes.
-    public fn finish(borrow mut this, root: i64, info: i64?) -> Vector<u8> {
+    /// The cross-reference table and the trailer (`root`, `info` when there is one, and the file's `id` when it has
+    /// one, as "[<id> <id>]"); the file's bytes.
+    public fn finish(borrow mut this, root: i64, info: i64?, id: String?) -> Vector<u8> {
         let xref = truncate<i64>(this.out.length);
         var t = String.create();
         let _ = t.append("xref\n0 ");
@@ -307,6 +312,15 @@ public struct PdfWriter {
         trailer.set("Root", pdfRef(root));
         match (info) {
             Some(i) => { trailer.set("Info", pdfRef(i)); }
+            null => {}
+        }
+        match (id) {
+            Some(x) => {
+                var pair = Vector<String>.create();
+                let _ = pair.push(copyOf(x.view()));
+                let _ = pair.push(x);
+                trailer.set("ID", pdfArray(pair));
+            }
             null => {}
         }
         let text = trailer.text();

@@ -58,8 +58,14 @@ struct PdfOut<region r> {
     pageRefs: Vector<i64>;
 }
 
-/// The prepared pages of `report` as a PDF (CosmoPdfExport), its text in `fonts`' faces.
-public fn exportPdf(report: borrow Report, pages: borrow Vector<PreparedPage>, fonts: borrow Fonts) -> PdfFile {
+/// The prepared pages of `report` as a PDF (CosmoPdfExport with its defaults), its text in `fonts`' faces.
+public fn exportPdf(report: borrow Report, pages: borrow Vector<PreparedPage>, fonts: borrow Fonts) -> PdfFile =>
+    exportPdfWith(report, pages, fonts, PdfOptions.plain());
+
+/// The prepared pages of `report` as a PDF written as `options` say: plain, or PDF/A-3b with attachments
+/// (CosmoPdfExport's PdfCompliance PdfA_3b and AddEmbeddedXML).
+public fn exportPdfWith(report: borrow Report, pages: borrow Vector<PreparedPage>, fonts: borrow Fonts,
+    options: PdfOptions) -> PdfFile {
     var o = PdfOut {
         w: PdfWriter.create(),
         fonts: fonts,
@@ -79,7 +85,8 @@ public fn exportPdf(report: borrow Report, pages: borrow Vector<PreparedPage>, f
     if (info.language.view().length > 0) {
         catalog.set("Lang", pdfLiteral(info.language.view()));
     }
-    if (info.hasAny()) {
+    // PDF/A writes its own metadata at the end.
+    if (info.hasAny() && !options.pdfA3) {
         let xmp = o.w.alloc();
         var d = PdfDict.create();
         d.set("Type", pdfName("Metadata"));
@@ -91,7 +98,12 @@ public fn exportPdf(report: borrow Report, pages: borrow Vector<PreparedPage>, f
     for (p in pages.view()) {
         o.page(report, p);
     }
-    // Close: the fonts, the page tree, the document information, the catalog.
+    // Close: PDF/A's output intent, metadata and files, the fonts, the page tree, the document information, the
+    // catalog.
+    var id: String? = null;
+    if (options.pdfA3) {
+        id = o.pdfA(info, borrow options, mut catalog);
+    }
     for (k in 0..o.uses.length) {
         o.writeFont(k);
     }
@@ -122,7 +134,7 @@ public fn exportPdf(report: borrow Report, pages: borrow Vector<PreparedPage>, f
     let infoRef = o.w.alloc();
     o.w.object(infoRef, docInfo.text().view());
     o.w.object(1, catalog.text().view());
-    let bytes = o.w.finish(1, infoRef);
+    let bytes = o.w.finish(1, infoRef, id);
     return PdfFile { bytes: bytes, dump: o.w.dumpText() };
 }
 
@@ -967,6 +979,86 @@ impl<region r> PdfOut<r> {
             py = b.y + (b.h - textWidth) / 2.0;
         }
         this.glyphs(u, cps, px, py, size, t.color, turnOf(angle as f64));
+    }
+
+    // ---- PDF/A, at the end ----
+
+    /// PdfA.Apply's closing work: the sRGB profile and the output intent naming it, the XMP metadata, the attached
+    /// files (each an embedded file and its file specification, listed in the catalog's Names and AF); the trailer
+    /// ID (the XMP's MD5, as hex).
+    fn pdfA(borrow mut this, info: borrow ReportInfo, options: borrow PdfOptions, catalog: borrow mut PdfDict) -> String {
+        let iccRef = this.w.alloc();
+        var icc = PdfDict.create();
+        icc.set("N", pdfInt(3));
+        icc.set("Alternate", pdfName("DeviceRGB"));
+        let profile = srgbProfile();
+        this.w.stream(iccRef, icc, profile.view(), false, true);
+        let intentRef = this.w.alloc();
+        var intent = PdfDict.create();
+        intent.set("Type", pdfName("OutputIntent"));
+        intent.set("S", pdfName("GTS_PDFA1"));
+        intent.set("OutputConditionIdentifier", pdfLiteral("sRGB IEC61966-2.1"));
+        intent.set("RegistryName", pdfLiteral("http://www.color.org"));
+        intent.set("Info", pdfLiteral("sRGB IEC61966-2.1"));
+        intent.set("DestOutputProfile", pdfRef(iccRef));
+        this.w.object(intentRef, intent.text().view());
+        var intents = Vector<String>.create();
+        let _ = intents.push(pdfRef(intentRef));
+        catalog.set("OutputIntents", pdfArray(intents));
+        let xmpRef = this.w.alloc();
+        let date = xmpDate(options.now, options.utcOffsetMinutes);
+        let xmp = pdfaXmp(info, "CosmoPdf.FastReport", "CosmoPdf", date.view());
+        var md = PdfDict.create();
+        md.set("Type", pdfName("Metadata"));
+        md.set("Subtype", pdfName("XML"));
+        this.w.stream(xmpRef, md, xmp.bytes(), false, false);
+        catalog.set("Metadata", pdfRef(xmpRef));
+        if (options.attachments.length > 0) {
+            let modDate = pdfUtcDate(options.now, options.utcOffsetMinutes);
+            var names = Vector<String>.create();
+            var af = Vector<String>.create();
+            for (a in options.attachments.view()) {
+                let efRef = this.w.alloc();
+                var ef = PdfDict.create();
+                ef.set("Type", pdfName("EmbeddedFile"));
+                ef.set("Subtype", pdfName(a.mimeType.view()));
+                var params = PdfDict.create();
+                params.set("Size", pdfInt(truncate<i64>(a.data.length)));
+                params.set("ModDate", pdfLiteral(modDate.view()));
+                ef.set("Params", params.text());
+                this.w.stream(efRef, ef, a.data.view(), false, true);
+                let fsRef = this.w.alloc();
+                var fs = PdfDict.create();
+                fs.set("Type", pdfName("Filespec"));
+                fs.set("F", pdfLiteral(a.name.view()));
+                fs.set("UF", pdfLiteral(a.name.view()));
+                var link = PdfDict.create();
+                link.set("F", pdfRef(efRef));
+                link.set("UF", pdfRef(efRef));
+                fs.set("EF", link.text());
+                fs.set("AFRelationship", pdfName(a.relationship.view()));
+                if (a.description.view().length > 0) {
+                    fs.set("Desc", pdfLiteral(a.description.view()));
+                }
+                this.w.object(fsRef, fs.text().view());
+                let _ = names.push(pdfLiteral(a.name.view()));
+                let _ = names.push(pdfRef(fsRef));
+                let _ = af.push(pdfRef(fsRef));
+            }
+            var embedded = PdfDict.create();
+            embedded.set("Names", pdfArray(names));
+            var namesDict = PdfDict.create();
+            namesDict.set("EmbeddedFiles", embedded.text());
+            catalog.set("Names", namesDict.text());
+            catalog.set("AF", pdfArray(af));
+        }
+        let digest = md5(xmp.bytes());
+        var id = copyOf("<");
+        for (b in digest) {
+            appendHex2(mut id, b);
+        }
+        let _ = id.append(">");
+        return id;
     }
 
     // ---- the fonts, at the end ----
