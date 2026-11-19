@@ -410,9 +410,26 @@ fn readWatermark(a: borrow Attrs) -> Watermark {
     };
 }
 
+/// What a report file says about itself (ReportInfo): written into a PDF's metadata.
+public struct ReportInfo {
+    public name: String;
+    public author: String;
+    public description: String;
+    public keywords: String;
+    public created: String;
+    public modified: String;
+    public language: String;
+
+    /// HasAnyContent.
+    public fn hasAny(borrow this) -> bool => this.name.view().length > 0 || this.author.view().length > 0 ||
+        this.description.view().length > 0 || this.keywords.view().length > 0 || this.created.view().length > 0 ||
+        this.modified.view().length > 0 || this.language.view().length > 0;
+}
+
 /// A report (Report): its totals, its script (kept, never run), and its pages.
 public struct Report {
     public doublePass: bool;
+    public info: ReportInfo;
     public totals: Vector<Total>;
     /// The Dictionary's data sources, which type the data's values.
     public schema: Schema;
@@ -440,6 +457,15 @@ public fn loadReport(bytes: Slice<u8>) -> Result<Report, LoadError> {
     let a = Attrs.of(root);
     var report = Report {
         doublePass: a.bool("DoublePass", false),
+        info: ReportInfo {
+            name: copyOf(a.str("ReportInfo.Name")),
+            author: copyOf(a.str("ReportInfo.Author")),
+            description: copyOf(a.str("ReportInfo.Description")),
+            keywords: copyOf(a.str("ReportInfo.Keywords")),
+            created: copyOf(a.str("ReportInfo.Created")),
+            modified: copyOf(a.str("ReportInfo.Modified")),
+            language: copyOf(a.str("ReportInfo.Language")),
+        },
         totals: Vector<Total>.create(),
         schema: Schema.read(root),
         parameterNames: Vector<String>.create(),

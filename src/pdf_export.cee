@@ -1,0 +1,1348 @@
+// SPDX-License-Identifier: MIT
+import claywind;
+// Prepared pages as a PDF, as CosmoReport's CosmoPdfExport writes them with its defaults: each page at its paper's
+// size in points, the watermark image, the page border, then each band where the engine put it (its fill, its border,
+// its objects). A text is written as CosmoPdf writes one: Arabic in its presentation forms, wrapped by
+// FontMeasure.LineBreak, each line put in visual order (BidiResolver.ReorderForDisplay) and drawn from its glyphs
+// by the font's cmap, no kerning, the baseline a font size below the line's top. Lines and borders are strokes,
+// fills rectangles, pictures and QR codes images. The fonts are embedded at the end, whole files with the unused
+// glyphs zeroed. Positions are worked in CosmoReport's arithmetic: a report unit is a float, a point a double.
+
+const MM_TO_PT: f64 = 72.0 / 25.4;
+
+fn mmToPt(mm: f32) -> f64 => (mm as f64) * MM_TO_PT;
+
+fn pxToPt(px: f32) -> f64 => (px as f64) * 0.75;
+
+/// A PDF and its dump (the reference harness's form, for the tests).
+public struct PdfFile {
+    public bytes: Vector<u8>;
+    public dump: String;
+}
+
+/// A face embedded under a font key (FontBridge's "Family", "Family-Bold"...).
+struct FontUse {
+    key: String;
+    face: usize;
+    pdf: PdfFace;
+    res: String;
+    ref: i64;
+    /// The characters encoded, each once, in first-use order (TrueTypeFont's used runes).
+    used: Vector<u32>;
+}
+
+/// An image embedded: what it was made from (to find it again), its resource name and object.
+struct ImageUse {
+    source: Vector<u8>;
+    res: String;
+    ref: i64;
+}
+
+/// An object's box in points from the page's top left.
+struct PtBox {
+    x: f64;
+    y: f64;
+    w: f64;
+    h: f64;
+}
+
+struct PdfOut<region r> {
+    w: PdfWriter;
+    fonts: borrow(r) Fonts;
+    uses: Vector<FontUse>;
+    images: Vector<ImageUse>;
+    content: Vector<u8>;
+    pageHeight: f64;
+    leftMargin: f32;
+    topMargin: f32;
+    pageRefs: Vector<i64>;
+}
+
+/// The prepared pages of `report` as a PDF (CosmoPdfExport), its text in `fonts`' faces.
+public fn exportPdf(report: borrow Report, pages: borrow Vector<PreparedPage>, fonts: borrow Fonts) -> PdfFile {
+    var o = PdfOut {
+        w: PdfWriter.create(),
+        fonts: fonts,
+        uses: Vector<FontUse>.create(),
+        images: Vector<ImageUse>.create(),
+        content: Vector<u8>.create(),
+        pageHeight: 0.0,
+        leftMargin: 0.0,
+        topMargin: 0.0,
+        pageRefs: Vector<i64>.create(),
+    };
+    var catalog = PdfDict.create();
+    catalog.set("Type", pdfName("Catalog"));
+    catalog.set("Pages", pdfRef(2));
+    // Start: the document's language, and its XMP metadata from the report's ReportInfo.
+    let info = borrow report.info;
+    if (info.language.view().length > 0) {
+        catalog.set("Lang", pdfLiteral(info.language.view()));
+    }
+    if (info.hasAny()) {
+        let xmp = o.w.alloc();
+        var d = PdfDict.create();
+        d.set("Type", pdfName("Metadata"));
+        d.set("Subtype", pdfName("XML"));
+        let payload = xmpPayload(info);
+        o.w.stream(xmp, d, payload.bytes(), false, false);
+        catalog.set("Metadata", pdfRef(xmp));
+    }
+    for (p in pages.view()) {
+        o.page(report, p);
+    }
+    // Close: the fonts, the page tree, the document information, the catalog.
+    for (k in 0..o.uses.length) {
+        o.writeFont(k);
+    }
+    var kids = Vector<String>.create();
+    for (r in o.pageRefs.view()) {
+        let _ = kids.push(pdfRef(r));
+    }
+    var tree = PdfDict.create();
+    tree.set("Type", pdfName("Pages"));
+    tree.set("Kids", pdfArray(kids));
+    tree.set("Count", pdfInt(truncate<i64>(o.pageRefs.length)));
+    o.w.object(2, tree.text().view());
+    var docInfo = PdfDict.create();
+    if (info.name.view().length > 0) {
+        docInfo.set("Title", pdfLiteral(info.name.view()));
+    }
+    if (info.author.view().length > 0) {
+        docInfo.set("Author", pdfLiteral(info.author.view()));
+    }
+    if (info.description.view().length > 0) {
+        docInfo.set("Subject", pdfLiteral(info.description.view()));
+    }
+    if (info.keywords.view().length > 0) {
+        docInfo.set("Keywords", pdfLiteral(info.keywords.view()));
+    }
+    docInfo.set("Creator", pdfLiteral("CosmoPdf.FastReport"));
+    docInfo.set("Producer", pdfLiteral("CosmoPdf"));
+    let infoRef = o.w.alloc();
+    o.w.object(infoRef, docInfo.text().view());
+    o.w.object(1, catalog.text().view());
+    let bytes = o.w.finish(1, infoRef);
+    return PdfFile { bytes: bytes, dump: o.w.dumpText() };
+}
+
+/// BuildXmpPayload: the report's name, author, description and language (Dublin Core), its keywords, and when it
+/// was created and modified.
+fn xmpPayload(info: borrow ReportInfo) -> String {
+    var b = String.create();
+    let _ = b.append("<?xpacket begin=\"\u{FEFF}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n");
+    let _ = b.append("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n");
+    let _ = b.append("<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n");
+    let _ = b.append("<rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n");
+    xmpField(mut b, "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">", info.name.view(), "</rdf:li></rdf:Alt></dc:title>\n");
+    xmpField(mut b, "<dc:creator><rdf:Seq><rdf:li>", info.author.view(), "</rdf:li></rdf:Seq></dc:creator>\n");
+    xmpField(mut b, "<dc:description><rdf:Alt><rdf:li xml:lang=\"x-default\">", info.description.view(),
+        "</rdf:li></rdf:Alt></dc:description>\n");
+    xmpField(mut b, "<dc:language><rdf:Bag><rdf:li>", info.language.view(), "</rdf:li></rdf:Bag></dc:language>\n");
+    let _ = b.append("</rdf:Description>\n");
+    let _ = b.append("<rdf:Description rdf:about=\"\" xmlns:pdf=\"http://ns.adobe.com/pdf/1.3/\">\n");
+    xmpField(mut b, "<pdf:Keywords>", info.keywords.view(), "</pdf:Keywords>\n");
+    let _ = b.append("</rdf:Description>\n");
+    if (info.created.view().length > 0 || info.modified.view().length > 0) {
+        let _ = b.append("<rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\">\n");
+        xmpField(mut b, "<xmp:CreateDate>", info.created.view(), "</xmp:CreateDate>\n");
+        xmpField(mut b, "<xmp:ModifyDate>", info.modified.view(), "</xmp:ModifyDate>\n");
+        let _ = b.append("</rdf:Description>\n");
+    }
+    let _ = b.append("</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>");
+    return b;
+}
+
+fn xmpField(b: borrow mut String, open: StringView, value: StringView, close: StringView) {
+    if (value.length == 0) {
+        return;
+    }
+    let _ = b.append(open);
+    // SecurityElement.Escape.
+    var plain = Vector<u8>.create();
+    for (c in value.bytes()) {
+        let escaped = if (c == '&') "&amp;" else if (c == '<') "&lt;" else if (c == '>') "&gt;"
+            else if (c == '"') "&quot;" else if (c == '\'') "&apos;" else "";
+        if (escaped.length > 0) {
+            let _ = b.append(StringView.fromUtf8(plain.view()) ?? "");
+            plain.clear();
+            let _ = b.append(escaped);
+        } else {
+            let _ = plain.push(c);
+        }
+    }
+    let _ = b.append(StringView.fromUtf8(plain.view()) ?? "");
+    let _ = b.append(close);
+}
+
+// ---- writing operators ------------------------------------------------------------------------------------------------
+
+/// Color.FillColorCmd / StrokeColorCmd of an RGB colour: each channel over 255, as double.ToString("G") writes it.
+fn colorCmd(c: Color, op: StringView) -> String {
+    var s = formatDouble(round<f64>(c.r as i64) / 255.0);
+    let _ = s.append(" ");
+    let _ = s.append(formatDouble(round<f64>(c.g as i64) / 255.0).view());
+    let _ = s.append(" ");
+    let _ = s.append(formatDouble(round<f64>(c.b as i64) / 255.0).view());
+    let _ = s.append(" ");
+    let _ = s.append(op);
+    return s;
+}
+
+/// The angle's cosine and sine as .NET's Math.Cos and Math.Sin give them: exactly for the quarter turns a report
+/// uses (the double nearest each turn has a cosine or sine a little off zero), else to claywind's series.
+struct Turn {
+    cos: f64;
+    sin: f64;
+}
+
+fn turnOf(degrees: f64) -> Turn {
+    if (degrees == 90.0) {
+        return Turn { cos: 6.123233995736766e-17, sin: 1.0 };
+    }
+    if (degrees == -90.0) {
+        return Turn { cos: 6.123233995736766e-17, sin: -1.0 };
+    }
+    if (degrees == 180.0) {
+        return Turn { cos: -1.0, sin: 1.2246467991473532e-16 };
+    }
+    if (degrees == 270.0) {
+        return Turn { cos: -1.8369701987210297e-16, sin: -1.0 };
+    }
+    let rad = degrees * 3.141592653589793 / 180.0;
+    return Turn { cos: Math64.cos(rad), sin: Math64.sin(rad) };
+}
+
+impl<region r> PdfOut<r> {
+    fn put(borrow mut this, text: StringView) {
+        for (c in text.bytes()) {
+            let _ = this.content.push(c);
+        }
+    }
+
+    fn real(borrow mut this, v: f64) {
+        let s = pdfReal(v);
+        this.put(s.view());
+    }
+
+    fn page(borrow mut this, report: borrow Report, prepared: borrow PreparedPage) {
+        let page = borrow report.pages[prepared.source];
+        let width = mmToPt(page.paperWidth);
+        let height = mmToPt(page.paperHeight);
+        this.content.clear();
+        this.pageHeight = height;
+        this.leftMargin = page.leftMargin;
+        this.topMargin = page.topMargin;
+        this.watermark(page, width, height, false);
+        // RenderPageBorder: around the printable area.
+        let b = page.border;
+        if (b.lines != 0) {
+            let x = mmToPt(page.leftMargin);
+            let y = mmToPt(page.topMargin);
+            let w = width - mmToPt(page.leftMargin + page.rightMargin);
+            let h = height - mmToPt(page.topMargin + page.bottomMargin);
+            this.borderSides(b, x, y, w, h);
+        }
+        for (pb in prepared.bands.view()) {
+            this.band(borrow pb.band);
+        }
+        this.watermark(page, width, height, true);
+        // EndPage: the content stream, then the page with every font and image so far as its resources.
+        let contentRef = this.w.alloc();
+        this.w.stream(contentRef, PdfDict.create(), this.content.view(), false, false);
+        var resources = PdfDict.create();
+        if (this.uses.length > 0) {
+            var fontsDict = PdfDict.create();
+            for (u in this.uses.view()) {
+                fontsDict.set(u.res.view(), pdfRef(u.ref));
+            }
+            resources.set("Font", fontsDict.text());
+        }
+        if (this.images.length > 0) {
+            var xobjects = PdfDict.create();
+            for (i in this.images.view()) {
+                xobjects.set(i.res.view(), pdfRef(i.ref));
+            }
+            resources.set("XObject", xobjects.text());
+        }
+        let pageRef = this.w.alloc();
+        var d = PdfDict.create();
+        d.set("Type", pdfName("Page"));
+        d.set("Parent", pdfRef(2));
+        var box = Vector<String>.create();
+        let _ = box.push(pdfReal(0.0));
+        let _ = box.push(pdfReal(0.0));
+        let _ = box.push(pdfReal(width));
+        let _ = box.push(pdfReal(height));
+        d.set("MediaBox", pdfArray(box));
+        if (resources.count() > 0) {
+            d.set("Resources", resources.text());
+        }
+        d.set("Contents", pdfRef(contentRef));
+        this.w.object(pageRef, d.text().view());
+        let _ = this.pageRefs.push(pageRef);
+    }
+
+    /// RenderPageWatermark's image: stretched over the page, zoomed, centred, tiled or at its size.
+    fn watermark(borrow mut this, page: borrow ReportPage, pageW: f64, pageH: f64, top: bool) {
+        let wm = borrow page.watermark;
+        if (!wm.enabled || wm.image.length == 0 || wm.showImageOnTop != top) {
+            return;
+        }
+        let dims = match (imageSize(wm.image.view())) {
+            Some(d) => d,
+            null => { return; }
+        };
+        let imgW = round<f64>(dims.w);
+        let imgH = round<f64>(dims.h);
+        match (wm.imageSize) {
+            2 => {
+                if (dims.w > 0 && dims.h > 0) {
+                    let cw = pageW.min(imgW);
+                    let ch = pageH.min(imgH);
+                    this.image(wm.image.view(), (pageW - cw) / 2.0, (pageH - ch) / 2.0, cw, ch);
+                }
+            }
+            1 => {
+                if (dims.w > 0 && dims.h > 0) {
+                    let scale = (pageW / imgW).min(pageH / imgH);
+                    let zw = imgW * scale;
+                    let zh = imgH * scale;
+                    this.image(wm.image.view(), (pageW - zw) / 2.0, (pageH - zh) / 2.0, zw, zh);
+                }
+            }
+            4 => { this.image(wm.image.view(), 0.0, 0.0, imgW, imgH); }
+            3 => {
+                if (dims.w > 0 && dims.h > 0) {
+                    let cols = truncate<i64>((pageW / imgW).ceil()).min(200);
+                    let rows = truncate<i64>((pageH / imgH).ceil()).min(200);
+                    for (rr in 0..rows) {
+                        for (cc in 0..cols) {
+                            this.image(wm.image.view(), round<f64>(cc) * imgW, round<f64>(rr) * imgH, imgW, imgH);
+                        }
+                    }
+                }
+            }
+            _ => { this.image(wm.image.view(), 0.0, 0.0, pageW, pageH); }
+        }
+    }
+
+    /// ExportBand: the band's fill and border, then its objects.
+    fn band(borrow mut this, band: borrow Component) {
+        let bx = mmToPt(this.leftMargin) + pxToPt(band.left);
+        let by = mmToPt(this.topMargin) + pxToPt(band.top);
+        let bw = pxToPt(band.width);
+        let bh = pxToPt(band.height);
+        if (band.fillKind == FillKind.Solid && !band.fill.isTransparent()) {
+            this.rect(bx, by, bw, bh, band.fill);
+        }
+        if (band.border.lines != 0) {
+            this.borderSides(band.border, bx, by, bw, bh);
+        }
+        for (c in band.children.view()) {
+            if (c.role == Role.Object) {
+                this.object(c, band.left, band.top);
+            }
+        }
+    }
+
+    /// RenderObject: an object at its place in the band (ObjectRectPt), by its kind.
+    fn object(borrow mut this, o: borrow Component, bandLeft: f32, bandTop: f32) {
+        if (!o.visible) {
+            return;
+        }
+        let b = PtBox {
+            x: mmToPt(this.leftMargin) + pxToPt(bandLeft + o.left),
+            y: mmToPt(this.topMargin) + pxToPt(bandTop + o.top),
+            w: pxToPt(o.width),
+            h: pxToPt(o.height),
+        };
+        match (o.kind) {
+            Kind.TextObject | Kind.TableCell => { this.text(o, b); }
+            Kind.LineObject => { this.line(o, b); }
+            Kind.PictureObject => { this.picture(o, b); }
+            Kind.BarcodeObject => { this.barcode(o, b); }
+            Kind.TableObject => { this.table(o, bandLeft, bandTop, b); }
+            _ => { this.fillAndBorder(o, b); }
+        }
+    }
+
+    // ---- fills, borders and lines ----
+
+    /// RenderRect with a fill: "q", the colour, the rectangle, "f", "Q".
+    fn rect(borrow mut this, x: f64, y: f64, w: f64, h: f64, c: Color) {
+        this.put("q\n");
+        this.put(colorCmd(c, "rg").view());
+        this.put("\n");
+        this.real(x);
+        this.put(" ");
+        this.real(this.pageHeight - y - h);
+        this.put(" ");
+        this.real(w);
+        this.put(" ");
+        this.real(h);
+        this.put(" re\nf\nQ\n");
+    }
+
+    /// RenderLine: a stroked path from one point to the other, with its colour, width and dashes.
+    fn stroke(borrow mut this, x1: f64, y1: f64, x2: f64, y2: f64, colorText: StringView, width: f64,
+        dashes: borrow Vector<f64>) {
+        this.put("q\n");
+        this.put(colorText);
+        this.put("\n");
+        if (width > 0.0) {
+            this.real(width);
+            this.put(" w\n");
+        }
+        if (dashes.length > 0) {
+            this.put("[");
+            for (k in 0..dashes.length) {
+                if (k > 0) {
+                    this.put(" ");
+                }
+                this.real(dashes[k]);
+            }
+            this.put("] 0 d\n");
+        }
+        this.real(x1);
+        this.put(" ");
+        this.real(this.pageHeight - y1);
+        this.put(" m\n");
+        this.real(x2);
+        this.put(" ");
+        this.real(this.pageHeight - y2);
+        this.put(" l\nS\nQ\n");
+    }
+
+    /// RenderFillAndBorder: the fill (never stroked), then each side the border has.
+    fn fillAndBorder(borrow mut this, o: borrow Component, b: PtBox) {
+        if (o.fillKind == FillKind.Solid && !o.fill.isTransparent()) {
+            this.rect(b.x, b.y, b.w, b.h, o.fill);
+        }
+        if (o.border.lines != 0) {
+            this.borderSides(o.border, b.x, b.y, b.w, b.h);
+        }
+    }
+
+    fn borderSides(borrow mut this, border: Border, x: f64, y: f64, w: f64, h: f64) {
+        this.side(border.lines, LINE_TOP, border.top, x, y, x + w, y);
+        this.side(border.lines, LINE_BOTTOM, border.bottom, x, y + h, x + w, y + h);
+        this.side(border.lines, LINE_LEFT, border.left, x, y, x, y + h);
+        this.side(border.lines, LINE_RIGHT, border.right, x + w, y, x + w, y + h);
+    }
+
+    /// RenderBorderSide: a solid or dashed line of the side's width (a point when it has none); a double line as two
+    /// a width to each side.
+    fn side(borrow mut this, flags: u32, flag: u32, line: BorderLine, x1: f64, y1: f64, x2: f64, y2: f64) {
+        if ((flags & flag) == 0 || line.color.isTransparent()) {
+            return;
+        }
+        var lw = pxToPt(line.width);
+        if (lw <= 0.0) {
+            lw = 1.0;
+        }
+        let colorText = colorCmd(line.color, "RG");
+        var dashes = Vector<f64>.create();
+        if (line.style == LineStyle.Double) {
+            let horizontal = (y1 - y2).abs() < 0.01;
+            let dx = if (horizontal) 0.0 else lw;
+            let dy = if (horizontal) lw else 0.0;
+            this.stroke(x1 - dx, y1 - dy, x2 - dx, y2 - dy, colorText.view(), lw, dashes);
+            this.stroke(x1 + dx, y1 + dy, x2 + dx, y2 + dy, colorText.view(), lw, dashes);
+            return;
+        }
+        // LineStyleToDash: in line widths.
+        let pattern: [f64; 6] = match (line.style) {
+            LineStyle.Dash => [3.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+            LineStyle.Dot => [1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            LineStyle.DashDot => [3.0, 2.0, 1.0, 2.0, 0.0, 0.0],
+            LineStyle.DashDotDot => [3.0, 2.0, 1.0, 2.0, 1.0, 2.0],
+            _ => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        };
+        for (v in pattern) {
+            if (v > 0.0) {
+                let _ = dashes.push(v * lw);
+            }
+        }
+        this.stroke(x1, y1, x2, y2, colorText.view(), lw, dashes);
+    }
+
+    /// RenderLine: the line's colour and width from its left border (black, 1, without one); corner to corner,
+    /// down the middle when taller than wide, else across the middle.
+    fn line(borrow mut this, o: borrow Component, b: PtBox) {
+        let has = o.border.lines != 0;
+        let bl = if (has) o.border.left else BorderLine.plain();
+        // ToCosmoPdf(transparent) is null, and the line is black (Colors.Black, a gray).
+        let colorText = if (bl.color.isTransparent()) copyOf("0 G") else colorCmd(bl.color, "RG");
+        let lw = pxToPt(bl.width);
+        let none = Vector<f64>.create();
+        let width = if (lw > 0.0) lw else 1.0;
+        if (o.diagonal) {
+            this.stroke(b.x, b.y, b.x + b.w, b.y + b.h, colorText.view(), width, none);
+        } else if (b.h > b.w) {
+            this.stroke(b.x + b.w / 2.0, b.y, b.x + b.w / 2.0, b.y + b.h, colorText.view(), width, none);
+        } else {
+            this.stroke(b.x, b.y + b.h / 2.0, b.x + b.w, b.y + b.h / 2.0, colorText.view(), width, none);
+        }
+    }
+
+    // ---- images ----
+
+    /// RenderImage: the image's resource (embedded the first time) drawn in the box.
+    fn image(borrow mut this, data: Slice<u8>, x: f64, y: f64, w: f64, h: f64) {
+        let res = match (this.ensureImage(data)) {
+            Some(r) => r,
+            null => { return; }
+        };
+        this.put("q\n");
+        this.real(w);
+        this.put(" 0 0 ");
+        this.real(h);
+        this.put(" ");
+        this.real(x);
+        this.put(" ");
+        this.real(this.pageHeight - y - h);
+        this.put(" cm\n/");
+        this.put(res.view());
+        this.put(" Do\nQ\n");
+    }
+
+    /// EnsureImage: a JPEG as it is (DCTDecode), a PNG as its RGB samples deflated with its alpha as a soft mask
+    /// (when it has an alpha that is not all opaque).
+    fn ensureImage(borrow mut this, data: Slice<u8>) -> String? {
+        for (i in this.images.view()) {
+            if (sameBytes(i.source.view(), data)) {
+                return copyOf(i.res.view());
+            }
+        }
+        var res = String.create();
+        let _ = res.append("Im");
+        appendInt(mut res, truncate<i64>(this.images.length) + 1);
+        if (data.length > 2 && data[0] == 0xFF && data[1] == 0xD8) {
+            let dims = jpegSize(data);
+            let ref = this.w.alloc();
+            var d = imageDict(dims.w, dims.h, "DeviceRGB");
+            d.set("Filter", pdfName("DCTDecode"));
+            this.w.stream(ref, d, data, false, true);
+            let _ = this.images.push(ImageUse { source: copyBytes(data), res: copyOf(res.view()), ref: ref });
+            return res;
+        }
+        let px = pngSamples(data)?;
+        var smask: i64? = null;
+        if (px.alpha.length > 0) {
+            let s = this.w.alloc();
+            this.w.stream(s, imageDict(px.w, px.h, "DeviceGray"), px.alpha.view(), true, true);
+            smask = s;
+        }
+        let ref = this.w.alloc();
+        var d = imageDict(px.w, px.h, "DeviceRGB");
+        match (smask) {
+            Some(s) => { d.set("SMask", pdfRef(s)); }
+            null => {}
+        }
+        this.w.stream(ref, d, px.rgb.view(), true, true);
+        let _ = this.images.push(ImageUse { source: copyBytes(data), res: copyOf(res.view()), ref: ref });
+        return res;
+    }
+
+    /// RenderPicture: a JPEG or PNG placed in the box less its padding by its size mode.
+    fn picture(borrow mut this, o: borrow Component, b: PtBox) {
+        let pic = match (borrow o.picture) {
+            Some(p) => p,
+            null => { return; }
+        };
+        let data = pic.image.view();
+        let dims = match (imageSize(data)) {
+            Some(d) => d,
+            null => { return; }
+        };
+        let padL = pxToPt(pic.padLeft);
+        let padR = pxToPt(pic.padRight);
+        let padT = pxToPt(pic.padTop);
+        let padB = pxToPt(pic.padBottom);
+        let boxX = b.x + padL;
+        let boxY = b.y + padT;
+        let boxW = b.w - padL - padR;
+        let boxH = b.h - padT - padB;
+        let imgWpt = pxToPt(round<f32>(dims.w));
+        let imgHpt = pxToPt(round<f32>(dims.h));
+        match (pic.sizeMode) {
+            1 => { this.image(data, boxX, boxY, boxW, boxH); }
+            0 | 2 => { this.image(data, boxX, boxY, imgWpt, imgHpt); }
+            4 => { this.image(data, boxX + (boxW - imgWpt) / 2.0, boxY + (boxH - imgHpt) / 2.0, imgWpt, imgHpt); }
+            _ => {
+                if (imgWpt <= 0.0 || imgHpt <= 0.0) {
+                    this.image(data, boxX, boxY, boxW, boxH);
+                } else {
+                    let scale = (boxW / imgWpt).min(boxH / imgHpt);
+                    let dw = imgWpt * scale;
+                    let dh = imgHpt * scale;
+                    this.image(data, boxX + (boxW - dw) / 2.0, boxY + (boxH - dh) / 2.0, dw, dh);
+                }
+            }
+        }
+    }
+
+    /// RenderBarcode: the fill and border, then the barcode's image (the engine's QR code, 10 pixels a module with its
+    /// quiet zone, as an RGB PNG) scaled to fit the box keeping its shape, centred.
+    fn barcode(borrow mut this, o: borrow Component, b: PtBox) {
+        this.fillAndBorder(o, b);
+        let bc = match (borrow o.barcode) {
+            Some(x) => x,
+            null => { return; }
+        };
+        if (bc.processed.view().length == 0) {
+            return;
+        }
+        let q = match (encodeQr(bc.processed.view(), QrLevel.L)) {
+            Some(q) => q,
+            null => { return; }
+        };
+        let side = (q.size + 8) * 10;
+        let png = qrPng(q.pixels(10).view(), side);
+        let s = round<f64>(side);
+        let scale = (b.w / s).min(b.h / s);
+        let dw = s * scale;
+        let dh = s * scale;
+        this.image(png.view(), b.x + (b.w - dw) / 2.0, b.y + (b.h - dh) / 2.0, dw, dh);
+    }
+
+    // ---- tables ----
+
+    /// RenderTable: the columns and rows scaled to the table's size, each cell a span does not cover drawn as a text
+    /// across its columns and down its rows (and its objects), then the table's own border.
+    fn table(borrow mut this, t: borrow Component, bandLeft: f32, bandTop: f32, b: PtBox) {
+        let cols = borrow t.tableColumns;
+        let rows = borrow t.tableRows;
+        if (rows.length == 0 || cols.length == 0) {
+            return;
+        }
+        var colsSum: f64 = 0.0;
+        for (c in cols.view()) {
+            colsSum += pxToPt(c.width);
+        }
+        var rowsSum: f64 = 0.0;
+        for (r in rows.view()) {
+            rowsSum += pxToPt(r.height);
+        }
+        let wScale = if (colsSum > 0.01 && b.w > 0.01) b.w / colsSum else 1.0;
+        let hScale = if (rowsSum > 0.01 && b.h > 0.01) b.h / rowsSum else 1.0;
+        var covered = Vector<bool>.create();
+        for (k in 0..rows.length * cols.length) {
+            let _ = covered.push(false);
+        }
+        for (ri in 0..rows.length) {
+            let cells = borrow rows[ri].cells;
+            for (ci in 0..cells.length.min(cols.length)) {
+                let sp = spans(borrow cells[ci]);
+                if (sp.cols > 1 || sp.rows > 1) {
+                    for (r in ri..(ri + sp.rows).min(rows.length)) {
+                        for (c in ci..(ci + sp.cols).min(cols.length)) {
+                            if (r != ri || c != ci) {
+                                covered[r * cols.length + c] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        var curY: f64 = 0.0;
+        for (ri in 0..rows.length) {
+            let cells = borrow rows[ri].cells;
+            var curX: f64 = 0.0;
+            for (ci in 0..cells.length.min(cols.length)) {
+                let colW = pxToPt(cols[ci].width) * wScale;
+                if (covered[ri * cols.length + ci]) {
+                    curX += colW;
+                    continue;
+                }
+                let cell = borrow cells[ci];
+                let sp = spans(cell);
+                var cellW: f64 = 0.0;
+                for (c in ci..(ci + sp.cols).min(cols.length)) {
+                    cellW += pxToPt(cols[c].width) * wScale;
+                }
+                var cellH: f64 = 0.0;
+                for (r in ri..(ri + sp.rows).min(rows.length)) {
+                    cellH += pxToPt(rows[r].height) * hScale;
+                }
+                this.text(cell, PtBox { x: b.x + curX, y: b.y + curY, w: cellW, h: cellH });
+                if (cell.children.length > 0) {
+                    let ptPerPx = pxToPt(1.0);
+                    let left = bandLeft + t.left + round<f32>(curX / ptPerPx);
+                    let top = bandTop + t.top + round<f32>(curY / ptPerPx);
+                    for (child in cell.children.view()) {
+                        this.object(child, left, top);
+                    }
+                }
+                curX += colW;
+            }
+            curY += pxToPt(rows[ri].height) * hScale;
+        }
+        if (t.border.lines != 0) {
+            // Enumerable.Sum over floats: summed as a double, returned as a float.
+            var cw: f64 = 0.0;
+            for (c in cols.view()) {
+                cw += c.width as f64;
+            }
+            var rh: f64 = 0.0;
+            for (r in rows.view()) {
+                rh += r.height as f64;
+            }
+            let bw = pxToPt(round<f32>(cw)) * wScale;
+            let bh = pxToPt(round<f32>(rh)) * hScale;
+            this.borderSides(t.border, b.x, b.y, bw, bh);
+        }
+    }
+
+    // ---- text ----
+
+    /// The font key FontBridge registers a face under, and the face; null when no face is given at all.
+    fn fontFor(borrow mut this, family: StringView, bold: bool, italic: bool) -> usize? {
+        var key = copyOf(family);
+        let _ = key.append(if (bold && italic) "-BoldItalic" else if (bold) "-Bold" else if (italic) "-Italic" else "");
+        for (k in 0..this.uses.length) {
+            if (this.uses[k].key.view() == key.view()) {
+                return k;
+            }
+        }
+        let face = this.fonts.resolve(family, bold, italic)?;
+        let pdf = readPdfFace(this.fonts.faces[face].bytes.view())?;
+        let _ = this.uses.push(FontUse {
+            key: key,
+            face: face,
+            pdf: pdf,
+            res: String.create(),
+            ref: 0,
+            used: Vector<u32>.create(),
+        });
+        return this.uses.length - 1;
+    }
+
+    /// EnsureFont: the font's resource name, its object reserved the first time text is drawn in it.
+    fn ensureFont(borrow mut this, u: usize) -> String {
+        if (this.uses[u].ref == 0) {
+            var n: i64 = 0;
+            for (x in this.uses.view()) {
+                if (x.ref != 0) {
+                    n += 1;
+                }
+            }
+            this.uses[u].ref = this.w.alloc();
+            var res = String.create();
+            let _ = res.append("F");
+            appendInt(mut res, n + 1);
+            this.uses[u].res = res;
+        }
+        return copyOf(this.uses[u].res.view());
+    }
+
+    /// TrueTypeFont.Encode: each character's glyph as four hex digits (0 for one the cmap does not answer).
+    fn encode(borrow mut this, u: usize, cps: borrow Vector<u32>) -> String {
+        var s = String.create();
+        for (c in cps.view()) {
+            var seen = false;
+            for (x in this.uses[u].used.view()) {
+                if (x == c) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                let _ = this.uses[u].used.push(c);
+            }
+            appendHex4(mut s, this.uses[u].pdf.lookup(c) ?? 0);
+        }
+        return s;
+    }
+
+    /// PdfRenderer.RenderText: the fill colour, then the text's glyphs from (x, the page height less y and the font
+    /// size), or, turned, from a text matrix.
+    fn glyphs(borrow mut this, u: usize, cps: borrow Vector<u32>, x: f64, y: f64, size: f64, color: Color, turn: Turn?) {
+        if (cps.length == 0) {
+            return;
+        }
+        let res = this.ensureFont(u);
+        let hex = this.encode(u, cps);
+        this.put(colorCmd(color, "rg").view());
+        this.put("\nBT\n/");
+        this.put(res.view());
+        this.put(" ");
+        this.real(size);
+        this.put(" Tf\n");
+        match (turn) {
+            Some(t) => {
+                this.real(t.cos);
+                this.put(" ");
+                this.real(t.sin);
+                this.put(" ");
+                this.real(-t.sin);
+                this.put(" ");
+                this.real(t.cos);
+                this.put(" ");
+                this.real(x);
+                this.put(" ");
+                this.real(this.pageHeight - y);
+                this.put(" Tm\n");
+            }
+            null => {
+                this.real(x);
+                this.put(" ");
+                this.real(this.pageHeight - y - size);
+                this.put(" Td\n");
+            }
+        }
+        this.put("<");
+        this.put(hex.view());
+        this.put("> Tj\nET\n");
+    }
+
+    /// MeasureWidestLine: the widest of the text's lines.
+    fn widest(borrow this, u: usize, text: StringView, size: f64) -> f64 {
+        var max: f64 = 0.0;
+        for (line in splitNewlines(text).view()) {
+            max = max.max(this.uses[u].pdf.measure(codePoints(line.view()), size));
+        }
+        return max;
+    }
+
+    /// RenderText: the fill and border, then the processed text in its box less its padding (shrunk to fit when it
+    /// AutoShrinks), turned when it has an angle, else wrapped, its lines aligned and clipped to the box.
+    fn text(borrow mut this, o: borrow Component, b: PtBox) {
+        this.fillAndBorder(o, b);
+        let t = match (borrow o.text) {
+            Some(t) => t,
+            null => { return; }
+        };
+        if (t.processed.view().length == 0) {
+            return;
+        }
+        let hasArabic = containsArabicText(t.processed.view());
+        let display = if (hasArabic) arabicPresentation(t.processed.view()) else copyOf(t.processed.view());
+        let bold = t.font.weight >= 700;
+        let italic = t.font.slant != FontSlant.Upright;
+        let u = match (this.fontFor(t.font.family.view(), bold, italic)) {
+            Some(u) => u,
+            null => { return; }
+        };
+        var size = t.font.size as f64;
+        let padL = pxToPt(t.padLeft);
+        let padR = pxToPt(t.padRight);
+        let padT = pxToPt(t.padTop);
+        let padB = pxToPt(t.padBottom);
+        let innerX = b.x + padL;
+        let innerW = b.w - padL - padR;
+        let innerH = b.h - padT - padB;
+        let fitW = rotatedLength(t.angle, innerW, innerH);
+        if (t.autoShrink && fitW > 0.0) {
+            var raw = this.widest(u, display.view(), size);
+            if (raw > fitW) {
+                let minSize = if (t.autoShrinkMinSize > 0.0) t.autoShrinkMinSize as f64 else 4.0;
+                while (size > minSize && raw > fitW) {
+                    size -= 0.5;
+                    raw = this.widest(u, display.view(), size);
+                }
+            }
+        }
+        if ((t.angle as f64).abs() > 0.5) {
+            this.rotated(t, u, display.view(), b, size);
+            return;
+        }
+        // Lines: each paragraph broken to the width, its last line marked.
+        var lines = Vector<String>.create();
+        var ends = Vector<bool>.create();
+        let face = this.uses[u].face;
+        for (para in splitNewlines(display.view()).view()) {
+            if (t.wordWrap && innerW > 0.0) {
+                let broken = this.fonts.lineBreak(face, para.view(), size, innerW);
+                for (k in 0..broken.length) {
+                    let _ = lines.push(utf8Of(borrow broken[k]));
+                    let _ = ends.push(k == broken.length - 1);
+                }
+            } else {
+                let _ = lines.push(copyOf(para.view()));
+                let _ = ends.push(true);
+            }
+        }
+        let lineHeight = if (t.lineHeight > 0.0) (t.lineHeight as f64) * 0.75 else size * 1.2;
+        let total = round<f64>(truncate<i64>(lines.length)) * lineHeight;
+        var startY = match (t.vertAlign) {
+            VertAlign.Center => b.y + padT + (innerH - total) / 2.0,
+            VertAlign.Bottom => b.y + padT + innerH - total,
+            _ => b.y + padT,
+        };
+        if (total > innerH) {
+            startY = b.y + padT;
+        }
+        let justify = t.horzAlign == HorzAlign.Justify;
+        let rtlBase = t.rightToLeft || startsWithStrongRtl(display.view());
+        var first = true;
+        for (k in 0..lines.length) {
+            if (!first && startY + lineHeight > b.y + b.h + 0.5) {
+                break;
+            }
+            if (startY > b.y + b.h) {
+                break;
+            }
+            first = false;
+            let shown = if (hasArabic || t.rightToLeft) reorderForDisplay(lines[k].view(), t.rightToLeft)
+                else copyOf(lines[k].view());
+            let cps = codePoints(shown.view());
+            if (justify) {
+                if (ends[k]) {
+                    let lw = this.uses[u].pdf.measure(cps, size);
+                    let lx = if (rtlBase) innerX + innerW - lw else innerX;
+                    this.glyphs(u, cps, lx, startY, size, t.color, null);
+                } else {
+                    this.justified(u, shown.view(), innerX, innerW, startY, size, t.color, rtlBase);
+                }
+            } else {
+                let lw = this.uses[u].pdf.measure(cps, size);
+                let lx = match (t.horzAlign) {
+                    HorzAlign.Right => innerX + innerW - lw,
+                    HorzAlign.Center => innerX + (innerW - lw) / 2.0,
+                    _ => innerX,
+                };
+                this.glyphs(u, cps, lx, startY, size, t.color, null);
+            }
+            startY += lineHeight;
+        }
+    }
+
+    /// RenderJustifiedLine: the words at even gaps across the width, or the line anchored when it has one word or
+    /// already fills it.
+    fn justified(borrow mut this, u: usize, line: StringView, innerX: f64, innerW: f64, y: f64, size: f64, color: Color,
+        rtlBase: bool) {
+        var words = Vector<Vector<u32>>.create();
+        var word = Vector<u32>.create();
+        for (c in codePoints(line).view()) {
+            if (c == 0x20) {
+                if (word.length > 0) {
+                    let _ = words.push(word);
+                    word = Vector<u32>.create();
+                }
+            } else {
+                let _ = word.push(c);
+            }
+        }
+        if (word.length > 0) {
+            let _ = words.push(word);
+        }
+        let all = codePoints(line);
+        let lineW = this.uses[u].pdf.measure(all, size);
+        if (words.length < 2 || lineW >= innerW) {
+            let lx = if (rtlBase && lineW < innerW) innerX + innerW - lineW else innerX;
+            this.glyphs(u, all, lx, y, size, color, null);
+            return;
+        }
+        var widths = Vector<f64>.create();
+        var wordsW: f64 = 0.0;
+        for (wd in words.view()) {
+            let ww = this.uses[u].pdf.measure(wd, size);
+            let _ = widths.push(ww);
+            wordsW += ww;
+        }
+        let gap = (innerW - wordsW) / round<f64>(truncate<i64>(words.length) - 1);
+        var x = innerX;
+        for (k in 0..words.length) {
+            this.glyphs(u, words[k], x, y, size, color, null);
+            x += widths[k] + gap;
+        }
+    }
+
+    /// RenderRotatedText: the text in visual order, its baseline turned about a pivot that centres it in the box.
+    fn rotated(borrow mut this, t: borrow TextProps, u: usize, text: StringView, b: PtBox, size: f64) {
+        let shown = if (t.rightToLeft || containsArabicText(text)) reorderForDisplay(text, t.rightToLeft)
+            else copyOf(text);
+        let cps = codePoints(shown.view());
+        let textWidth = this.uses[u].pdf.measure(cps, size);
+        let angle = t.angle;
+        var px = b.x + b.w / 2.0;
+        var py = b.y + b.h / 2.0;
+        if ((angle - 90.0).abs() < 1.0) {
+            px = b.x + (b.w + size) / 2.0;
+            py = b.y + (b.h + textWidth) / 2.0;
+        } else if ((angle + 90.0).abs() < 1.0 || (angle - 270.0).abs() < 1.0) {
+            px = b.x + (b.w - size) / 2.0;
+            py = b.y + (b.h - textWidth) / 2.0;
+        }
+        this.glyphs(u, cps, px, py, size, t.color, turnOf(angle as f64));
+    }
+
+    // ---- the fonts, at the end ----
+
+    /// WriteType0Font: the subset font program, its descriptor, the CID font with the used glyphs' widths, the
+    /// ToUnicode CMap, then the Type0 font in the object reserved for it.
+    fn writeFont(borrow mut this, k: usize) {
+        let u = borrow this.uses[k];
+        if (u.ref == 0) {
+            return;
+        }
+        let face = borrow u.pdf;
+        // The characters' glyphs, by character (SubsetFontData sorts the runes), .notdef first.
+        var sortedCps = Vector<u32>.create();
+        for (c in u.used.view()) {
+            var at = sortedCps.length;
+            for (i in 0..sortedCps.length) {
+                if (c < sortedCps[i]) {
+                    at = i;
+                    break;
+                }
+            }
+            let _ = sortedCps.insert(at, c);
+        }
+        var glyphs = Vector<u32>.create();
+        let _ = glyphs.push(0);
+        for (c in sortedCps.view()) {
+            match (face.lookup(c)) {
+                Some(g) => {
+                    var seen = false;
+                    for (x in glyphs.view()) {
+                        if (x == g) {
+                            seen = true;
+                        }
+                    }
+                    if (!seen) {
+                        let _ = glyphs.push(g);
+                    }
+                }
+                null => {}
+            }
+        }
+        let data = this.fonts.faces[u.face].bytes.view();
+        let subset = subsetFont(data, glyphs);
+        let fileRef = this.w.alloc();
+        var fd = PdfDict.create();
+        fd.set("Length1", pdfInt(truncate<i64>(subset.length)));
+        this.w.stream(fileRef, fd, subset.view(), true, true);
+        let upm = if (face.upem > 0) face.upem else 1000;
+        let asc = face.ascender * 1000 / upm;
+        let dec = face.descender * 1000 / upm;
+        let cap = face.capHeight * 1000 / upm;
+        let descRef = this.w.alloc();
+        var desc = PdfDict.create();
+        desc.set("Type", pdfName("FontDescriptor"));
+        desc.set("FontName", pdfName(u.key.view()));
+        desc.set("Flags", pdfInt(4));
+        desc.set("ItalicAngle", pdfReal(face.italicAngle));
+        desc.set("Ascent", pdfInt(asc));
+        desc.set("Descent", pdfInt(dec));
+        desc.set("CapHeight", pdfInt(cap));
+        desc.set("FontFile2", pdfRef(fileRef));
+        var bbox = Vector<String>.create();
+        let _ = bbox.push(pdfReal(0.0));
+        let _ = bbox.push(pdfReal(round<f64>(dec)));
+        let _ = bbox.push(pdfReal(1000.0));
+        let _ = bbox.push(pdfReal(round<f64>(asc)));
+        desc.set("FontBBox", pdfArray(bbox));
+        this.w.object(descRef, desc.text().view());
+        // RuneToGid: the used characters the cmap answers, in first-use order, then by glyph.
+        var mapped = Vector<UsedGlyph>.create();
+        for (c in u.used.view()) {
+            match (face.lookup(c)) {
+                Some(g) => { let _ = mapped.push(UsedGlyph { cp: c, gid: g }); }
+                null => {}
+            }
+        }
+        let sorted = byGlyph(mapped);
+        let wArray = widthArray(face, sorted);
+        var dw: i64 = 1000;
+        match (face.width(0x20)) {
+            Some(sw) => {
+                if (face.upem > 0) {
+                    dw = sw * 1000 / face.upem;
+                }
+            }
+            null => {}
+        }
+        let cidRef = this.w.alloc();
+        var cid = PdfDict.create();
+        cid.set("Type", pdfName("Font"));
+        cid.set("Subtype", pdfName("CIDFontType2"));
+        cid.set("BaseFont", pdfName(u.key.view()));
+        var system = PdfDict.create();
+        system.set("Registry", pdfLiteral("Adobe"));
+        system.set("Ordering", pdfLiteral("Identity"));
+        system.set("Supplement", pdfInt(0));
+        cid.set("CIDSystemInfo", system.text());
+        cid.set("FontDescriptor", pdfRef(descRef));
+        cid.set("DW", pdfInt(dw));
+        cid.set("CIDToGIDMap", pdfName("Identity"));
+        if (wArray.view() != "[]") {
+            cid.set("W", wArray);
+        }
+        this.w.object(cidRef, cid.text().view());
+        let cmap = toUnicodeCMap(sorted);
+        let toUnicodeRef = this.w.alloc();
+        this.w.stream(toUnicodeRef, PdfDict.create(), cmap.bytes(), true, false);
+        var font = PdfDict.create();
+        font.set("Type", pdfName("Font"));
+        font.set("Subtype", pdfName("Type0"));
+        font.set("BaseFont", pdfName(u.key.view()));
+        font.set("Encoding", pdfName("Identity-H"));
+        var descendants = Vector<String>.create();
+        let _ = descendants.push(pdfRef(cidRef));
+        font.set("DescendantFonts", pdfArray(descendants));
+        font.set("ToUnicode", pdfRef(toUnicodeRef));
+        this.w.object(u.ref, font.text().view());
+    }
+}
+
+// ---- helpers ----------------------------------------------------------------------------------------------------------
+
+/// RotatedTextLength: a line runs along the box's height when the text is turned by (45, 135] or (225, 315] degrees.
+fn rotatedLength(angle: f32, w: f64, h: f64) -> f64 {
+    let a0 = angle as f64;
+    var a = a0 - (a0 / 360.0).floor() * 360.0;
+    if (a >= 360.0) {
+        a -= 360.0;
+    }
+    return if ((a > 45.0 && a <= 135.0) || (a > 225.0 && a <= 315.0)) h else w;
+}
+
+/// ArabicShaper.ContainsArabic.
+fn containsArabicText(text: StringView) -> bool => containsArabic(codePoints(text));
+
+/// The text's code points.
+fn codePoints(text: StringView) -> Vector<u32> {
+    var cps = Vector<u32>.create();
+    let b = text.bytes();
+    var at: usize = 0;
+    while (at < b.length) {
+        let c = b[at] as u32;
+        let len: usize = if (c < 0x80) 1 else if (c < 0xE0) 2 else if (c < 0xF0) 3 else 4;
+        var cp: u32 = if (len == 1) c else if (len == 2) c & 0x1F else if (len == 3) c & 0x0F else c & 0x07;
+        for (k in 1..len) {
+            if (at + k < b.length) {
+                cp = (cp << 6) | ((b[at + k] as u32) & 0x3F);
+            }
+        }
+        let _ = cps.push(cp);
+        at += len;
+    }
+    return cps;
+}
+
+fn utf8Of(cps: borrow Vector<u32>) -> String {
+    var out = Vector<u8>.create();
+    for (c in cps.view()) {
+        pushCp(mut out, c);
+    }
+    return stringOf(out.view());
+}
+
+/// SplitNewlines: the text's lines at each "\n", each without the "\r"s that end it.
+fn splitNewlines(text: StringView) -> Vector<String> {
+    var out = Vector<String>.create();
+    let b = text.bytes();
+    var start: usize = 0;
+    for (k in 0..b.length + 1) {
+        if (k == b.length || b[k] == 0x0A) {
+            var end = k;
+            while (end > start && b[end - 1] == 0x0D) {
+                end -= 1;
+            }
+            let _ = out.push(stringOf(b[start..end]));
+            start = k + 1;
+        }
+    }
+    return out;
+}
+
+/// StartsWithStrongRtlChar: a Hebrew or Arabic character before any other letter (a strong left-to-right one).
+fn startsWithStrongRtl(text: StringView) -> bool {
+    for (v in codePoints(text).view()) {
+        if ((v >= 0x0590 && v <= 0x08FF) || (v >= 0xFB1D && v <= 0xFEFC)) {
+            return true;
+        }
+        if (bidiClass(v) == 0) {
+            return false;
+        }
+    }
+    return false;
+}
+
+/// BidiResolver.ReorderForDisplay: the line in visual order (UAX #9, claywind's resolution), the characters of each
+/// right-to-left run reversed and mirrored. A character X9 removes takes the level of the one before it.
+fn reorderForDisplay(text: StringView, rtl: bool) -> String {
+    let cps = codePoints(text);
+    let n = cps.length;
+    if (n == 0) {
+        return copyOf(text);
+    }
+    var levels = Vector<u8>.create();
+    var scratch = Vector<u32>.create();
+    for (k in 0..n) {
+        let _ = levels.push(0);
+    }
+    for (k in 0..n * BIDI_SCRATCH) {
+        let _ = scratch.push(0);
+    }
+    let paragraph = bidiLevels(text.bytes(), if (rtl) 1 else -1, levels.viewMut(), scratch.viewMut());
+    var previous: u8 = if (paragraph > 0) 1 else 0;
+    for (k in 0..n) {
+        if (levels[k] == BIDI_REMOVED) {
+            levels[k] = previous;
+        }
+        previous = levels[k];
+    }
+    // L2: from the highest level down to the lowest odd one, each run at that level or above reversed.
+    var order = Vector<usize>.create();
+    var highest: u8 = 0;
+    var lowestOdd: u8 = 0xFF;
+    for (k in 0..n) {
+        let _ = order.push(k);
+        highest = highest.max(levels[k]);
+        if ((levels[k] & 1) != 0) {
+            lowestOdd = lowestOdd.min(levels[k]);
+        }
+    }
+    if (lowestOdd != 0xFF) {
+        var level = highest;
+        while (level >= lowestOdd) {
+            var k: usize = 0;
+            while (k < n) {
+                if (levels[order[k]] < level) {
+                    k += 1;
+                    continue;
+                }
+                var e = k;
+                while (e < n && levels[order[e]] >= level) {
+                    e += 1;
+                }
+                var a = k;
+                var z = e - 1;
+                while (a < z) {
+                    let x = order[a];
+                    order[a] = order[z];
+                    order[z] = x;
+                    a += 1;
+                    z -= 1;
+                }
+                k = e;
+            }
+            if (level == 0) {
+                break;
+            }
+            level -= 1;
+        }
+    }
+    var out = Vector<u8>.create();
+    for (i in order.view()) {
+        let c = cps[i];
+        pushCp(mut out, if ((levels[i] & 1) != 0) bidiMirror(c) else c);
+    }
+    return stringOf(out.view());
+}
+
+fn sameBytes(a: Slice<u8>, b: Slice<u8>) -> bool {
+    if (a.length != b.length) {
+        return false;
+    }
+    for (k in 0..a.length) {
+        if (a[k] != b[k]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+fn copyBytes(a: Slice<u8>) -> Vector<u8> {
+    var out = Vector<u8>.create();
+    for (c in a) {
+        let _ = out.push(c);
+    }
+    return out;
+}
+
+/// An image's size in pixels.
+struct Dims {
+    w: i64;
+    h: i64;
+}
+
+/// ReadJpegDimensions / ReadPngDimensions: null for anything else (CosmoPdf draws only JPEG and PNG).
+fn imageSize(data: Slice<u8>) -> Dims? {
+    if (data.length > 2 && data[0] == 0xFF && data[1] == 0xD8) {
+        return jpegSize(data);
+    }
+    if (data.length > 7 && data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G') {
+        if (data.length < 24) {
+            return Dims { w: 1, h: 1 };
+        }
+        return Dims { w: ru32(data, 16) as i64, h: ru32(data, 20) as i64 };
+    }
+    return null;
+}
+
+/// The size in a JPEG's start-of-frame segment (1 by 1 when it has none).
+fn jpegSize(data: Slice<u8>) -> Dims {
+    var p: usize = 2;
+    while (p + 9 < data.length) {
+        if (data[p] != 0xFF) {
+            p += 1;
+            continue;
+        }
+        let marker = data[p + 1];
+        if (marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) {
+            return Dims { w: ru16(data, p + 7) as i64, h: ru16(data, p + 5) as i64 };
+        }
+        p += 2 + (ru16(data, p + 2) as usize);
+    }
+    return Dims { w: 1, h: 1 };
+}
+
+fn imageDict(w: i64, h: i64, space: StringView) -> PdfDict {
+    var d = PdfDict.create();
+    d.set("Type", pdfName("XObject"));
+    d.set("Subtype", pdfName("Image"));
+    d.set("Width", pdfInt(w));
+    d.set("Height", pdfInt(h));
+    d.set("ColorSpace", pdfName(space));
+    d.set("BitsPerComponent", pdfInt(8));
+    return d;
+}
+
+/// A PNG's samples as DecodePngToRaw gives them: RGB, and an alpha plane for a palette, gray-and-alpha or RGBA image
+/// whose alpha is not all opaque (empty otherwise).
+struct Samples {
+    rgb: Vector<u8>;
+    alpha: Vector<u8>;
+    w: i64;
+    h: i64;
+}
+
+fn pngSamples(data: Slice<u8>) -> Samples? {
+    if (data.length < 26) {
+        return null;
+    }
+    let colorType = data[25];
+    let d = decodeAny(data)?;
+    var s = Samples { rgb: Vector<u8>.create(), alpha: Vector<u8>.create(), w: d.w, h: d.h };
+    var opaque = true;
+    for (p in d.pixels.view()) {
+        let _ = s.rgb.push(truncate<u8>(p & 0xFF));
+        let _ = s.rgb.push(truncate<u8>((p >> 8) & 0xFF));
+        let _ = s.rgb.push(truncate<u8>((p >> 16) & 0xFF));
+        let a = truncate<u8>(p >> 24);
+        if (a != 255) {
+            opaque = false;
+        }
+        let _ = s.alpha.push(a);
+    }
+    if (opaque || (colorType != 3 && colorType != 4 && colorType != 6)) {
+        s.alpha.clear();
+    }
+    return s;
+}
+
+/// The QR code's pixels (black and white RGBA) as the RGB PNG QrCode.Png writes, to be embedded as one.
+fn qrPng(pixels: Slice<u32>, side: i64) -> Vector<u8> {
+    var rgb = Vector<u8>.create();
+    for (p in pixels) {
+        let _ = rgb.push(truncate<u8>(p & 0xFF));
+        let _ = rgb.push(truncate<u8>((p >> 8) & 0xFF));
+        let _ = rgb.push(truncate<u8>((p >> 16) & 0xFF));
+    }
+    return encodePngRgb(truncate<usize>(side), truncate<usize>(side), rgb.view());
+}

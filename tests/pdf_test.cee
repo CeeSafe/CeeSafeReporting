@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: MIT
+// Reports written as PDF against CosmoReport's CosmoPdfExport: tests/expected/pdf/X.txt is the dump of its PDF
+// (`dotnet RefDump.dll pdf tests/fixtures/X.frx data.json Name out.pdf` writes it beside the PDF), each object in
+// order with its streams uncompressed, and the port's PDF must dump the same. Each PDF made is written to out/.
+import claywind;
+
+/// The report's PDF with the system's Arial and Tahoma, null when they are not there.
+fn pdfOf(file: StringView, sourceName: StringView, dataFile: StringView) -> Result<PdfFile?, TestFailure> {
+    var path = String.create();
+    let _ = path.append("tests/fixtures/");
+    let _ = path.append(file);
+    let _ = path.append(".frx");
+    let report = match (loadReport(readFile(path.view()).view())) {
+        Ok(r) => r,
+        Err(_) => { return Err(TestFailure.create("the report did not load")); }
+    };
+    let pages = preparedOf(file, sourceName, dataFile, report)?;
+    var storage = heapBytes(67108864);
+    let memory = FixedBufferAllocator.over(mut storage.viewMut());
+    var capacity = RasterCapacity.of(1, 1);
+    capacity.fontBytes = 8388608;
+    let raster = Raster.create(memory, capacity)!;
+    var fonts = Fonts.over(raster);
+    if (!addSystemFonts(mut fonts)) {
+        Console.writeLine("  (Arial or Tahoma not found: skipped)");
+        return Ok(null);
+    }
+    return Ok(exportPdf(report, pages, fonts));
+}
+
+fn writeOut(name: StringView, suffix: StringView, bytes: Slice<u8>) {
+    var out = String.create();
+    let _ = out.append("out/");
+    let _ = out.append(name);
+    let _ = out.append(suffix);
+    match (File.create(out.view())) {
+        Ok(f) => {
+            var file = f;
+            let _ = file.write(bytes);
+        }
+        Err(_) => {}
+    }
+}
+
+/// The report's PDF dumped as CosmoReport's is, line by line; the first line that differs is shown.
+fn samePdf(file: StringView, sourceName: StringView, dataFile: StringView, name: StringView)
+    -> Result<void, TestFailure> {
+    let pdf = match (pdfOf(file, sourceName, dataFile)?) {
+        Some(p) => p,
+        null => { return Ok(); }
+    };
+    writeOut(name, ".pdf", pdf.bytes.view());
+    var expectedPath = copyOf("tests/expected/pdf/");
+    let _ = expectedPath.append(name);
+    let _ = expectedPath.append(".txt");
+    let expected = readFile(expectedPath.view());
+    let got = pdf.dump.bytes();
+    if (sameBytes(got, expected.view())) {
+        return Ok();
+    }
+    writeOut(name, ".pdf.txt", got);
+    // The first line that differs.
+    var line: i64 = 1;
+    var start: usize = 0;
+    var k: usize = 0;
+    while (k < got.length && k < expected.length && got[k] == expected[k]) {
+        if (got[k] == 0x0A) {
+            line += 1;
+            start = k + 1;
+        }
+        k += 1;
+    }
+    Console.write("  line ");
+    Console.writeLine(line);
+    Console.write("  want: ");
+    Console.writeLine(lineAt(expected.view(), start));
+    Console.write("  got:  ");
+    Console.writeLine(lineAt(got, start));
+    return Err(TestFailure.create("the PDF is not CosmoReport's"));
+}
+
+fn lineAt(b: Slice<u8>, start: usize) -> StringView {
+    var end = start;
+    while (end < b.length && b[end] != 0x0A && end - start < 300) {
+        end += 1;
+    }
+    return StringView.fromUtf8(b[start.min(b.length)..end]) ?? "(not UTF-8)";
+}
+
+@test
+fn theVouchersPdfIsCosmoReports() -> Result<void, TestFailure> =>
+    samePdf("VoucherView", "Voucher", "tests/data/voucher.json", "VoucherView.voucher");
+
+@test
+fn theServersMyInvoicePdfIsCosmoReports() -> Result<void, TestFailure> =>
+    samePdf("MyInvoice.server", "Invoice", "tests/data/invoice.json", "MyInvoice.server.invoice");
+
+@test
+fn theReceiptsPdfIsCosmoReports() -> Result<void, TestFailure> =>
+    samePdf("PosInvoice", "Header", "tests/data/invoice.json", "PosInvoice.invoice");
+
+/// The cross-reference table gives each object's offset: "N 0 obj" is there.
+@test
+fn aPdfsCrossReferencesFindItsObjects() -> Result<void, TestFailure> {
+    let pdf = match (pdfOf("VoucherView", "Voucher", "tests/data/voucher.json")?) {
+        Some(p) => p,
+        null => { return Ok(); }
+    };
+    let b = pdf.bytes.view();
+    // startxref's offset, from the end.
+    var at = b.length - 7;
+    while (at > 0 && b[at] != 0x0A) {
+        at -= 1;
+    }
+    var p = at - 1;
+    while (p > 0 && b[p] != 0x0A) {
+        p -= 1;
+    }
+    let xref = (StringView.fromUtf8(b[p + 1..at]) ?? "").parseInt<i64>() ?? -1;
+    Check.isTrue(xref > 0, "startxref gives the table's offset")?;
+    var q = truncate<usize>(xref);
+    Check.isTrue(StringView.fromUtf8(b[q..q + 5]) == "xref\n", "the table is there")?;
+    q += 5;
+    // "0 N\n", then N entries of 20 bytes.
+    while (b[q] != 0x0A) {
+        q += 1;
+    }
+    q += 1;
+    var n: i64 = 0;
+    while (b[q] != 't') {
+        let entry = StringView.fromUtf8(b[q..q + 20]) ?? "";
+        if (n > 0 && b[q + 17] == 'n') {
+            let offset = truncate<usize>((StringView.fromUtf8(b[q..q + 10]) ?? "").parseInt<i64>() ?? 0);
+            var head = String.create();
+            appendInt(mut head, n);
+            let _ = head.append(" 0 obj\n");
+            let there = StringView.fromUtf8(b[offset..offset + head.view().length]) ?? "";
+            Check.isTrue(there == head.view(), "an entry points at its object")?;
+        }
+        Check.isTrue(entry.length == 20, "an entry is 20 bytes")?;
+        q += 20;
+        n += 1;
+    }
+    return Ok();
+}
+
+@test
+fn aLongInvoicesPdfIsCosmoReportsOnEveryPage() -> Result<void, TestFailure> =>
+    samePdf("MyInvoice.server", "Invoice", "tests/data/invoice45.json", "MyInvoice.server.invoice45");
+
+@test
+fn aLongVouchersPdfIsCosmoReportsOnEveryPage() -> Result<void, TestFailure> =>
+    samePdf("VoucherView", "Voucher", "tests/data/voucher30.json", "VoucherView.voucher30");

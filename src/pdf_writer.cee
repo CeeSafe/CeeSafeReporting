@@ -1,0 +1,341 @@
+// SPDX-License-Identifier: MIT
+// A PDF file written as CosmoPdf's PdfWriter writes one: the "%PDF-1.7" header, each object as "N 0 obj" when it is
+// written (a dictionary's keys in ordinal order, a stream's Length added to its dictionary), then the
+// cross-reference table and the trailer. Numbers are written as PdfReal writes a double: its shortest round-trip
+// digits, never in E notation.
+//
+// Beside the file the writer keeps a dump of it: each object in the order written, a stream's dictionary without its
+// Length and its content uncompressed (a font program or an image as its size and CRC-32), then the trailer. The
+// reference harness writes the same dump from CosmoReport's PDF, so the two compare object by object although their
+// deflated bytes differ.
+
+/// A dictionary's entries (PdfDict), written with its keys in ordinal order.
+public struct PdfDict {
+    keys: Vector<String>;
+    values: Vector<String>;
+
+    public fn create() -> PdfDict => PdfDict { keys: Vector<String>.create(), values: Vector<String>.create() };
+
+    /// Sets `key` to `value` (an object written as text), in place of an earlier value.
+    public fn set(borrow mut this, key: StringView, value: String) {
+        for (k in 0..this.keys.length) {
+            if (this.keys[k].view() == key) {
+                this.values[k] = value;
+                return;
+            }
+        }
+        let _ = this.keys.push(copyOf(key));
+        let _ = this.values.push(value);
+    }
+
+    public fn count(borrow this) -> usize => this.keys.length;
+
+    /// PdfDict.WriteTo: "<<", then " /Key value" for each key in ordinal order, then " >>".
+    public fn text(borrow this) -> String {
+        var order = Vector<usize>.create();
+        for (k in 0..this.keys.length) {
+            var at = order.length;
+            for (i in 0..order.length) {
+                if (ordinalLess(this.keys[k].view(), this.keys[order[i]].view())) {
+                    at = i;
+                    break;
+                }
+            }
+            let _ = order.insert(at, k);
+        }
+        var out = String.create();
+        let _ = out.append("<<");
+        for (k in order.view()) {
+            let _ = out.append(" ");
+            let _ = out.append(pdfName(this.keys[k].view()).view());
+            let _ = out.append(" ");
+            let _ = out.append(this.values[k].view());
+        }
+        let _ = out.append(" >>");
+        return out;
+    }
+}
+
+/// PdfName: "/" and the name's UTF-8 bytes, those outside '!'..'~' and the delimiters written as "#XX".
+public fn pdfName(name: StringView) -> String {
+    var out = String.create();
+    let _ = out.append("/");
+    var plain = Vector<u8>.create();
+    for (c in name.bytes()) {
+        let delimiter = c == '#' || c == '/' || c == '(' || c == ')' || c == '<' || c == '>' || c == '[' || c == ']' ||
+            c == '{' || c == '}' || c == '%';
+        if (c < '!' || c > '~' || delimiter) {
+            let _ = out.append(StringView.fromUtf8(plain.view()) ?? "");
+            plain.clear();
+            let _ = out.append("#");
+            appendHex2(mut out, c);
+        } else {
+            let _ = plain.push(c);
+        }
+    }
+    let _ = out.append(StringView.fromUtf8(plain.view()) ?? "");
+    return out;
+}
+
+/// PdfInteger.
+public fn pdfInt(v: i64) -> String {
+    var out = String.create();
+    appendInt(mut out, v);
+    return out;
+}
+
+/// PdfReal.Format: double.ToString("R") (the shortest digits that read back), or, when that is in E notation,
+/// ToString("0.################").
+public fn pdfReal(v: f64) -> String {
+    let r = formatDouble(v);
+    for (c in r.bytes()) {
+        if (c == 'E') {
+            return fixed16(v);
+        }
+    }
+    return r;
+}
+
+/// "0.################": the value to 15 significant digits (a double's custom format precision), then at most 16
+/// decimals, a negative that rounds to nothing kept as "-0".
+fn fixed16(v: f64) -> String {
+    var x = exactDigits(v);
+    roundAt(mut x, 15);
+    roundAt(mut x, x.point + 16);
+    var out = String.create();
+    if (x.negative) {
+        let _ = out.append("-");
+    }
+    if (x.digits.length == 0) {
+        let _ = out.append("0");
+        return out;
+    }
+    // Trailing zeros of the fraction are not written.
+    var n = x.digits.length;
+    while (n > 0 && truncate<i64>(n) > x.point && x.digits[n - 1] == 0) {
+        n -= 1;
+    }
+    if (x.point <= 0) {
+        let _ = out.append("0.");
+        for (k in 0..-x.point) {
+            let _ = out.append("0");
+        }
+        for (k in 0..n) {
+            appendDigit(mut out, x.digits[k]);
+        }
+        return out;
+    }
+    for (k in 0..truncate<usize>(x.point)) {
+        appendDigit(mut out, if (k < n) x.digits[k] else 0);
+    }
+    if (truncate<i64>(n) > x.point) {
+        let _ = out.append(".");
+        for (k in truncate<usize>(x.point)..n) {
+            appendDigit(mut out, x.digits[k]);
+        }
+    }
+    return out;
+}
+
+/// An indirect reference: "N 0 R".
+public fn pdfRef(n: i64) -> String {
+    var out = pdfInt(n);
+    let _ = out.append(" 0 R");
+    return out;
+}
+
+/// An array of objects written as text: "[a b c]".
+public fn pdfArray(items: borrow Vector<String>) -> String {
+    var out = String.create();
+    let _ = out.append("[");
+    for (k in 0..items.length) {
+        if (k > 0) {
+            let _ = out.append(" ");
+        }
+        let _ = out.append(items[k].view());
+    }
+    let _ = out.append("]");
+    return out;
+}
+
+/// PdfLiteralString: the text's UTF-8 bytes in parentheses, "(", ")", "\", CR and LF escaped.
+public fn pdfLiteral(text: StringView) -> String {
+    var bytes = Vector<u8>.create();
+    let _ = bytes.push('(');
+    for (c in text.bytes()) {
+        if (c == '(' || c == ')' || c == '\\') {
+            let _ = bytes.push('\\');
+            let _ = bytes.push(c);
+        } else if (c == 0x0D) {
+            let _ = bytes.push('\\');
+            let _ = bytes.push('r');
+        } else if (c == 0x0A) {
+            let _ = bytes.push('\\');
+            let _ = bytes.push('n');
+        } else {
+            let _ = bytes.push(c);
+        }
+    }
+    let _ = bytes.push(')');
+    return stringOf(bytes.view());
+}
+
+fn appendHex2(out: borrow mut String, v: u8) {
+    let digits = "0123456789ABCDEF".bytes();
+    let pair = [digits[(v >> 4) as usize], digits[(v & 15) as usize]];
+    let _ = out.append(StringView.fromUtf8(pair[..]) ?? "");
+}
+
+fn appendHex4(out: borrow mut String, v: u32) {
+    appendHex2(mut out, truncate<u8>(v >> 8));
+    appendHex2(mut out, truncate<u8>(v));
+}
+
+/// A PDF file being written, and its dump.
+public struct PdfWriter {
+    out: Vector<u8>;
+    /// Each object's offset by its number; -1 for one not written. Number 0 is the free list's head.
+    offsets: Vector<i64>;
+    next: i64;
+    dump: Vector<u8>;
+
+    /// The header written; objects 1 and 2 kept for the catalog and the page tree (PdfWriter's constructor).
+    public fn create() -> PdfWriter {
+        var w = PdfWriter { out: Vector<u8>.create(), offsets: Vector<i64>.create(), next: 1, dump: Vector<u8>.create() };
+        let _ = w.offsets.push(0);
+        w.raw("%PDF-1.7\n");
+        let _ = w.alloc();
+        let _ = w.alloc();
+        return w;
+    }
+
+    fn raw(borrow mut this, text: StringView) {
+        for (c in text.bytes()) {
+            let _ = this.out.push(c);
+        }
+    }
+
+    fn dumped(borrow mut this, text: StringView) {
+        for (c in text.bytes()) {
+            let _ = this.dump.push(c);
+        }
+    }
+
+    /// AllocObject: the next object number.
+    public fn alloc(borrow mut this) -> i64 {
+        let n = this.next;
+        this.next += 1;
+        let _ = this.offsets.push(-1);
+        return n;
+    }
+
+    fn begin(borrow mut this, n: i64) {
+        this.offsets[truncate<usize>(n)] = truncate<i64>(this.out.length);
+        var head = pdfInt(n);
+        let _ = head.append(" 0 obj\n");
+        this.raw(head.view());
+        this.dumped(head.view());
+    }
+
+    /// WriteObject: object `n`, written as `text`.
+    public fn object(borrow mut this, n: i64, text: StringView) {
+        this.begin(n);
+        this.raw(text);
+        this.raw("\nendobj\n");
+        this.dumped(text);
+        this.dumped("\nendobj\n");
+    }
+
+    /// WriteObject of a PdfStream: `dict` with the content's Length, then the content, deflated (and the dictionary's
+    /// Filter set) when `compress`. In the dump a `binary` content (a font program, an image) is its size and CRC-32.
+    public fn stream(borrow mut this, n: i64, dict: PdfDict, content: Slice<u8>, compress: bool, binary: bool) {
+        var d = dict;
+        var deflated = Vector<u8>.create();
+        if (compress) {
+            deflated = zlibCompress(content);
+            d.set("Filter", pdfName("FlateDecode"));
+        }
+        let data = if (compress) deflated.view() else content;
+        this.begin(n);
+        let shown = d.text();
+        d.set("Length", pdfInt(truncate<i64>(data.length)));
+        let written = d.text();
+        this.raw(written.view());
+        this.raw("\nstream\n");
+        for (c in data) {
+            let _ = this.out.push(c);
+        }
+        this.raw("\nendstream\nendobj\n");
+        this.dumped(shown.view());
+        this.dumped("\nstream\n");
+        if (binary) {
+            var s = String.create();
+            let _ = s.append("binary ");
+            appendInt(mut s, truncate<i64>(content.length));
+            let _ = s.append(" ");
+            let crc = crc32(0, content);
+            appendHex4(mut s, crc >> 16);
+            appendHex4(mut s, crc & 0xFFFF);
+            this.dumped(s.view());
+        } else {
+            for (c in content) {
+                let _ = this.dump.push(c);
+            }
+        }
+        this.dumped("\nendstream\nendobj\n");
+    }
+
+    /// The cross-reference table and the trailer (`root`, and `info` when there is one); the file's bytes.
+    public fn finish(borrow mut this, root: i64, info: i64?) -> Vector<u8> {
+        let xref = truncate<i64>(this.out.length);
+        var t = String.create();
+        let _ = t.append("xref\n0 ");
+        appendInt(mut t, truncate<i64>(this.offsets.length));
+        let _ = t.append("\n");
+        for (k in 0..this.offsets.length) {
+            let o = this.offsets[k];
+            if (k == 0) {
+                let _ = t.append("0000000000 65535 f\r\n");
+            } else {
+                appendPadded(mut t, o.max(0), 10);
+                let _ = t.append(if (o >= 0) " 00000 n\r\n" else " 00000 f\r\n");
+            }
+        }
+        this.raw(t.view());
+        var trailer = PdfDict.create();
+        trailer.set("Size", pdfInt(truncate<i64>(this.offsets.length)));
+        trailer.set("Root", pdfRef(root));
+        match (info) {
+            Some(i) => { trailer.set("Info", pdfRef(i)); }
+            null => {}
+        }
+        let text = trailer.text();
+        this.raw("trailer\n");
+        this.raw(text.view());
+        var tail = String.create();
+        let _ = tail.append("\nstartxref\n");
+        appendInt(mut tail, xref);
+        let _ = tail.append("\n%%EOF\n");
+        this.raw(tail.view());
+        this.dumped("trailer\n");
+        this.dumped(text.view());
+        this.dumped("\n");
+        var file = Vector<u8>.create();
+        for (c in this.out.view()) {
+            let _ = file.push(c);
+        }
+        return file;
+    }
+
+    /// The dump of what was written.
+    public fn dumpText(borrow this) -> String => stringOf(this.dump.view());
+}
+
+fn appendPadded(out: borrow mut String, v: i64, width: usize) {
+    var digits = String.create();
+    appendInt(mut digits, v);
+    for (k in digits.view().length..width) {
+        let _ = out.append("0");
+    }
+    let _ = out.append(digits.view());
+}

@@ -1,0 +1,515 @@
+// SPDX-License-Identifier: MIT
+// A TrueType face as CosmoPdf reads it for a PDF (TrueTypeFont): its metrics (head, hhea, OS/2, post), advance
+// widths (hmtx, the last repeated), and its cmap's first format 4 and first format 12 subtables, looked up format 12
+// first. Text is encoded character by character (Identity-H: each character's glyph, no shaping), and each face is
+// embedded as CosmoPdf embeds it (WriteType0Font): the whole file with the glyphs no character used zeroed
+// (TrueTypeSubset), a FontDescriptor, a CIDFontType2 with the used glyphs' widths, and a ToUnicode CMap.
+
+/// The parts of a face a PDF needs.
+struct PdfFace {
+    upem: i64;
+    ascender: i64;
+    descender: i64;
+    capHeight: i64;
+    italicAngle: f64;
+    numGlyphs: i64;
+    widths: Vector<i64>;
+    /// Format 4: each segment's end, start, delta and range offset, and the glyph array.
+    hasFormat4: bool;
+    ends: Vector<u32>;
+    starts: Vector<u32>;
+    deltas: Vector<i64>;
+    rangeOffsets: Vector<u32>;
+    glyphArray: Vector<u32>;
+    /// Format 12: start, end and first glyph of each group.
+    hasFormat12: bool;
+    groups: Vector<u32>;
+}
+
+fn ru16(d: Slice<u8>, at: usize) -> u32 => if (at + 2 <= d.length) ((d[at] as u32) << 8) | (d[at + 1] as u32) else 0;
+
+fn ru32(d: Slice<u8>, at: usize) -> u32 =>
+    if (at + 4 <= d.length) (ru16(d, at) << 16) | ru16(d, at + 2) else 0;
+
+fn ri16(d: Slice<u8>, at: usize) -> i64 {
+    let v = ru16(d, at) as i64;
+    return if (v >= 0x8000) v - 0x10000 else v;
+}
+
+/// A table's offset and length, by its tag.
+struct TableRec {
+    offset: usize;
+    length: usize;
+}
+
+fn tableOf(d: Slice<u8>, tag: StringView) -> TableRec? {
+    let count = ru16(d, 4) as usize;
+    let t = tag.bytes();
+    for (k in 0..count) {
+        let at = 12 + k * 16;
+        if (at + 16 > d.length) {
+            return null;
+        }
+        if (d[at] == t[0] && d[at + 1] == t[1] && d[at + 2] == t[2] && d[at + 3] == t[3]) {
+            let offset = ru32(d, at + 8) as usize;
+            let length = ru32(d, at + 12) as usize;
+            if (offset + length > d.length) {
+                return null;
+            }
+            return TableRec { offset: offset, length: length };
+        }
+    }
+    return null;
+}
+
+/// TrueTypeFont.Parse: null when the file is not a font CosmoPdf reads (it then embeds nothing for it).
+fn readPdfFace(d: Slice<u8>) -> PdfFace? {
+    if (d.length < 12) {
+        return null;
+    }
+    let scaler = ru32(d, 0);
+    if (scaler != 0x00010000 && scaler != 0x74727565 && scaler != 0x4F54544F) {
+        return null;
+    }
+    let head = tableOf(d, "head")?;
+    let hhea = tableOf(d, "hhea")?;
+    let maxp = tableOf(d, "maxp")?;
+    let hmtx = tableOf(d, "hmtx")?;
+    let cmap = tableOf(d, "cmap")?;
+    if (head.length < 54 || hhea.length < 36 || maxp.length < 6) {
+        return null;
+    }
+    var f = PdfFace {
+        upem: ru16(d, head.offset + 18) as i64,
+        ascender: ri16(d, hhea.offset + 4),
+        descender: ri16(d, hhea.offset + 6),
+        capHeight: 0,
+        italicAngle: 0.0,
+        numGlyphs: ru16(d, maxp.offset + 4) as i64,
+        widths: Vector<i64>.create(),
+        hasFormat4: false,
+        ends: Vector<u32>.create(),
+        starts: Vector<u32>.create(),
+        deltas: Vector<i64>.create(),
+        rangeOffsets: Vector<u32>.create(),
+        glyphArray: Vector<u32>.create(),
+        hasFormat12: false,
+        groups: Vector<u32>.create(),
+    };
+    match (tableOf(d, "OS/2")) {
+        Some(os2) => {
+            if (os2.length >= 90) {
+                f.capHeight = ri16(d, os2.offset + 88);
+            }
+        }
+        null => {}
+    }
+    // hmtx: the long metrics, then the last width for the glyphs after them.
+    let numH = ru16(d, hhea.offset + 34) as i64;
+    if (hmtx.length < truncate<usize>(numH * 4)) {
+        return null;
+    }
+    var last: i64 = 0;
+    for (g in 0..f.numGlyphs) {
+        if (g < numH) {
+            last = ru16(d, hmtx.offset + truncate<usize>(g * 4)) as i64;
+        }
+        let _ = f.widths.push(last);
+    }
+    readCmap(d, cmap, mut f);
+    if (!f.hasFormat4 && !f.hasFormat12) {
+        return null;
+    }
+    match (tableOf(d, "post")) {
+        Some(post) => {
+            if (post.length >= 32) {
+                f.italicAngle = round<f64>(ri16(d, post.offset + 4)) + round<f64>(ru16(d, post.offset + 6) as i64) / 65536.0;
+            }
+        }
+        null => {}
+    }
+    return f;
+}
+
+/// ParseCmap: the first format 4 and the first format 12 subtable, in the order the cmap lists them.
+fn readCmap(d: Slice<u8>, cmap: TableRec, f: borrow mut PdfFace) {
+    let t = d[cmap.offset..cmap.offset + cmap.length];
+    if (t.length < 4) {
+        return;
+    }
+    let count = ru16(t, 2) as usize;
+    for (k in 0..count) {
+        let rec = 4 + k * 8;
+        if (rec + 8 > t.length) {
+            break;
+        }
+        let at = ru32(t, rec + 4) as usize;
+        if (at + 2 > t.length) {
+            continue;
+        }
+        let format = ru16(t, at);
+        if (format == 4 && !f.hasFormat4) {
+            readFormat4(t, at, mut f);
+        } else if (format == 12 && !f.hasFormat12) {
+            readFormat12(t, at, mut f);
+        }
+    }
+}
+
+fn readFormat4(t: Slice<u8>, at: usize, f: borrow mut PdfFace) {
+    if (at + 14 > t.length) {
+        return;
+    }
+    let length = ru16(t, at + 2) as usize;
+    if (at + length > t.length) {
+        return;
+    }
+    let segs = (ru16(t, at + 6) / 2) as usize;
+    var p = at + 14;
+    if (p + segs * 8 + 2 > t.length) {
+        return;
+    }
+    for (i in 0..segs) {
+        let _ = f.ends.push(ru16(t, p + i * 2));
+    }
+    p += segs * 2 + 2;
+    for (i in 0..segs) {
+        let _ = f.starts.push(ru16(t, p + i * 2));
+    }
+    p += segs * 2;
+    for (i in 0..segs) {
+        let _ = f.deltas.push(ri16(t, p + i * 2));
+    }
+    p += segs * 2;
+    for (i in 0..segs) {
+        let _ = f.rangeOffsets.push(ru16(t, p + i * 2));
+    }
+    p += segs * 2;
+    let end = at + length;
+    while (p + 2 <= end) {
+        let _ = f.glyphArray.push(ru16(t, p));
+        p += 2;
+    }
+    f.hasFormat4 = true;
+}
+
+fn readFormat12(t: Slice<u8>, at: usize, f: borrow mut PdfFace) {
+    if (at + 16 > t.length) {
+        return;
+    }
+    let n = ru32(t, at + 12) as usize;
+    if (at + 16 + n * 12 > t.length) {
+        return;
+    }
+    for (i in 0..n) {
+        let g = at + 16 + i * 12;
+        let _ = f.groups.push(ru32(t, g));
+        let _ = f.groups.push(ru32(t, g + 4));
+        let _ = f.groups.push(ru32(t, g + 8));
+    }
+    f.hasFormat12 = true;
+}
+
+impl PdfFace {
+    /// CmapTable.TryLookup: format 12's group for the character, else format 4's glyph (0 when it has none) for one in
+    /// the Basic Multilingual Plane; null when neither answers.
+    fn lookup(borrow this, cp: u32) -> u32? {
+        if (this.hasFormat12) {
+            var k: usize = 0;
+            while (k + 2 < this.groups.length) {
+                if (cp >= this.groups[k] && cp <= this.groups[k + 1]) {
+                    return (this.groups[k + 2] + (cp - this.groups[k])) & 0xFFFF;
+                }
+                k += 3;
+            }
+        }
+        if (this.hasFormat4 && cp <= 0xFFFF) {
+            return this.format4(cp);
+        }
+        return null;
+    }
+
+    fn format4(borrow this, cp: u32) -> u32 {
+        let n = this.ends.length;
+        var lo: usize = 0;
+        var hi = n;
+        while (lo < hi) {
+            let mid = (lo + hi) / 2;
+            if (this.ends[mid] >= cp) {
+                hi = mid;
+            } else {
+                lo = mid + 1;
+            }
+        }
+        if (lo >= n || cp < this.starts[lo]) {
+            return 0;
+        }
+        if (this.rangeOffsets[lo] == 0) {
+            return truncate<u32>(truncate<u64>((cp as i64) + this.deltas[lo]) & 0xFFFF);
+        }
+        let index = (this.rangeOffsets[lo] / 2) as i64 + ((cp - this.starts[lo]) as i64) - truncate<i64>(n - lo);
+        if (index < 0 || index >= truncate<i64>(this.glyphArray.length)) {
+            return 0;
+        }
+        let g = this.glyphArray[truncate<usize>(index)];
+        if (g == 0) {
+            return 0;
+        }
+        return truncate<u32>(truncate<u64>((g as i64) + this.deltas[lo]) & 0xFFFF);
+    }
+
+    /// TryGetGlyphWidth: the character's glyph's advance in font units; null when the cmap does not answer or the
+    /// glyph is past hmtx.
+    fn width(borrow this, cp: u32) -> i64? {
+        let g = this.lookup(cp)? as i64;
+        if (g >= truncate<i64>(this.widths.length)) {
+            return null;
+        }
+        return this.widths[truncate<usize>(g)];
+    }
+
+    /// FontMeasure.MeasureString: the characters' advances (a space's for one without a width) at `size` points.
+    fn measure(borrow this, cps: borrow Vector<u32>, size: f64) -> f64 {
+        if (this.upem == 0) {
+            return 0.0;
+        }
+        var total: i64 = 0;
+        for (c in cps.view()) {
+            total += match (this.width(c)) {
+                Some(w) => w,
+                null => this.width(0x20) ?? 0,
+            };
+        }
+        return round<f64>(total) * size / round<f64>(this.upem);
+    }
+}
+
+// ---- the subset -----------------------------------------------------------------------------------------------------
+
+/// A glyph's bytes in glyf, from its loca entries.
+struct GlyphRange {
+    from: usize;
+    to: usize;
+}
+
+fn locaRange(d: Slice<u8>, loca: TableRec, long: bool, g: u32) -> GlyphRange {
+    if (!long) {
+        let at = loca.offset + (g as usize) * 2;
+        if (at + 4 > d.length) {
+            return GlyphRange { from: 0, to: 0 };
+        }
+        return GlyphRange { from: (ru16(d, at) as usize) * 2, to: (ru16(d, at + 2) as usize) * 2 };
+    }
+    let at = loca.offset + (g as usize) * 4;
+    if (at + 8 > d.length) {
+        return GlyphRange { from: 0, to: 0 };
+    }
+    return GlyphRange { from: ru32(d, at) as usize, to: ru32(d, at + 4) as usize };
+}
+
+/// TrueTypeSubset.SubsetTrueType: a copy of the font with every glyph outside `keep` (and the components of the
+/// composite glyphs in it) zeroed, and the tables' checksums recomputed.
+fn subsetFont(d: Slice<u8>, glyphs: borrow Vector<u32>) -> Vector<u8> {
+    var out = Vector<u8>.create();
+    for (c in d) {
+        let _ = out.push(c);
+    }
+    var keep = Vector<bool>.create();
+    for (k in 0..65536usize) {
+        let _ = keep.push(false);
+    }
+    for (g in glyphs.view()) {
+        keep[g as usize] = true;
+    }
+    let glyf = tableOf(d, "glyf");
+    let loca = tableOf(d, "loca");
+    let head = tableOf(d, "head");
+    match (glyf) {
+        Some(gt) => {
+            match (loca) {
+                Some(lt) => {
+                    match (head) {
+                        Some(ht) => {
+                            let long = ri16(d, ht.offset + 50) != 0;
+                            addComponents(d, gt, lt, long, mut keep);
+                            let count = (if (long) lt.length / 4 else lt.length / 2) - 1;
+                            for (g in 0..count) {
+                                if (keep[g]) {
+                                    continue;
+                                }
+                                let r = locaRange(d, lt, long, truncate<u32>(g));
+                                if (r.from >= r.to) {
+                                    continue;
+                                }
+                                let from = gt.offset + r.from;
+                                let to = (gt.offset + r.to).min(out.length);
+                                if (from >= to) {
+                                    continue;
+                                }
+                                for (k in from..to) {
+                                    out[k] = 0;
+                                }
+                            }
+                        }
+                        null => {}
+                    }
+                }
+                null => {}
+            }
+        }
+        null => {}
+    }
+    // RecalcTableChecksums.
+    let count = ru16(d, 4) as usize;
+    for (k in 0..count) {
+        let at = 12 + k * 16;
+        if (at + 16 > out.length) {
+            break;
+        }
+        let offset = ru32(out.view(), at + 8) as usize;
+        let length = ru32(out.view(), at + 12) as usize;
+        var sum: u32 = 0;
+        let end = (offset + (length + 3) / 4 * 4).min(out.length);
+        var i = offset;
+        while (i + 4 <= end) {
+            sum = sum.wrappingAdd(ru32(out.view(), i));
+            i += 4;
+        }
+        out[at + 4] = truncate<u8>(sum >> 24);
+        out[at + 5] = truncate<u8>(sum >> 16);
+        out[at + 6] = truncate<u8>(sum >> 8);
+        out[at + 7] = truncate<u8>(sum);
+    }
+    return out;
+}
+
+/// AddCompositeComponents: the glyphs the kept composite glyphs are made of, until no more are added.
+fn addComponents(d: Slice<u8>, glyf: TableRec, loca: TableRec, long: bool, keep: borrow mut Vector<bool>) {
+    loop {
+        var added = false;
+        for (g in 0..keep.length) {
+            if (!keep[g]) {
+                continue;
+            }
+            let r = locaRange(d, loca, long, truncate<u32>(g));
+            if (r.from >= r.to) {
+                continue;
+            }
+            let start = glyf.offset + r.from;
+            let end = glyf.offset + r.to;
+            if (start + 2 > d.length || ri16(d, start) >= 0) {
+                continue;
+            }
+            var p = start + 10;
+            while (p + 4 <= end) {
+                let flags = ru16(d, p);
+                let component = ru16(d, p + 2) as usize;
+                if (!keep[component]) {
+                    keep[component] = true;
+                    added = true;
+                }
+                p += 4;
+                p += if ((flags & 0x0001) != 0) 4 else 2;
+                p += if ((flags & 0x0008) != 0) 2 else if ((flags & 0x0040) != 0) 4 else if ((flags & 0x0080) != 0) 8 else 0;
+                if ((flags & 0x0020) == 0) {
+                    break;
+                }
+            }
+        }
+        if (!added) {
+            break;
+        }
+    }
+}
+
+// ---- the font's objects ---------------------------------------------------------------------------------------------
+
+/// A character used and its glyph (RuneToGid's entries, in the order the characters were first used).
+struct UsedGlyph {
+    cp: u32;
+    gid: u32;
+}
+
+/// The used characters' glyphs sorted by glyph (a stable sort: characters on one glyph stay in first-use order).
+fn byGlyph(used: borrow Vector<UsedGlyph>) -> Vector<UsedGlyph> {
+    var out = Vector<UsedGlyph>.create();
+    for (u in used.view()) {
+        var at = out.length;
+        for (i in 0..out.length) {
+            if (u.gid < out[i].gid) {
+                at = i;
+                break;
+            }
+        }
+        let _ = out.insert(at, u);
+    }
+    return out;
+}
+
+/// BuildGlyphWidthArray: "[g [w w ...] g [w ...] ...]", a run for each stretch of consecutive glyphs, each width in
+/// thousandths of an em.
+fn widthArray(face: borrow PdfFace, sorted: borrow Vector<UsedGlyph>) -> String {
+    // The characters with a width (TryGetGlyphWidth), each its glyph's.
+    var gids = Vector<u32>.create();
+    var widths = Vector<i64>.create();
+    for (u in sorted.view()) {
+        match (face.width(u.cp)) {
+            Some(w) => {
+                let _ = gids.push(u.gid);
+                let _ = widths.push(w * 1000 / face.upem);
+            }
+            null => {}
+        }
+    }
+    var items = Vector<String>.create();
+    var i: usize = 0;
+    while (i < gids.length) {
+        var ws = Vector<String>.create();
+        let _ = ws.push(pdfInt(widths[i]));
+        var j = i + 1;
+        while (j < gids.length && gids[j] == gids[j - 1] + 1) {
+            let _ = ws.push(pdfInt(widths[j]));
+            j += 1;
+        }
+        let _ = items.push(pdfInt(gids[i] as i64));
+        let _ = items.push(pdfArray(ws));
+        i = j;
+    }
+    return pdfArray(items);
+}
+
+/// CMap.GenerateToUnicodeCMap: a bfchar entry from each glyph to its character, 100 to a block.
+fn toUnicodeCMap(sorted: borrow Vector<UsedGlyph>) -> String {
+    var b = String.create();
+    if (sorted.length == 0) {
+        return b;
+    }
+    let _ = b.append("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
+    let _ = b.append("/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n");
+    let _ = b.append("/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\n");
+    let _ = b.append("endcodespacerange\n");
+    var at: usize = 0;
+    while (at < sorted.length) {
+        let n = (sorted.length - at).min(100);
+        appendInt(mut b, truncate<i64>(n));
+        let _ = b.append(" beginbfchar\n");
+        for (k in at..at + n) {
+            let u = sorted[k];
+            let _ = b.append("<");
+            appendHex4(mut b, u.gid);
+            let _ = b.append("> <");
+            if (u.cp <= 0xFFFF) {
+                appendHex4(mut b, u.cp);
+            } else {
+                let v = u.cp - 0x10000;
+                appendHex4(mut b, 0xD800 + (v >> 10));
+                appendHex4(mut b, 0xDC00 + (v & 0x3FF));
+            }
+            let _ = b.append(">\n");
+        }
+        let _ = b.append("endbfchar\n");
+        at += n;
+    }
+    let _ = b.append("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
+    return b;
+}
