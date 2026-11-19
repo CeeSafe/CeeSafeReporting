@@ -2,7 +2,7 @@
 name = "ceesafe_reporting"
 version = "0.1.0"
 kind = "library"
-ceesafec = ">=0.72.0"
+ceesafec = ">=0.76.0" # unary ~ (ADR 0176)
 tests = ["tests"]
 
 [dependencies]

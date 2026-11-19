@@ -101,16 +101,16 @@ public fn md5(data: Slice<u8>) -> [u8; 16] {
             var f: u32 = 0;
             var g: usize = 0;
             if (i < 16) {
-                f = (b & c) | ((b ^ 0xFFFFFFFF) & d);
+                f = (b & c) | (~b & d);
                 g = i;
             } else if (i < 32) {
-                f = (d & b) | ((d ^ 0xFFFFFFFF) & c);
+                f = (d & b) | (~d & c);
                 g = (5 * i + 1) % 16;
             } else if (i < 48) {
                 f = b ^ c ^ d;
                 g = (3 * i + 5) % 16;
             } else {
-                f = c ^ (b | (d ^ 0xFFFFFFFF));
+                f = c ^ (b | ~d);
                 g = (7 * i) % 16;
             }
             let t = d;
