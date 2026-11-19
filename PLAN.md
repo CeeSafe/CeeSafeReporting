@@ -98,6 +98,13 @@ dumps (bands, positions, texts) and as pixels.
    it: ClayWind's ShapedGlyph.advance). IPos prints vouchers.
 8. **PDF.** A PDF writer (pages, text with embedded font subsets, images, vector lines), enough for the invoices; the PDF/A-3
    parts ZATCA needs after that.
+   *The PDF is done.* exportPdf (src/pdf_export.cee) is CosmoPdfExport with its defaults: the writer is CosmoPdf's
+   PdfWriter (src/pdf_writer.cee), each face embedded as its WriteType0Font embeds it (src/pdf_font.cee: the file
+   with unused glyphs zeroed, the used glyphs' widths, a ToUnicode CMap), text laid out as its RenderText lays it
+   (presentation forms, LineBreak, ReorderForDisplay, cmap glyphs, no kerning), the XMP metadata from ReportInfo. The
+   receipt, the server's MyInvoice and the voucher, short and long, dump object for object as CosmoReport's PDFs do
+   (tests/expected/pdf, written by the harness's `pdf` mode, streams inflated), and Poppler draws the two files to the
+   same pixels. The deflated bytes differ (fixed Huffman codes here, zlib's there).
 9. **The rest of FastReport.Core,** by what reports in use need: other objects, styles, aggregates, relations, columns,
    KeepTogether, and the other exporters.
 
