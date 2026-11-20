@@ -876,3 +876,72 @@ fn slice(runes: borrow Vector<u32>, from: usize, to: usize) -> Vector<u32> {
     }
     return out;
 }
+
+// ---- a receipt printed as text -----------------------------------------------------------------------------------
+
+/// `text` in `family` at `points` (bold or not), aligned in a canvas `width` dots wide at 203 dpi (a thermal printer's),
+/// as tall as its lines, wrapped at the width: a line of a receipt printed as text that the printer cannot draw in
+/// its own font (Arabic), to send with escPosRaster. A family `fonts` lacks falls back as a report's does (its
+/// regular faces' fallbacks); an empty canvas one dot high when no face resolves.
+public fn textImage(
+    fonts: borrow Fonts,
+    text: StringView,
+    family: StringView,
+    points: f32,
+    bold: bool,
+    align: HorzAlign,
+    width: i64,
+) -> Canvas {
+    let node = match (parseXml("<TextObject/>".bytes())) {
+        Ok(n) => n,
+        Err(_) => { return Canvas.create(width, 1); }
+    };
+    var t = readText(Attrs.of(node));
+    t.text = copyOf(text);
+    t.processed = copyOf(text);
+    t.font.family = copyOf(family);
+    t.font.size = points;
+    t.font.weight = if (bold) 700 else 400;
+    t.horzAlign = align;
+    t.padLeft = 0.0;
+    t.padRight = 0.0;
+    let face = fonts.resolve(family, bold, false) ?? fonts.resolve(family, false, false) ?? 0;
+    if (fonts.faces.length == 0) {
+        return Canvas.create(width, 1);
+    }
+    let size: f32 = points * 203.0 / 72.0;
+    let lines = wrapLines(fonts, face, text, size, round<f32>(width), false);
+    let f = borrow fonts.faces[face];
+    let lineHeight = round<f32>(f.ascender - f.descender + f.lineGap) * size / f.upem;
+    let height = truncate<i64>((round<f32>(truncate<i64>(lines.length.max(1))) * lineHeight).ceil()) + 2;
+    var canvas = Canvas.create(width, height);
+    drawTextIn(mut canvas, fonts, t, 0, 0, width, height, 1.0, 203, Color.black());
+    return canvas;
+}
+
+/// `image` as ESC/POS's raster bit image (GS v 0): a dot where a pixel's luminance is below `threshold`, rows of
+/// whole bytes, the printer's own dots, so nothing is scaled or banded.
+public fn escPosRaster(out: borrow mut Vector<u8>, image: borrow Canvas, threshold: u8) {
+    let w = image.width;
+    let h = image.height;
+    let rowBytes = (w + 7) / 8;
+    push(mut out, [0x1Du8, 'v', '0', 0, truncate<u8>(rowBytes % 256), truncate<u8>(rowBytes / 256),
+        truncate<u8>(h % 256), truncate<u8>(h / 256)][..]);
+    for (y in 0..h) {
+        for (bx in 0..rowBytes) {
+            var b: u8 = 0;
+            for (bit in 0..8i64) {
+                let x = bx * 8 + bit;
+                if (x < w) {
+                    let i = truncate<usize>((y * w + x) * 3);
+                    let lum = roundEven(0.2126 * round<f64>(image.rgb[i] as i64) +
+                        0.7152 * round<f64>(image.rgb[i + 1] as i64) + 0.0722 * round<f64>(image.rgb[i + 2] as i64));
+                    if (lum < (threshold as i64)) {
+                        b |= truncate<u8>(0x80u32 >> truncate<u32>(bit));
+                    }
+                }
+            }
+            let _ = out.push(b);
+        }
+    }
+}
