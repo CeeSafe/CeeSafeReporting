@@ -11,7 +11,12 @@ const FONT_DIRS: [StringView; 13] = [
     "/Library/Fonts", "C:/Windows/Fonts", "/system/fonts",
 ];
 
-const FALLBACK_FAMILIES: [StringView; 4] = ["Arial", "Liberation Sans", "DejaVu Sans", "Noto Sans"];
+/// Android's are Roboto and Droid Sans.
+const FALLBACK_FAMILIES: [StringView; 6] = ["Arial", "Liberation Sans", "DejaVu Sans", "Noto Sans", "Roboto", "Droid Sans"];
+
+/// Faces for the scripts a report's own families may lack, added as fallbacks where the system has them (Android's
+/// Roboto has no Arabic; a receipt has Arabic).
+const SCRIPT_FAMILIES: [StringView; 2] = ["Noto Naskh Arabic", "Noto Sans Arabic"];
 
 /// Windows' file names (FontBridge's WindowsFileStems): regular, bold, italic, bold italic.
 const WINDOWS_STEMS: [StringView; 50] = [
@@ -76,7 +81,7 @@ fn stems(family: StringView, bold: bool, italic: bool) -> Vector<String> {
     let suffixes: [StringView; 6] = if (bold && italic) [" Bold Italic", "-BoldItalic", "#-BoldItalic", "BI", "-Bold-Italic", "BoldItalic"]
         else if (bold) [" Bold", "-Bold", "#-Bold", "Bd", "Bold", ""]
         else if (italic) [" Italic", "-Italic", "#-Italic", "It", "I", "Italic"]
-        else ["", "", "", "", "", ""];
+        else [" Regular", "-Regular", "#-Regular", "", "", ""]; // Android's and Noto's "Roboto-Regular.ttf"
     for (k in 0..6usize) {
         let s = suffixes[k];
         if (s.length == 0) {
@@ -142,6 +147,22 @@ public fn addSystemFamily(fonts: borrow mut Fonts, family: StringView) -> bool {
         }
     }
     return false;
+}
+
+/// Adds the regular face of each script family the system has (SCRIPT_FAMILIES) to `fonts` under its own name, as a
+/// fallback for characters the report's families lack; how many.
+public fn addSystemFallbacks(fonts: borrow mut Fonts) -> usize {
+    var added: usize = 0;
+    for (family in SCRIPT_FAMILIES) {
+        if (fonts.hasFamily(family)) {
+            continue;
+        }
+        let bytes = findFace(family, false, false);
+        if (bytes.length > 0 && fonts.add(family, false, false, bytes)) {
+            added += 1;
+        }
+    }
+    return added;
 }
 
 /// The families a report's texts are drawn in, each once.
